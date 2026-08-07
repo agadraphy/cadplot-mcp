@@ -4,6 +4,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
 
 class PathPolicyError(ValueError):
     """Raised when a requested path violates the configured filesystem boundary."""
@@ -34,3 +36,24 @@ class PathPolicy:
             raise PathPolicyError(f"Expected a {suffix} file: {candidate}")
         return candidate
 
+
+def require_plain_directory_path(value: str | Path) -> Path:
+    """Reject existing symlink/junction components in a writable workspace path."""
+    candidate = Path(value).expanduser().absolute()
+    existing = candidate
+    while not existing.exists():
+        if existing.parent == existing:
+            break
+        existing = existing.parent
+
+    chain = [existing, *reversed(existing.parents)]
+    for component in chain:
+        if not component.exists():
+            continue
+        stat = component.lstat()
+        attributes = getattr(stat, "st_file_attributes", 0)
+        if component.is_symlink() or attributes & FILE_ATTRIBUTE_REPARSE_POINT:
+            raise PathPolicyError(
+                f"Writable workspace must not pass through a symlink or junction: {component}"
+            )
+    return candidate

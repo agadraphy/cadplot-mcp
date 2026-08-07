@@ -40,12 +40,16 @@ def _frame(label: str) -> FrameCandidate:
     )
 
 
+def _fingerprint() -> dict[str, int | str]:
+    return {"sha256": "a" * 64, "size_bytes": 123, "modified_ns": 456}
+
+
 def test_publish_plan_is_deterministic_and_ready(tmp_path: Path) -> None:
     config = _config(tmp_path)
     inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[_frame("70x100")])
 
-    first = create_publish_plan(inspection, config)
-    second = create_publish_plan(inspection, config)
+    first = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+    second = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
 
     assert first == second
     assert first["ready"] is True
@@ -58,7 +62,7 @@ def test_publish_plan_blocks_unmatched_frame(tmp_path: Path) -> None:
     config = _config(tmp_path)
     inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[_frame("60x90")])
 
-    plan = create_publish_plan(inspection, config)
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
 
     assert plan["ready"] is False
     assert plan["sheets"][0]["status"] == "unmatched"
@@ -71,7 +75,7 @@ def test_publish_plan_blocks_unmatched_frame(tmp_path: Path) -> None:
 def test_publish_plan_rejects_tampering(tmp_path: Path) -> None:
     config = _config(tmp_path)
     inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[_frame("70x100")])
-    plan = create_publish_plan(inspection, config)
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
     plan["sheets"][0]["profile"]["page_setup"] = "ATTACKER_SETUP"
 
     with pytest.raises(ValueError, match="hash mismatch"):

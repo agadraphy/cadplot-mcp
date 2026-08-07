@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
 - Version-routed Autodesk `.bundle` manifest and guarded bundle/install scripts.
 - Whitelisted, size-limited read-only named-pipe status protocol.
 - Hash-verified, read-only publish-plan preview across the Python and .NET boundary.
+- Content-bound plan fingerprints and approval-gated, copy-only job staging.
+- Per-job JSON manifests with collision-free expected PDF paths.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

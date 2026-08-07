@@ -15,6 +15,8 @@ PLAN_ID_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 def create_publish_plan(
     inspection: DrawingInspection,
     config: CadPlotConfig,
+    *,
+    drawing_fingerprint: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a deterministic, read-only plan from an inspection result."""
     sheets: list[dict[str, Any]] = []
@@ -54,6 +56,7 @@ def create_publish_plan(
         "schema_version": 1,
         "mode": "dry-run",
         "drawing": inspection.path,
+        "drawing_fingerprint": drawing_fingerprint,
         "sheets": sheets,
         "warnings": warnings,
     }
@@ -75,6 +78,17 @@ def validate_publish_plan(plan: dict[str, Any]) -> None:
     if plan.get("ready") is not True:
         raise ValueError("Publish plan is not ready; resolve every blocker first.")
 
+    fingerprint = plan.get("drawing_fingerprint")
+    if not isinstance(fingerprint, dict):
+        raise ValueError("Publish plan is not bound to a drawing fingerprint.")
+    sha256 = fingerprint.get("sha256")
+    if not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", sha256):
+        raise ValueError("Publish plan contains an invalid drawing fingerprint.")
+    if not isinstance(fingerprint.get("size_bytes"), int) or fingerprint["size_bytes"] < 0:
+        raise ValueError("Publish plan contains an invalid drawing size.")
+    if not isinstance(fingerprint.get("modified_ns"), int) or fingerprint["modified_ns"] < 0:
+        raise ValueError("Publish plan contains an invalid drawing timestamp.")
+
     sheets = plan.get("sheets")
     if not isinstance(sheets, list) or not sheets:
         raise ValueError("Publish plan must contain at least one sheet.")
@@ -91,6 +105,7 @@ def validate_publish_plan(plan: dict[str, Any]) -> None:
         "schema_version": plan["schema_version"],
         "mode": plan["mode"],
         "drawing": plan.get("drawing"),
+        "drawing_fingerprint": plan.get("drawing_fingerprint"),
         "sheets": sheets,
         "warnings": plan.get("warnings"),
     }

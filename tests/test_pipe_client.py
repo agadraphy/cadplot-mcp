@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from cadplot_mcp.config import load_config
+from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate
 from cadplot_mcp.pipe_client import get_plugin_status, preview_publish_plan
 from cadplot_mcp.planner import create_publish_plan
@@ -39,9 +40,13 @@ paper_profiles:
         height_mm=210.0,
         confidence=1.0,
     )
+    drawing = project / "sample.dwg"
+    drawing.write_bytes(b"synthetic dwg test payload")
+    config = load_config(config_path)
     return create_publish_plan(
-        DrawingInspection(path=str(project / "sample.dwg"), frames=[frame]),
-        load_config(config_path),
+        DrawingInspection(path=str(drawing), frames=[frame]),
+        config,
+        drawing_fingerprint=fingerprint_drawing(drawing, config.path_policy),
     )
 
 

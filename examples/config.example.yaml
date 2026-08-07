@@ -4,6 +4,9 @@ version: 1
 allowed_roots:
   - "C:/Projects"
 
+# Staged DWG copies, job manifests, and PDFs are written only below this folder.
+workspace_root: "C:/CadPlotWork"
+
 paper_profiles:
   - id: "sheet_70x100"
     labels: ["70x100", "100x70", "700x1000 mm", "1000x700 mm"]
@@ -18,4 +21,3 @@ paper_profiles:
     plotter: "DWG To PDF.pc3"
     plot_style: "monochrome.ctb"
     tolerance_mm: 3
-

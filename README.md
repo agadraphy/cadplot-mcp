@@ -21,8 +21,10 @@ Write and publish actions will only be added after the inspection and dry-run co
 - No arbitrary AutoLISP or AutoCAD command execution.
 - No implicit use of `ActiveDocument` as the target.
 - Every DWG path must be inside an allowed root.
+- Every approved plan is bound to the source DWG's SHA-256 fingerprint.
 - Drawings opened by the inspector are opened read-only and closed without saving.
 - Existing open drawings are never closed by the server.
+- Staging copies a DWG into a new isolated job folder and refuses symlink/junction workspaces.
 - Overwrite and original-file modification will remain disabled by default.
 
 ## Install
@@ -51,11 +53,14 @@ worker used by the write-capable milestone.
 - `create_publish_plan`: generate a deterministic, hashed dry-run plan with blockers.
 - `preview_publish_plan`: send only ready, hash-verified plan metadata to the local plug-in;
   it never edits, saves, or plots the drawing.
+- `stage_publish_job`: require the exact approved plan ID, re-inspect and re-hash the DWG,
+  then create a verified working copy and audit manifest without plotting.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration
 
-Copy [examples/config.example.yaml](examples/config.example.yaml). Company-owned DWT, CTB/STB,
+Copy [examples/config.example.yaml](examples/config.example.yaml). Set `workspace_root` to a local,
+dedicated output folder that is not a symlink or junction. Company-owned DWT, CTB/STB,
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
 
 ## Roadmap

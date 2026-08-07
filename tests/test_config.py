@@ -13,6 +13,7 @@ def test_config_matches_reversed_paper_dimensions(tmp_path: Path) -> None:
         """
 version: 1
 allowed_roots: [project]
+workspace_root: work
 paper_profiles:
   - id: sheet_70x100
     labels: [70x100]
@@ -30,6 +31,7 @@ paper_profiles:
     assert profile is not None
     assert profile.id == "sheet_70x100"
     assert config.path_policy.allowed_roots == (project.resolve(),)
+    assert config.workspace_root == (tmp_path / "work").absolute()
 
 
 def test_config_rejects_overlapping_profile_dimensions(tmp_path: Path) -> None:

@@ -25,6 +25,7 @@ class CadPlotConfig:
     source: Path
     path_policy: PathPolicy
     paper_profiles: tuple[PaperProfile, ...]
+    workspace_root: Path | None = None
 
     def match_paper_profile(self, label: str) -> PaperProfile | None:
         normalized = normalize_label(label)
@@ -68,11 +69,18 @@ def load_config(path: str | Path) -> CadPlotConfig:
 
     roots = [_resolve_relative(source.parent, item) for item in raw.get("allowed_roots", [])]
     profiles = tuple(_parse_profile(item) for item in raw.get("paper_profiles", []))
+    workspace_value = raw.get("workspace_root")
+    workspace_root = (
+        _resolve_relative(source.parent, str(workspace_value)).absolute()
+        if workspace_value is not None
+        else None
+    )
     _validate_profiles(profiles)
     return CadPlotConfig(
         source=source,
         path_policy=PathPolicy.from_roots(roots),
         paper_profiles=profiles,
+        workspace_root=workspace_root,
     )
 
 
