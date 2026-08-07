@@ -121,6 +121,7 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
     assert len(complete["outputs"][0]["sha256"]) == 64
     assert complete["outputs"][0]["page_count"] == 1
     assert complete["outputs"][0]["page_width_points"] == 595
+    assert complete["outputs"][0]["page_width_mm"] == pytest.approx(209.903, abs=0.001)
 
 
 def test_output_audit_rejects_manifest_path_escape(tmp_path: Path) -> None:
@@ -171,3 +172,18 @@ def test_output_audit_rejects_pdf_header_without_valid_structure(tmp_path: Path)
 
     assert report["complete"] is False
     assert report["outputs"][0]["status"] == "invalid_pdf_structure"
+
+
+def test_output_audit_rejects_wrong_physical_page_size(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["complete"] is False
+    assert report["outputs"][0]["status"] == "page_size_mismatch"
+    assert report["outputs"][0]["expected_paper_width_mm"] == 210

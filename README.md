@@ -64,7 +64,7 @@ worker used by the write-capable milestone.
 - `validate_staged_job`: ask the local plug-in to cross-check the staged manifest against its
   independently configured trusted workspace; it does not queue or plot the job.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
-  count, page dimensions, sizes, and SHA-256 hashes without changing any output.
+  count, expected physical paper dimensions, sizes, and SHA-256 hashes without changing output.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration
@@ -91,6 +91,7 @@ the plan instead of overwriting a layout.
 For custom PC3 paper definitions, set profile `canonical_media` to the exact value returned by
 AutoCAD. The comparison is deliberately case-sensitive. Leave it unset only when the named page
 setup is the accepted source of media configuration and the office has approved that policy.
+`pdf_page_tolerance_mm` controls the final PDF MediaBox comparison and is capped at 10 mm.
 
 For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque

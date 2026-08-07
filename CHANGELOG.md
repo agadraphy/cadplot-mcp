@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
 - Approval-gated batch staging for up to 20 unique DWG/plan-ID pairs per request.
 - Optional exact-case canonical media validation carried through plans and staged manifests.
 - Parser-based PDF structure, encryption, page-count, and page-dimension output auditing.
+- Orientation-independent expected-versus-actual PDF paper-size validation.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

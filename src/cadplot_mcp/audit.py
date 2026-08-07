@@ -18,7 +18,10 @@ HASH_CHUNK_BYTES = 1024 * 1024
 def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> dict[str, Any]:
     """Validate one staged job and inspect expected PDFs without writing any files."""
     manifest, job_root = load_staged_manifest(manifest_value, config)
-    results = [_audit_pdf(item, job_root) for item in manifest["outputs"]]
+    results = [
+        _audit_pdf(item, job_root, config.pdf_page_tolerance_mm)
+        for item in manifest["outputs"]
+    ]
     valid = sum(item["status"] == "valid" for item in results)
     missing = sum(item["status"] == "missing" for item in results)
     invalid = len(results) - valid - missing
@@ -98,7 +101,9 @@ def load_staged_manifest(
     return raw, job_root
 
 
-def _audit_pdf(item: dict[str, Any], job_root: Path) -> dict[str, Any]:
+def _audit_pdf(
+    item: dict[str, Any], job_root: Path, page_tolerance_mm: float
+) -> dict[str, Any]:
     pdf = Path(str(item["pdf"])).resolve(strict=False)
     result = {
         "sheet_index": item.get("sheet_index"),
@@ -172,6 +177,27 @@ def _audit_pdf(item: dict[str, Any], job_root: Path) -> dict[str, Any]:
             "sha256": None,
             "page_count": 1,
         }
+    geometry = item.get("plot_geometry")
+    if not isinstance(geometry, dict):
+        return {**result, "status": "invalid_expected_page_size", "page_count": 1}
+    expected_values = (geometry.get("paper_width_mm"), geometry.get("paper_height_mm"))
+    if not all(isinstance(value, (int, float)) and value > 0 for value in expected_values):
+        return {**result, "status": "invalid_expected_page_size", "page_count": 1}
+    actual_mm = sorted((width_points * 25.4 / 72, height_points * 25.4 / 72))
+    expected_mm = sorted((float(expected_values[0]), float(expected_values[1])))
+    dimensions = zip(actual_mm, expected_mm, strict=True)
+    if any(abs(actual - expected) > page_tolerance_mm for actual, expected in dimensions):
+        return {
+            **result,
+            "status": "page_size_mismatch",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": 1,
+            "page_width_mm": round(width_points * 25.4 / 72, 3),
+            "page_height_mm": round(height_points * 25.4 / 72, 3),
+            "expected_paper_width_mm": expected_values[0],
+            "expected_paper_height_mm": expected_values[1],
+        }
     return {
         **result,
         "status": "valid",
@@ -180,6 +206,8 @@ def _audit_pdf(item: dict[str, Any], job_root: Path) -> dict[str, Any]:
         "page_count": 1,
         "page_width_points": round(width_points, 3),
         "page_height_points": round(height_points, 3),
+        "page_width_mm": round(width_points * 25.4 / 72, 3),
+        "page_height_mm": round(height_points * 25.4 / 72, 3),
     }
 
 

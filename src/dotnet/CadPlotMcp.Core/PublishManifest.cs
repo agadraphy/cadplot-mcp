@@ -41,6 +41,8 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "rotation_degrees")] public int RotationDegrees { get; set; }
         [DataMember(Name = "scale_denominator")] public double ScaleDenominator { get; set; }
         [DataMember(Name = "drawing_unit_mm")] public double DrawingUnitMillimetres { get; set; }
+        [DataMember(Name = "paper_width_mm")] public double PaperWidthMillimetres { get; set; }
+        [DataMember(Name = "paper_height_mm")] public double PaperHeightMillimetres { get; set; }
     }
 
     [DataContract]
@@ -158,7 +160,9 @@ namespace CadPlotMcp.Core
             if (geometry.RotationDegrees != 0 && geometry.RotationDegrees != 90)
                 return "invalid_plot_rotation";
             if (!PositiveFinite(geometry.ScaleDenominator)
-                || !PositiveFinite(geometry.DrawingUnitMillimetres))
+                || !PositiveFinite(geometry.DrawingUnitMillimetres)
+                || !PositiveFinite(geometry.PaperWidthMillimetres)
+                || !PositiveFinite(geometry.PaperHeightMillimetres))
                 return "invalid_plot_scale";
             var window = geometry.Window;
             if (!Finite(window.MinX) || !Finite(window.MinY) || !Finite(window.MaxX) || !Finite(window.MaxY)

@@ -23,6 +23,9 @@ Each expected output also carries the immutable execution specification copied f
 plan: target layout, named page setup, plotter, plot style, plot window, rotation, scale
 denominator, and drawing-unit conversion. The .NET queue rereads this manifest and cross-checks it
 against the queue request before accepting a job.
+The plot geometry includes the expected physical paper width and height. PDF auditing compares
+those values to the parsed PDF MediaBox independent of orientation, using configured
+`pdf_page_tolerance_mm`.
 
 The manifest starts in `staged` state. A future AutoCAD publisher may only operate on the
 `staged_drawing` named in this manifest and must write PDFs under its `output_directory`.

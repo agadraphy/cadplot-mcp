@@ -199,6 +199,8 @@ public sealed class PublishJobTests : IDisposable
                 rotation_degrees = 90,
                 scale_denominator = 1.0,
                 drawing_unit_mm = 1.0,
+                paper_width_mm = 210.0,
+                paper_height_mm = 297.0,
             },
             status = "pending",
         });

@@ -33,6 +33,7 @@ class CadPlotConfig:
     scale_tolerance_ratio: float = 0.02
     require_page_setup_match: bool = True
     layout_prefix: str = "CADPLOT"
+    pdf_page_tolerance_mm: float = 2.0
 
     def match_paper_profile(self, label: str) -> PaperProfile | None:
         normalized = normalize_label(label)
@@ -90,6 +91,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
     scale_tolerance_ratio = float(raw.get("scale_tolerance_ratio", 0.02))
     require_page_setup_match = raw.get("require_page_setup_match", True)
     layout_prefix = str(raw.get("layout_prefix", "CADPLOT"))
+    pdf_page_tolerance_mm = float(raw.get("pdf_page_tolerance_mm", 2.0))
     if drawing_unit_mm <= 0:
         raise ValueError("drawing_unit_mm must be greater than zero")
     if not scale_denominators or any(item <= 0 for item in scale_denominators):
@@ -102,6 +104,8 @@ def load_config(path: str | Path) -> CadPlotConfig:
         raise ValueError("layout_prefix must contain 1-32 letters, digits, underscores, or hyphens")
     if not isinstance(require_page_setup_match, bool):
         raise ValueError("require_page_setup_match must be true or false")
+    if not 0 <= pdf_page_tolerance_mm <= 10:
+        raise ValueError("pdf_page_tolerance_mm must be between 0 and 10")
     _validate_profiles(profiles)
     return CadPlotConfig(
         source=source,
@@ -113,6 +117,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
         scale_tolerance_ratio=scale_tolerance_ratio,
         require_page_setup_match=require_page_setup_match,
         layout_prefix=layout_prefix,
+        pdf_page_tolerance_mm=pdf_page_tolerance_mm,
     )
 
 

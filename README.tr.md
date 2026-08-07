@@ -52,6 +52,8 @@ uv run cadplot-mcp
 birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 Özel PC3 kâğıtlarında `canonical_media`, AutoCAD'in bildirdiği değerle aynı yazım ve büyük/küçük
 harf kullanılarak girilmelidir.
+`pdf_page_tolerance_mm`, üretilen PDF'nin fiziksel sayfa ölçüsü kontrolünü belirler ve güvenlik
+nedeniyle 10 mm'yi geçemez.
 
 ## Önerilen pilot akışı
 

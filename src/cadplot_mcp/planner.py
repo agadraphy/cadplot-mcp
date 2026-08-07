@@ -206,6 +206,8 @@ def _derive_plot_geometry(frame: FrameCandidate, config: CadPlotConfig) -> dict[
         "scale_denominator": denominator,
         "derived_scale_denominator": round(derived, 6),
         "drawing_unit_mm": config.drawing_unit_mm,
+        "paper_width_mm": paper.width_mm,
+        "paper_height_mm": paper.height_mm,
     }
 
 

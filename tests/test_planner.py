@@ -111,6 +111,8 @@ def test_publish_plan_derives_rotated_one_to_one_geometry(tmp_path: Path) -> Non
 
     assert geometry["rotation_degrees"] == 90
     assert geometry["scale_denominator"] == 1
+    assert geometry["paper_width_mm"] == 700
+    assert geometry["paper_height_mm"] == 1000
     assert geometry["window"] == {"min_x": 0.0, "min_y": 0.0, "max_x": 1000.0, "max_y": 700.0}
 
 
