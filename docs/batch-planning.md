@@ -20,3 +20,11 @@ Example sequence for 300 drawings:
 5. stage only explicitly approved ready plan IDs.
 
 Batch planning is read-only. It does not imply approval and does not stage or plot any drawing.
+
+## Batch staging
+
+`stage_publish_batch` accepts 1 to 20 objects containing exactly `path` and `plan_id`. All paths
+and plan IDs must be unique. The full request is structurally validated before the first copy is
+created. Each drawing is then re-inspected and re-hashed; a blocker, changed plan ID, or AutoCAD
+error is isolated to that item. Successful items create independent job folders. The tool never
+plots and never edits an original drawing.

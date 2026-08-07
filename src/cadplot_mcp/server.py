@@ -10,7 +10,7 @@ from mcp.server.fastmcp.server import Settings as FastMCPSettings
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.audit import load_staged_manifest
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
-from cadplot_mcp.batch import build_batch_page
+from cadplot_mcp.batch import build_batch_page, stage_approved_batch
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
 from cadplot_mcp.fingerprint import fingerprint_drawing
@@ -170,6 +170,21 @@ def stage_publish_job(path: str, approved_plan_id: str) -> dict[str, Any]:
     except ValueError as exc:
         return {"staged": False, "plan": plan, "error": str(exc)}
     return {"staged": True, "plan": plan, "job": job}
+
+
+@mcp.tool()
+def stage_publish_batch(approvals: list[dict[str, str]]) -> dict[str, Any]:
+    """Stage up to 20 explicit DWG/plan-ID approvals; never plots or edits originals."""
+    config = _config()
+    return stage_approved_batch(
+        approvals,
+        lambda path: _build_current_plan(path, config),
+        lambda plan, approved_plan_id: stage_job(
+            plan,
+            config,
+            approved_plan_id=approved_plan_id,
+        ),
+    )
 
 
 @mcp.tool()

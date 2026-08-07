@@ -59,6 +59,8 @@ worker used by the write-capable milestone.
   it never edits, saves, or plots the drawing.
 - `stage_publish_job`: require the exact approved plan ID, re-inspect and re-hash the DWG,
   then create a verified working copy and audit manifest without plotting.
+- `stage_publish_batch`: stage at most 20 unique, explicit DWG/plan-ID approvals per call while
+  isolating per-file reinspection or approval failures.
 - `validate_staged_job`: ask the local plug-in to cross-check the staged manifest against its
   independently configured trusted workspace; it does not queue or plot the job.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, expected PDF headers,

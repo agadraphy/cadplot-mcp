@@ -64,6 +64,9 @@ birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 
 300 çizim için `create_batch_publish_plans` aracını varsayılan 20'lik sayfalarla kullanın ve
 `has_more=false` olana kadar dönen `next_offset` değeriyle devam edin.
+Hazır planları kopya çalışma alanına almak için en fazla 20 benzersiz `(path, plan_id)` onayını
+`stage_publish_batch` aracına verin. Bir dosyanın değişmesi diğer geçerli dosyaları silmez veya
+orijinalleri değiştirmez; her sonuç ayrı raporlanır.
 
 ## ChatGPT bağlantısı
 

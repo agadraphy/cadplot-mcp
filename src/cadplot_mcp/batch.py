@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 PlanBuilder = Callable[[str], dict[str, Any]]
+StageBuilder = Callable[[dict[str, Any], str], dict[str, Any]]
 
 
 def build_batch_page(
@@ -58,3 +61,102 @@ def build_batch_page(
         "batch_page_id": "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         **payload,
     }
+
+
+def stage_approved_batch(
+    approvals: list[dict[str, str]],
+    plan_builder: PlanBuilder,
+    stage_builder: StageBuilder,
+) -> dict[str, Any]:
+    """Stage a bounded set of explicit path/plan approvals with per-file isolation."""
+    normalized = _validate_approvals(approvals)
+    canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    approval_batch_id = "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    items: list[dict[str, Any]] = []
+    for approval in normalized:
+        path = approval["path"]
+        approved_plan_id = approval["plan_id"]
+        try:
+            plan = plan_builder(path)
+            if plan.get("ready") is not True:
+                items.append(
+                    {
+                        "drawing": path,
+                        "approved_plan_id": approved_plan_id,
+                        "status": "blocked",
+                        "error": "Current publish plan has blockers.",
+                        "current_plan": plan,
+                    }
+                )
+                continue
+            if plan.get("plan_id") != approved_plan_id:
+                items.append(
+                    {
+                        "drawing": path,
+                        "approved_plan_id": approved_plan_id,
+                        "status": "approval_mismatch",
+                        "error": "Drawing or plan changed after approval.",
+                        "current_plan_id": plan.get("plan_id"),
+                    }
+                )
+                continue
+            job = stage_builder(plan, approved_plan_id)
+        except Exception as exc:
+            items.append(
+                {
+                    "drawing": path,
+                    "approved_plan_id": approved_plan_id,
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
+            continue
+        items.append(
+            {
+                "drawing": path,
+                "approved_plan_id": approved_plan_id,
+                "status": "staged",
+                "job": job,
+            }
+        )
+
+    staged = sum(item["status"] == "staged" for item in items)
+    blocked = sum(item["status"] in {"blocked", "approval_mismatch"} for item in items)
+    return {
+        "schema_version": 1,
+        "approval_batch_id": approval_batch_id,
+        "complete": staged == len(items),
+        "summary": {
+            "requested": len(items),
+            "staged": staged,
+            "blocked": blocked,
+            "errors": len(items) - staged - blocked,
+        },
+        "items": items,
+    }
+
+
+def _validate_approvals(approvals: list[dict[str, str]]) -> list[dict[str, str]]:
+    if not isinstance(approvals, list) or not 1 <= len(approvals) <= 20:
+        raise ValueError("approvals must contain between 1 and 20 items.")
+    normalized: list[dict[str, str]] = []
+    for item in approvals:
+        if not isinstance(item, dict) or set(item) != {"path", "plan_id"}:
+            raise ValueError("Each approval must contain exactly path and plan_id.")
+        path = item["path"]
+        plan_id = item["plan_id"]
+        if not isinstance(path, str) or not path.strip():
+            raise ValueError("Approval path must be a non-empty string.")
+        if not isinstance(plan_id, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", plan_id):
+            raise ValueError("Approval plan_id must be a SHA-256 identifier.")
+        normalized.append({"path": path, "plan_id": plan_id})
+    paths = [
+        str(Path(item["path"]).expanduser().resolve(strict=False)).casefold()
+        for item in normalized
+    ]
+    plan_ids = [item["plan_id"] for item in normalized]
+    if len(paths) != len(set(paths)):
+        raise ValueError("Approval paths must be unique within a batch.")
+    if len(plan_ids) != len(set(plan_ids)):
+        raise ValueError("Approval plan_ids must be unique within a batch.")
+    return normalized
