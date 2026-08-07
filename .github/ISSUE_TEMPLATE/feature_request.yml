@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a focused improvement while preserving the approval and source-safety model.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the workflow problem without including company assets or internal paths.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Include the expected dry-run, approval, execution, and audit behavior where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety boundary
+      description: Explain how source immutability, no-overwrite behavior, and explicit approvals remain intact.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: This proposal does not require publishing proprietary CAD or plot resources.
+          required: true
+        - label: This proposal does not bypass plan or manifest approval gates.
+          required: true

@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible CadPlot MCP defect without sharing proprietary assets.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach client/company DWGs, PDFs, plot resources, credentials, or Autodesk binaries.
+        Use an authorized synthetic or anonymized reproduction.
+  - type: input
+    id: version
+    attributes:
+      label: CadPlot MCP version or commit
+      placeholder: 0.1.0 or full commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Failing surface
+      options:
+        - Python MCP server
+        - AutoCAD 2016 adapter
+        - AutoCAD 2025 adapter
+        - Bundle install or verification
+        - Documentation or packaging
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give sanitized, minimal steps and the exact tool or script used.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety impact
+      description: State whether a source DWG, staged DWG, existing PDF, or approval boundary was affected.
+    validations:
+      required: true
+  - type: checkboxes
+    id: sanitization
+    attributes:
+      label: Asset and evidence confirmation
+      options:
+        - label: I removed proprietary drawings, plot resources, credentials, and personal data.
+          required: true
+        - label: I did not launch or test against an unauthorized AutoCAD installation.
+          required: true

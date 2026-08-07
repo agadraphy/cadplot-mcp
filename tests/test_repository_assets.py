@@ -136,3 +136,22 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "publish_verified=true" in deployment
     assert "The DWG stays" in architecture
     assert "Not implemented or claimed" in architecture
+
+
+def test_github_templates_warn_against_proprietary_assets_and_false_evidence() -> None:
+    bug = (REPOSITORY_ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml").read_text(
+        encoding="utf-8"
+    )
+    feature = (REPOSITORY_ROOT / ".github" / "ISSUE_TEMPLATE" / "feature_request.yml").read_text(
+        encoding="utf-8"
+    )
+    pull_request = (REPOSITORY_ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_pull_request = " ".join(pull_request.split())
+
+    assert "proprietary" in bug.casefold()
+    assert "unauthorized AutoCAD" in bug
+    assert "does not bypass plan or manifest approval gates" in feature
+    assert "Source DWGs remain immutable" in pull_request
+    assert "compile-only or synthetic checks as live AutoCAD evidence" in normalized_pull_request

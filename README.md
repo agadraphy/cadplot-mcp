@@ -47,7 +47,6 @@ licensed-workstation acceptance test. Compile-only evidence is not presented as 
 Requirements: Windows, Python 3.11+, and AutoCAD for live DWG inspection.
 
 ```powershell
-git clone https://github.com/YOUR-USER/cadplot-mcp.git
 cd cadplot-mcp
 uv sync --extra autocad --extra dev
 Copy-Item examples/config.example.yaml config.yaml
@@ -173,7 +172,7 @@ ObjectARX/AutoCAD managed reference folders:
 .\scripts\build-bundle.ps1 `
   -AutoCAD2016SdkDir "C:\ObjectARX2016\inc" `
   -AutoCAD2025SdkDir "C:\ObjectARX2025\inc" `
-  -DotNet "C:\Users\YOUR-USER\.dotnet\dotnet.exe"
+  -DotNet "$env:USERPROFILE\.dotnet\dotnet.exe"
 ```
 
 The script intentionally fails if the Autodesk reference assemblies are missing. Autodesk SDK

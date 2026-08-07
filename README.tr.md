@@ -49,7 +49,6 @@ geçmesidir. Bu doğrulama yapılmadan proje üretim-hazır olarak sunulmaz.
 Gereksinimler: Windows, Python 3.11+, `uv` ve canlı inceleme için AutoCAD.
 
 ```powershell
-git clone https://github.com/YOUR-USER/cadplot-mcp.git
 cd cadplot-mcp
 uv sync --extra autocad --extra dev
 Copy-Item examples/config.example.yaml config.yaml
