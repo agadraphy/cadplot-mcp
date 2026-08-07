@@ -69,6 +69,8 @@ All notable changes to this project are documented in this file.
   .NET build/tests, and an optional compile-only installed AutoCAD API probe without launching CAD.
 - Deliberately non-matching inventory configuration and read-only onboarding flow for discovering
   exact authorized office page setup, plotter, style, media, frame, and template-layout names.
+- Read-only `inventory_office_resources` MCP tool that deduplicates those observed names while
+  marking every paper-space template as an unapproved candidate requiring viewport validation.
 
 ### Notes
 

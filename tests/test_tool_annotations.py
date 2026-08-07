@@ -5,6 +5,7 @@ def test_server_instructions_enforce_approval_and_verified_completion() -> None:
     assert mcp.instructions == SERVER_INSTRUCTIONS
     assert len(SERVER_INSTRUCTIONS) <= 512
     assert "exact plan_id approval" in SERVER_INSTRUCTIONS
+    assert "inventory_office_resources" in SERVER_INSTRUCTIONS
     assert "exact approved plan_id and manifest_sha256" in SERVER_INSTRUCTIONS
     assert "Source DWGs are immutable" in SERVER_INSTRUCTIONS
     assert "publish_verified=true" in SERVER_INSTRUCTIONS

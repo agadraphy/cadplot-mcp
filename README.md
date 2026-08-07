@@ -71,6 +71,9 @@ uv run python scripts/run-synthetic-demo.py
 - `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, and labelled rectangular frames.
+- `inventory_office_resources`: produce a read-only exact-name inventory for frame labels, named
+  page setups, plotters, plot styles, canonical media, and candidate paper-space layouts without
+  approving any mapping.
 - `create_publish_plan`: generate a deterministic, hashed dry-run plan with blockers.
 - `create_batch_publish_plans`: inspect up to 50 drawings per restartable page while isolating
   per-file blockers and AutoCAD errors.

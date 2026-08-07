@@ -17,6 +17,7 @@ from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_appr
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
 from cadplot_mcp.fingerprint import fingerprint_drawing
+from cadplot_mcp.onboarding import build_office_inventory_report
 from cadplot_mcp.pipe_client import (
     PluginConnectionError,
     get_plugin_status,
@@ -39,6 +40,8 @@ from cadplot_mcp.workspace import stage_publish_job as stage_job
 FastMCPSettings.model_rebuild()
 SERVER_INSTRUCTIONS = (
     "Start with validate_environment, then inspect and create a dry-run plan. "
+    "If office resource names are unknown, use inventory_office_resources and keep publishing "
+    "disabled. "
     "Never stage without the user's exact plan_id approval. Never queue publishing without "
     "the exact approved plan_id and manifest_sha256. Source DWGs are immutable; only isolated "
     "staged copies and job outputs may change. Treat a job as complete only when "
@@ -132,6 +135,14 @@ def inspect_drawing(path: str) -> dict[str, Any]:
     """Inspect one explicit DWG read-only: layouts, plot settings, and labelled frames."""
     config = _config()
     return AutoCADComInspector(config.path_policy).inspect_drawing(path).to_dict()
+
+
+@mcp.tool(annotations=READ_ONLY)
+def inventory_office_resources(path: str) -> dict[str, Any]:
+    """Inventory exact frame/layout/page-setup/plot resource names; never approves or writes."""
+    config = _config()
+    inspection = AutoCADComInspector(config.path_policy).inspect_drawing(path)
+    return build_office_inventory_report(inspection)
 
 
 @mcp.tool(annotations=READ_ONLY)

@@ -16,7 +16,11 @@ local inventory config, then call:
 
 1. `validate_environment`;
 2. `get_autocad_plugin_status` and require `publishEnabled=false`;
-3. `inspect_drawing` on the explicit authorized DWG path.
+3. `inventory_office_resources` on the explicit authorized DWG path.
+
+The tool uses the same read-only inspection path as `inspect_drawing`, but returns a focused,
+deduplicated configuration report. Every template layout is marked `candidate_only`; the executor
+still requires exactly one floating viewport before it can be accepted.
 
 Record from the structured inspection result:
 
