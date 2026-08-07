@@ -17,6 +17,7 @@ Use this checklist for every alpha release.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
       `audit_complete=true`.
+- [ ] `uv build` and `uv run python scripts/audit-release-artifacts.py dist` pass.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
 - [ ] The compile-only API probe passes against an installed managed API folder and is labelled

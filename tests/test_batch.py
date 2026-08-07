@@ -1,6 +1,6 @@
 import pytest
 
-from cadplot_mcp.batch import build_batch_page, stage_approved_batch
+from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_approved_batch
 
 
 def _plan(path: str) -> dict:
@@ -143,3 +143,49 @@ def test_stage_approved_batch_rejects_more_than_twenty() -> None:
 
     with pytest.raises(ValueError, match="between 1 and 20"):
         stage_approved_batch(approvals, lambda _: {}, lambda *_: {})
+
+
+def test_queue_approved_batch_isolates_per_job_failures() -> None:
+    approvals = [
+        {
+            "manifest_path": f"job-{index}/manifest.json",
+            "plan_id": "sha256:" + f"{index:064x}",
+            "manifest_sha256": f"{index + 10:064x}",
+        }
+        for index in range(1, 4)
+    ]
+
+    result = queue_approved_batch(
+        approvals,
+        lambda approval: (
+            {"queued": False, "error": "publish_disabled"}
+            if approval["plan_id"] == approvals[1]["plan_id"]
+            else {"queued": True}
+        ),
+    )
+
+    assert result["complete"] is False
+    assert result["summary"] == {"requested": 3, "queued": 2, "failed": 1}
+    assert result["items"][1]["error"] == "publish_disabled"
+
+
+def test_queue_approved_batch_rejects_duplicate_manifest_approvals() -> None:
+    approval = {
+        "manifest_path": "job/manifest.json",
+        "plan_id": "sha256:" + "a" * 64,
+        "manifest_sha256": "b" * 64,
+    }
+
+    with pytest.raises(ValueError, match="manifest paths must be unique"):
+        queue_approved_batch(
+            [
+                approval,
+                {
+                    **approval,
+                    "manifest_path": "JOB/manifest.json",
+                    "plan_id": "sha256:" + "c" * 64,
+                    "manifest_sha256": "d" * 64,
+                },
+            ],
+            lambda _: {"queued": True},
+        )

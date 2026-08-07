@@ -50,6 +50,7 @@ if (Test-Path -LiteralPath $outputBundle) {
 }
 New-Item -ItemType Directory -Path $outputBundle | Out-Null
 Copy-Item -LiteralPath (Join-Path $templateBundle "PackageContents.xml") -Destination $outputBundle
+Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $outputBundle
 
 $dest2016 = Join-Path $outputBundle "Contents\Windows\2016"
 $dest2025 = Join-Path $outputBundle "Contents\Windows\2025"

@@ -12,7 +12,7 @@ from mcp.types import ToolAnnotations
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.audit import load_staged_manifest
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
-from cadplot_mcp.batch import build_batch_page, stage_approved_batch
+from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_approved_batch
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
 from cadplot_mcp.fingerprint import fingerprint_drawing
@@ -274,6 +274,23 @@ def get_publish_job_status(plan_id: str, timeout_ms: int = 2_000) -> dict[str, A
     except (PluginConnectionError, ValueError) as exc:
         return {"found": False, "error": str(exc)}
     return {"found": bool(response.get("ok")), "plugin": response}
+
+
+@mcp.tool(annotations=LOCAL_WRITE)
+def queue_publish_batch(
+    approvals: list[dict[str, str]],
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Queue up to 20 exact manifest/plan/hash approvals; isolates per-job failures."""
+    return queue_approved_batch(
+        approvals,
+        lambda approval: queue_publish_job(
+            approval["manifest_path"],
+            approval["plan_id"],
+            approval["manifest_sha256"],
+            timeout_ms,
+        ),
+    )
 
 
 @mcp.tool(annotations=READ_ONLY)

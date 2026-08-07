@@ -39,6 +39,9 @@ All notable changes to this project are documented in this file.
 - Byte-preserving execution that discards in-memory layout scaffolding after plotting.
 - Plug-in-side staged-DWG SHA-256 revalidation immediately before queueing and execution.
 - Compile-only AutoCAD managed-API probe plus a separate licensed-workstation write pilot.
+- CI release-archive audit that rejects proprietary CAD/plot assets, secrets, Autodesk assemblies,
+  and unexpected binaries from Python distributions or bundle ZIPs.
+- Approval-bound publish batching for up to 20 unique manifest/plan/hash triples per call.
 
 ### Notes
 

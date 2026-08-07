@@ -9,6 +9,7 @@ from typing import Any
 
 PlanBuilder = Callable[[str], dict[str, Any]]
 StageBuilder = Callable[[dict[str, Any], str], dict[str, Any]]
+QueueBuilder = Callable[[dict[str, str]], dict[str, Any]]
 
 
 def build_batch_page(
@@ -159,4 +160,77 @@ def _validate_approvals(approvals: list[dict[str, str]]) -> list[dict[str, str]]
         raise ValueError("Approval paths must be unique within a batch.")
     if len(plan_ids) != len(set(plan_ids)):
         raise ValueError("Approval plan_ids must be unique within a batch.")
+    return normalized
+
+
+def queue_approved_batch(
+    approvals: list[dict[str, str]],
+    queue_builder: QueueBuilder,
+) -> dict[str, Any]:
+    """Queue up to 20 exact staged-manifest approvals with per-job isolation."""
+    normalized = _validate_queue_approvals(approvals)
+    canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    batch_id = "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    items: list[dict[str, Any]] = []
+    for approval in normalized:
+        try:
+            result = queue_builder(approval)
+        except Exception as exc:
+            result = {"queued": False, "error": str(exc)}
+        items.append({**approval, **result})
+    queued = sum(item.get("queued") is True for item in items)
+    return {
+        "schema_version": 1,
+        "queue_batch_id": batch_id,
+        "complete": queued == len(items),
+        "summary": {
+            "requested": len(items),
+            "queued": queued,
+            "failed": len(items) - queued,
+        },
+        "items": items,
+    }
+
+
+def _validate_queue_approvals(approvals: list[dict[str, str]]) -> list[dict[str, str]]:
+    required = {"manifest_path", "plan_id", "manifest_sha256"}
+    if not isinstance(approvals, list) or not 1 <= len(approvals) <= 20:
+        raise ValueError("approvals must contain between 1 and 20 items.")
+    normalized: list[dict[str, str]] = []
+    for item in approvals:
+        if not isinstance(item, dict) or set(item) != required:
+            raise ValueError(
+                "Each queue approval must contain exactly manifest_path, plan_id, "
+                "and manifest_sha256."
+            )
+        path = item["manifest_path"]
+        plan_id = item["plan_id"]
+        manifest_sha256 = item["manifest_sha256"]
+        if not isinstance(path, str) or not path.strip():
+            raise ValueError("Queue approval manifest_path must be a non-empty string.")
+        if not isinstance(plan_id, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", plan_id):
+            raise ValueError("Queue approval plan_id must be a SHA-256 identifier.")
+        if not isinstance(manifest_sha256, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", manifest_sha256
+        ):
+            raise ValueError("Queue approval manifest_sha256 must be a SHA-256 digest.")
+        normalized.append(
+            {
+                "manifest_path": path,
+                "plan_id": plan_id,
+                "manifest_sha256": manifest_sha256,
+            }
+        )
+    paths = [
+        str(Path(item["manifest_path"]).expanduser().resolve(strict=False)).casefold()
+        for item in normalized
+    ]
+    plan_ids = [item["plan_id"] for item in normalized]
+    digests = [item["manifest_sha256"] for item in normalized]
+    if len(paths) != len(set(paths)):
+        raise ValueError("Queue manifest paths must be unique within a batch.")
+    if len(plan_ids) != len(set(plan_ids)):
+        raise ValueError("Queue plan_ids must be unique within a batch.")
+    if len(digests) != len(set(digests)):
+        raise ValueError("Queue manifest digests must be unique within a batch.")
     return normalized

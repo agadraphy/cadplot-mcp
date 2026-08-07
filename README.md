@@ -85,6 +85,8 @@ uv run python scripts/run-synthetic-demo.py
   independently configured trusted workspace; it does not queue or plot the job.
 - `queue_publish_job`: require the exact staged `plan_id` and `manifest_sha256`, then enqueue the
   byte-bound copy-only job when the installed plug-in has explicitly enabled publishing.
+- `queue_publish_batch`: queue at most 20 unique manifest/plan/hash approvals while isolating each
+  plug-in refusal or connection error.
 - `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, or `Failed` plus a bounded
   machine-safe failure code.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
@@ -123,6 +125,8 @@ Set optional `frame_layers` when the office has a reliable frame-layer allowlist
 For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
 MCP request.
+After staging and approving the returned manifest digests, use `queue_publish_batch` in bounded
+pages; do not submit all 300 jobs as one call.
 
 ## Delivery gates
 

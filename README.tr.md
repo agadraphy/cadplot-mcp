@@ -96,6 +96,9 @@ Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
 Hazır planları kopya çalışma alanına almak için en fazla 20 benzersiz `(path, plan_id)` onayını
 `stage_publish_batch` aracına verin. Bir dosyanın değişmesi diğer geçerli dosyaları silmez veya
 orijinalleri değiştirmez; her sonuç ayrı raporlanır.
+Staging sonuçlarındaki benzersiz `(manifest_path, plan_id, manifest_sha256)` üçlülerini yine en
+fazla 20'şer adet `queue_publish_batch` çağrısıyla sıraya alın; 300 işi tek bir MCP çağrısına
+doldurmayın.
 
 ## ChatGPT bağlantısı
 
