@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cadplot-mcp"
+version = "0.1.0"
+description = "A safety-first MCP server for inspecting AutoCAD drawings and planning repeatable plot jobs."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Demir Eren" }]
+dependencies = [
+  "mcp[cli]>=1.29,<1.30",
+  "pydantic>=2.11,<2.13",
+  "pyyaml>=6.0,<7.0",
+]
+
+[project.optional-dependencies]
+autocad = ["pywin32>=305; sys_platform == 'win32'"]
+dev = ["pytest>=8.0,<9.0", "ruff>=0.9,<1.0"]
+
+[project.scripts]
+cadplot-mcp = "cadplot_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cadplot_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

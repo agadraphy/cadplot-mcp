@@ -1,0 +1,21 @@
+version: 1
+
+# CadPlot MCP cannot inspect paths outside these roots.
+allowed_roots:
+  - "C:/Projects"
+
+paper_profiles:
+  - id: "sheet_70x100"
+    labels: ["70x100", "100x70", "700x1000 mm", "1000x700 mm"]
+    page_setup: "OFFICE_70x100"
+    plotter: "DWG To PDF.pc3"
+    plot_style: "monochrome.ctb"
+    tolerance_mm: 3
+
+  - id: "sheet_50x70"
+    labels: ["50x70", "70x50", "500x700 mm", "700x500 mm"]
+    page_setup: "OFFICE_50x70"
+    plotter: "DWG To PDF.pc3"
+    plot_style: "monochrome.ctb"
+    tolerance_mm: 3
+
