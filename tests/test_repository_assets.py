@@ -91,3 +91,15 @@ def test_build_and_install_require_exact_bundle_verification() -> None:
     for script_name in ("build-bundle.ps1", "install-bundle.ps1"):
         script = (REPOSITORY_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
         assert "verify-bundle.ps1" in script
+
+
+def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "uninstall-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "SupportsShouldProcess = $true" in script
+    assert "C2E79B66-6076-40D4-AE45-E725A644B288" in script
+    assert "ReparsePoint" in script
+    assert "ShouldProcess($destinationBundle" in script
+    assert "Remove-Item -LiteralPath $destinationBundle" in script

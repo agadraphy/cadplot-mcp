@@ -51,6 +51,8 @@ All notable changes to this project are documented in this file.
   SHA-256 checks before archive creation or installation.
 - Strict office-profile configuration validation for unknown fields, YAML types, finite numeric
   ranges, resource names, and non-overlapping source/workspace directory trees.
+- Guarded `-WhatIf`-capable bundle uninstall/upgrade path with exact package identity and
+  reparse-point checks.
 
 ### Notes
 

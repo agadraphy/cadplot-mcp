@@ -123,6 +123,9 @@ AutoCAD yeniden başlatılır.
 reddedilir. Yanlış yazılmış config alanları, boş AutoCAD kaynak adları ve `NaN/Infinity` değerleri
 iş başlamadan hata verir.
 
+Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
+Script yalnız CadPlot MCP adı ve ProductCode'u eşleşen paketi kaldırır, junction üzerinden silmez.
+
 Merkezi ChatGPT Business/Enterprise/Edu ortamında ise şirket yöneticisinin MCP bağlantısını
 onaylaması ve merkezi servis ile AutoCAD iş istasyonu arasında yönetilen güvenli bağlantı kurması
 gerekir. İnternete named pipe, AutoCAD COM veya korumasız yerel port açılmaz. İlk pilot için yerel

@@ -24,6 +24,8 @@ Use this checklist for every alpha release.
       compile-only evidence.
 - [ ] The real bundle was built with Autodesk references while no Autodesk DLL was packaged.
 - [ ] `scripts/verify-bundle.ps1` passes on the extracted bundle and its printed hashes are retained.
+- [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
+      was introduced.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
 - [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as

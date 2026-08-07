@@ -171,6 +171,11 @@ Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact s
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.
 
+The installer never overwrites an existing bundle. For an upgrade, close AutoCAD, preview the
+exact removal with `scripts/uninstall-bundle.ps1 -WhatIf`, run it only after checking the target,
+then install the newly verified bundle. The uninstaller rejects junctions and any directory whose
+package name/ProductCode does not match CadPlot MCP.
+
 To compile-check the shared executor against a locally installed API without launching AutoCAD:
 
 ```powershell
