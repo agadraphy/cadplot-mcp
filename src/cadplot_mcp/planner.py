@@ -209,12 +209,13 @@ def _derive_plot_geometry(frame: FrameCandidate, config: CadPlotConfig) -> dict[
     }
 
 
-def _profile_payload(profile: PaperProfile) -> dict[str, str]:
+def _profile_payload(profile: PaperProfile) -> dict[str, str | None]:
     return {
         "id": profile.id,
         "page_setup": profile.page_setup,
         "plotter": profile.plotter,
         "plot_style": profile.plot_style,
+        "canonical_media": profile.canonical_media,
     }
 
 
@@ -240,6 +241,11 @@ def _page_setup_error(
         return (
             f"page setup {profile.page_setup!r} uses plot style {setup.plot_style!r}, "
             f"expected {profile.plot_style!r}."
+        )
+    if profile.canonical_media is not None and setup.media_name != profile.canonical_media:
+        return (
+            f"page setup {profile.page_setup!r} uses canonical media {setup.media_name!r}, "
+            f"expected exact case-sensitive value {profile.canonical_media!r}."
         )
     return None
 

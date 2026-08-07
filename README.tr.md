@@ -49,6 +49,8 @@ uv run cadplot-mcp
 
 `config.yaml` içindeki `allowed_roots`, `workspace_root`, page setup, plotter, plot style, çizim
 birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
+Özel PC3 kâğıtlarında `canonical_media`, AutoCAD'in bildirdiği değerle aynı yazım ve büyük/küçük
+harf kullanılarak girilmelidir.
 
 ## Önerilen pilot akışı
 

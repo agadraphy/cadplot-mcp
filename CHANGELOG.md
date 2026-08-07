@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file.
 - Current-user-only named-pipe access for both .NET 8 and .NET Framework 4.5 adapters.
 - Read-only staged-job validation across Python, the local pipe, and the .NET manifest parser.
 - Approval-gated batch staging for up to 20 unique DWG/plan-ID pairs per request.
+- Optional exact-case canonical media validation carried through plans and staged manifests.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

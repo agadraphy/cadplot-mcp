@@ -29,6 +29,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "page_setup")] public string PageSetup { get; set; }
         [DataMember(Name = "plotter")] public string Plotter { get; set; }
         [DataMember(Name = "plot_style")] public string PlotStyle { get; set; }
+        [DataMember(Name = "canonical_media", EmitDefaultValue = false)] public string CanonicalMedia { get; set; }
         [DataMember(Name = "plot_geometry")] public PublishPlotGeometry PlotGeometry { get; set; }
         [DataMember(Name = "status")] public string Status { get; set; }
     }
@@ -145,6 +146,8 @@ namespace CadPlotMcp.Core
                 || String.IsNullOrWhiteSpace(output.TargetLayout)
                 || !SafeLayoutName.IsMatch(output.TargetLayout))
                 return "invalid_sheet_metadata";
+            if (output.CanonicalMedia != null && String.IsNullOrWhiteSpace(output.CanonicalMedia))
+                return "invalid_canonical_media";
             if (!seenLayouts.Add(output.TargetLayout)) return "duplicate_layout_target";
             return ValidateGeometry(output.PlotGeometry);
         }

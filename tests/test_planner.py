@@ -21,6 +21,7 @@ paper_profiles:
     page_setup: OFFICE_70x100
     plotter: DWG To PDF.pc3
     plot_style: monochrome.ctb
+    canonical_media: OFFICE_700X1000
 """.strip(),
         encoding="utf-8",
     )
@@ -56,6 +57,7 @@ def _inspection(
                 name="OFFICE_70x100",
                 model_type=True,
                 plotter="DWG To PDF.pc3",
+                media_name="OFFICE_700X1000",
                 plot_style="monochrome.ctb",
             )
         ],
@@ -175,6 +177,7 @@ def test_publish_plan_blocks_page_setup_plotter_mismatch(tmp_path: Path) -> None
         name="OFFICE_70x100",
         model_type=True,
         plotter="Wrong Printer.pc3",
+        media_name="OFFICE_700X1000",
         plot_style="monochrome.ctb",
     )
 
@@ -183,6 +186,24 @@ def test_publish_plan_blocks_page_setup_plotter_mismatch(tmp_path: Path) -> None
     assert plan["ready"] is False
     assert plan["sheets"][0]["status"] == "page_setup_mismatch"
     assert "Wrong Printer.pc3" in plan["warnings"][0]
+
+
+def test_publish_plan_requires_exact_canonical_media_case(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = _inspection([_frame("70x100")])
+    inspection.page_setups[0] = PageSetupSummary(
+        name="OFFICE_70x100",
+        model_type=True,
+        plotter="DWG To PDF.pc3",
+        media_name="office_700x1000",
+        plot_style="monochrome.ctb",
+    )
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is False
+    assert plan["sheets"][0]["status"] == "page_setup_mismatch"
+    assert "case-sensitive" in plan["warnings"][0]
 
 
 def test_publish_plan_refuses_existing_target_layout(tmp_path: Path) -> None:

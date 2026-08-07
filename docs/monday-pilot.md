@@ -10,6 +10,7 @@ MCP-to-AutoCAD validation before any layout mutation or plot command is introduc
 - One anonymized/non-production DWG copy.
 - The expected PDF for that DWG.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
+- Exact case-sensitive canonical media name reported by AutoCAD for every custom PC3 paper.
 
 Do not copy company drawings or resources to a personal computer without written permission.
 

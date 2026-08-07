@@ -18,6 +18,7 @@ class PaperProfile:
     page_setup: str
     plotter: str
     plot_style: str
+    canonical_media: str | None = None
     tolerance_mm: float = 3.0
 
 
@@ -134,6 +135,9 @@ def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
         page_setup=str(raw["page_setup"]),
         plotter=str(raw["plotter"]),
         plot_style=str(raw["plot_style"]),
+        canonical_media=(
+            str(raw["canonical_media"]) if raw.get("canonical_media") is not None else None
+        ),
         tolerance_mm=float(raw.get("tolerance_mm", 3.0)),
     )
 
@@ -147,6 +151,8 @@ def _validate_profiles(profiles: tuple[PaperProfile, ...]) -> None:
     for profile in profiles:
         if profile.tolerance_mm < 0:
             raise ValueError(f"Paper profile {profile.id} has a negative tolerance")
+        if profile.canonical_media is not None and not profile.canonical_media.strip():
+            raise ValueError(f"Paper profile {profile.id} has an empty canonical_media")
         for label in profile.labels:
             normalized = normalize_label(label)
             owner = aliases.get(normalized)

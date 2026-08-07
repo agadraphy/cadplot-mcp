@@ -8,11 +8,12 @@ During read-only inspection the AutoCAD COM adapter lists named `PlotConfigurati
 
 - name matches the configured `page_setup`;
 - plot device matches `plotter`;
-- plot style matches `plot_style`.
+- plot style matches `plot_style`;
+- canonical media matches `canonical_media` exactly, including case, when configured.
 
-A missing setup or mismatched device/style produces `page_setup_mismatch` and keeps the plan
-blocked. Canonical media-name validation will be added with the licensed AutoCAD plot adapter,
-because Autodesk documents canonical media names as case-sensitive.
+A missing setup or mismatched device/style/media produces `page_setup_mismatch` and keeps the plan
+blocked. `canonical_media` is optional because some offices treat the approved named page setup as
+the sole source of media configuration; when supplied, exact comparison is mandatory.
 
 Autodesk references:
 

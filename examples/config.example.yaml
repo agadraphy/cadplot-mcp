@@ -20,6 +20,8 @@ paper_profiles:
     page_setup: "OFFICE_70x100"
     plotter: "DWG To PDF.pc3"
     plot_style: "monochrome.ctb"
+    # Optional but recommended: exact case-sensitive value reported by AutoCAD.
+    # canonical_media: "UserDefinedMetric (700.00 x 1000.00MM)"
     tolerance_mm: 3
 
   - id: "sheet_50x70"
@@ -27,4 +29,5 @@ paper_profiles:
     page_setup: "OFFICE_50x70"
     plotter: "DWG To PDF.pc3"
     plot_style: "monochrome.ctb"
+    # canonical_media: "UserDefinedMetric (500.00 x 700.00MM)"
     tolerance_mm: 3

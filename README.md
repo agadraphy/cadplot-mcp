@@ -88,6 +88,10 @@ setup exists and its plotter and plot style match the configured profile. Planne
 `layout_prefix` plus a deterministic index and frame handle; any existing-name collision blocks
 the plan instead of overwriting a layout.
 
+For custom PC3 paper definitions, set profile `canonical_media` to the exact value returned by
+AutoCAD. The comparison is deliberately case-sensitive. Leave it unset only when the named page
+setup is the accepted source of media configuration and the office has approved that policy.
+
 For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
 MCP request.

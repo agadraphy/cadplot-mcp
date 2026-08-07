@@ -28,6 +28,7 @@ paper_profiles:
     page_setup: OFFICE_A4
     plotter: DWG To PDF.pc3
     plot_style: monochrome.ctb
+    canonical_media: ISO_A4
 """.strip(),
         encoding="utf-8",
     )
@@ -50,6 +51,7 @@ paper_profiles:
                 name="OFFICE_A4",
                 model_type=True,
                 plotter="DWG To PDF.pc3",
+                media_name="ISO_A4",
                 plot_style="monochrome.ctb",
             )
         ],
@@ -75,6 +77,7 @@ def test_stage_publish_job_copies_source_and_writes_manifest(tmp_path: Path) -> 
     assert job["outputs"][0]["pdf"].endswith("0001-Sheet_01-office_a4.pdf")
     assert job["outputs"][0]["target_layout"] == "CADPLOT_0001_A1"
     assert job["outputs"][0]["page_setup"] == "OFFICE_A4"
+    assert job["outputs"][0]["canonical_media"] == "ISO_A4"
     assert job["outputs"][0]["plot_geometry"]["scale_denominator"] == 1
     assert not Path(job["outputs"][0]["pdf"]).exists()
 

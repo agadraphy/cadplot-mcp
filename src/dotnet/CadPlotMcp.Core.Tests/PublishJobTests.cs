@@ -192,6 +192,7 @@ public sealed class PublishJobTests : IDisposable
             page_setup = "OFFICE_A4",
             plotter = "DWG To PDF.pc3",
             plot_style = "monochrome.ctb",
+            canonical_media = "ISO_A4",
             plot_geometry = new
             {
                 window = new { min_x = 0.0, min_y = 0.0, max_x = 297.0, max_y = 210.0 },

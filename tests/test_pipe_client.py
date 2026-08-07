@@ -27,6 +27,7 @@ paper_profiles:
     page_setup: OFFICE_A4
     plotter: DWG To PDF.pc3
     plot_style: monochrome.ctb
+    canonical_media: ISO_A4
 """.strip(),
         encoding="utf-8",
     )
@@ -52,6 +53,7 @@ paper_profiles:
                     name="OFFICE_A4",
                     model_type=True,
                     plotter="DWG To PDF.pc3",
+                    media_name="ISO_A4",
                     plot_style="monochrome.ctb",
                 )
             ],

@@ -59,6 +59,7 @@ def stage_publish_job(
             "page_setup": sheet["profile"]["page_setup"],
             "plotter": sheet["profile"]["plotter"],
             "plot_style": sheet["profile"]["plot_style"],
+            "canonical_media": sheet["profile"]["canonical_media"],
             "plot_geometry": sheet["plot_geometry"],
             "status": "pending",
         }
