@@ -90,6 +90,10 @@ ObjectARX/AutoCAD managed reference folders:
 The script intentionally fails if the Autodesk reference assemblies are missing. Autodesk SDK
 assemblies are development inputs and are not committed or copied into the public bundle.
 
+The shared .NET core also contains a bounded, trusted-workspace publish queue. It is deliberately
+not exposed through the named pipe yet; an AutoCAD-version adapter must execute queued work on the
+supported application context and pass licensed-workstation tests first.
+
 ## License
 
 MIT. Autodesk and AutoCAD are trademarks of Autodesk, Inc. This project is not affiliated with
