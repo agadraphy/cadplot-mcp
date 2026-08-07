@@ -9,6 +9,7 @@ from typing import Any
 from cadplot_mcp.planner import validate_publish_plan
 
 PIPE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+PLAN_ID_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 DEFAULT_PIPE_NAME = "cadplot-mcp"
 PROTOCOL_VERSION = "1"
 MAX_RESPONSE_BYTES = 65_536
@@ -58,25 +59,80 @@ def validate_staged_job(
     timeout_ms: int = 2_000,
 ) -> dict[str, Any]:
     """Ask the plug-in to validate a staged manifest without queueing or plotting it."""
-    outputs = manifest.get("outputs")
-    if not isinstance(outputs, list) or not outputs:
-        raise ValueError("Staged manifest must contain outputs.")
-    required = ("plan_id", "manifest", "staged_drawing", "output_directory")
-    missing = [field for field in required if not manifest.get(field)]
-    if missing:
-        raise ValueError(f"Staged manifest is missing fields: {', '.join(missing)}")
+    payload = _staged_job_payload(manifest)
     return _request_plugin(
         "validate_staged_job",
         pipe_name=pipe_name,
         timeout_ms=timeout_ms,
-        payload={
-            "plan_id": manifest["plan_id"],
-            "manifest_path": manifest["manifest"],
-            "drawing": manifest["staged_drawing"],
-            "output_directory": manifest["output_directory"],
-            "sheet_count": len(outputs),
-        },
+        payload=payload,
     )
+
+
+def queue_staged_job(
+    manifest: dict[str, Any],
+    approved_plan_id: str,
+    approved_manifest_sha256: str,
+    pipe_name: str | None = None,
+    *,
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Queue an explicitly approved staged job; the plug-in may create PDFs."""
+    payload = _staged_job_payload(manifest)
+    if approved_plan_id != payload["plan_id"]:
+        raise ValueError("approved_plan_id does not match the staged job plan_id.")
+    if approved_manifest_sha256 != payload["manifest_sha256"]:
+        raise ValueError("approved_manifest_sha256 does not match the staged manifest.")
+    return _request_plugin(
+        "queue_publish_job",
+        pipe_name=pipe_name,
+        timeout_ms=timeout_ms,
+        payload=payload,
+    )
+
+
+def get_publish_job_status(
+    plan_id: str,
+    pipe_name: str | None = None,
+    *,
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Read one queued publish job's current state from the local plug-in."""
+    if not PLAN_ID_PATTERN.fullmatch(plan_id):
+        raise ValueError("Invalid plan_id.")
+    return _request_plugin(
+        "publish_job_status",
+        pipe_name=pipe_name,
+        timeout_ms=timeout_ms,
+        payload={"plan_id": plan_id},
+    )
+
+
+def _staged_job_payload(manifest: dict[str, Any]) -> dict[str, Any]:
+    outputs = manifest.get("outputs")
+    if not isinstance(outputs, list) or not outputs:
+        raise ValueError("Staged manifest must contain outputs.")
+    required = (
+        "plan_id",
+        "manifest",
+        "manifest_sha256",
+        "staged_drawing",
+        "output_directory",
+    )
+    missing = [field for field in required if not manifest.get(field)]
+    if missing:
+        raise ValueError(f"Staged manifest is missing fields: {', '.join(missing)}")
+    if not PLAN_ID_PATTERN.fullmatch(str(manifest["plan_id"])):
+        raise ValueError("Invalid staged manifest plan_id.")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(manifest["manifest_sha256"])):
+        raise ValueError("Invalid staged manifest SHA-256.")
+    return {
+        "plan_id": manifest["plan_id"],
+        "manifest_path": manifest["manifest"],
+        "manifest_sha256": manifest["manifest_sha256"],
+        "drawing": manifest["staged_drawing"],
+        "output_directory": manifest["output_directory"],
+        "sheet_count": len(outputs),
+    }
 
 
 def _request_plugin(

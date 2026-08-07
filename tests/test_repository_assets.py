@@ -48,3 +48,26 @@ def test_repository_contains_mit_license() -> None:
 
     assert "MIT License" in license_text
     assert "Demir Eren" in license_text
+
+
+def test_version_adapters_require_all_managed_autocad_references() -> None:
+    for release in ("2016", "2025"):
+        project = REPOSITORY_ROOT / "src" / "dotnet" / f"CadPlotMcp.AutoCAD{release}" / (
+            f"CadPlotMcp.AutoCAD{release}.csproj"
+        )
+        text = project.read_text(encoding="utf-8")
+
+        assert "AcMgd.dll" in text
+        assert "AcDbMgd.dll" in text
+        assert "AcCoreMgd.dll" in text
+        assert "AutoCadPublishRuntime.cs" in text
+
+
+def test_api_probe_is_compile_only() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "probe-autocad-api.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "dotnet" in script.casefold()
+    assert "AutoCAD was not launched" in script
+    assert "Start-Process" not in script

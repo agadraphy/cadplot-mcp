@@ -4,9 +4,9 @@ CadPlot MCP is a safety-first MCP server for repeatable AutoCAD plotting workflo
 It is designed for architecture offices that need to inspect many revised drawings,
 identify sheet frames, map company page setups, and publish PDFs consistently.
 
-## Current milestone: read-only inspector and publish preview
+## Current milestone: approval-gated AutoCAD publish candidate
 
-The first milestone intentionally cannot modify or plot a drawing. It provides:
+The repository now provides:
 
 - recursive DWG discovery inside explicitly allowed folders;
 - read-only layout and plot-setting inspection through a running AutoCAD instance;
@@ -14,8 +14,14 @@ The first milestone intentionally cannot modify or plot a drawing. It provides:
 - detection of paper-size labels such as `70x100`, `700x1000 mm`, or `50 × 70 cm`;
 - configuration-based paper profile matching;
 - structured warnings suitable for an approval-first publish plan.
+- copy-only staging with a second SHA-256 check in the plug-in;
+- an opt-in, bounded queue drained on AutoCAD's main application context;
+- in-memory layout/page-setup/viewport creation and one PDF per sheet;
+- structural and physical-size PDF auditing.
 
-Write and publish actions will only be added after the inspection and dry-run contract is stable.
+The executor compiles against an installed AutoCAD 2024 managed API surface. AutoCAD 2016 and
+2025 release builds and live plotting still require the matching Autodesk SDK references and a
+licensed-workstation acceptance test. Compile-only evidence is not presented as live evidence.
 
 ## Safety contract
 
@@ -27,7 +33,14 @@ Write and publish actions will only be added after the inspection and dry-run co
 - Existing open drawings are never closed by the server.
 - Existing layouts are never selected as write targets; target-name collisions block the plan.
 - Staging copies a DWG into a new isolated job folder and refuses symlink/junction workspaces.
-- Overwrite and original-file modification will remain disabled by default.
+- The plug-in re-hashes the staged DWG immediately before execution.
+- Layouts and viewports are execution scaffolding: they are discarded after plotting, keeping the
+  staged DWG byte-identical for the final audit.
+- Existing PDFs, layouts, or busy plot engines cause refusal; overwrite remains disabled.
+- Publish commands are disabled unless the AutoCAD process starts with
+  `CADPLOT_ENABLE_PUBLISH=1` and a trusted workspace.
+- MCP tool annotations distinguish local write actions from read-only tools; clients must still
+  enforce their own approval policy because annotations are hints, not authorization.
 
 ## Install
 
@@ -70,6 +83,10 @@ uv run python scripts/run-synthetic-demo.py
   isolating per-file reinspection or approval failures.
 - `validate_staged_job`: ask the local plug-in to cross-check the staged manifest against its
   independently configured trusted workspace; it does not queue or plot the job.
+- `queue_publish_job`: require the exact staged `plan_id` and `manifest_sha256`, then enqueue the
+  byte-bound copy-only job when the installed plug-in has explicitly enabled publishing.
+- `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, or `Failed` plus a bounded
+  machine-safe failure code.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
   count, expected physical paper dimensions, sizes, and SHA-256 hashes without changing output.
 - `match_paper_profile`: map a detected label to a configured office profile.
@@ -107,13 +124,14 @@ For large folders, call `create_batch_publish_plans` with the returned `next_off
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
 MCP request.
 
-## Roadmap
+## Delivery gates
 
-1. Read-only discovery and inspection.
-2. Deterministic dry-run publish plans with warnings and previews.
-3. In-process AutoCAD .NET worker for layout/page-setup operations.
-4. Copy-only PDF publishing with output validation and an audit report.
-5. Optional remote MCP bridge for managed ChatGPT workspaces.
+1. Completed locally: discovery, inspection, deterministic planning, staging, queue protocol,
+   executor source, synthetic workflow, and PDF audit.
+2. Compile-verified locally: the shared executor against installed AutoCAD 2024 API assemblies.
+3. Still required: matching-SDK bundle builds and live acceptance on licensed AutoCAD 2016 and
+   2025 with authorized office page setups/plot resources.
+4. Later/optional: managed remote MCP bridge for a company ChatGPT workspace.
 
 ## AutoCAD plug-in builds
 
@@ -132,15 +150,23 @@ ObjectARX/AutoCAD managed reference folders:
 The script intentionally fails if the Autodesk reference assemblies are missing. Autodesk SDK
 assemblies are development inputs and are not committed or copied into the public bundle.
 
-The shared .NET core also contains a bounded, trusted-workspace publish queue. It is deliberately
-not exposed through the named pipe yet; an AutoCAD-version adapter must execute queued work on the
-supported application context and pass licensed-workstation tests first.
-Its worker processes at most one job at a time and records success/failure without exposing raw
-executor exception messages.
+To compile-check the shared executor against a locally installed API without launching AutoCAD:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\probe-autocad-api.ps1 `
+  -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2024"
+```
+
+This is only an API-signature probe. It does not validate plotting or version compatibility.
+See [publish executor](docs/publish-executor.md) and the
+[licensed-workstation pilot](docs/monday-pilot.md).
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration
 `workspace_root`. The plug-in never accepts a trusted workspace path from an MCP request.
+Keep publishing off for inspection and staging validation. Enable it only for the authorized live
+pilot by setting `CADPLOT_ENABLE_PUBLISH=1` before starting AutoCAD; restart AutoCAD after changing
+either environment variable.
 
 ## License
 

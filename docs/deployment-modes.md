@@ -9,6 +9,9 @@ Recommended first deployment:
 3. The installed AutoCAD bundle exposes a local named pipe.
 4. AutoCAD remains user-visible and runs on the same licensed Windows workstation.
 
+The installed plug-in is read-only by default. `CADPLOT_ENABLE_PUBLISH=1` must be set before
+AutoCAD starts to expose the approval-gated queue. Keep this off until staging validation passes.
+
 No inbound network service is required. The named pipe must never be exposed through a public
 port or generic command relay.
 

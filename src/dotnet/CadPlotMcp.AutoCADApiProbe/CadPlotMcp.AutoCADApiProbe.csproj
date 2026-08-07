@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\CadPlotMcp.Core\CadPlotMcp.Core.csproj" />
+    <Compile Include="..\CadPlotMcp.AutoCAD.Shared\AutoCadPublishRuntime.cs" Link="AutoCadPublishRuntime.cs" />
+    <Reference Include="AcMgd"><HintPath>$(AutoCADProbeDir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcDbMgd"><HintPath>$(AutoCADProbeDir)\AcDbMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcCoreMgd"><HintPath>$(AutoCADProbeDir)\AcCoreMgd.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="RequireAutoCADProbeAssemblies" BeforeTargets="CoreCompile"
+          Condition="!Exists('$(AutoCADProbeDir)\AcMgd.dll') or !Exists('$(AutoCADProbeDir)\AcDbMgd.dll') or !Exists('$(AutoCADProbeDir)\AcCoreMgd.dll')">
+    <Error Text="Set AutoCADProbeDir to a managed AutoCAD API folder containing AcMgd.dll, AcDbMgd.dll, and AcCoreMgd.dll." />
+  </Target>
+</Project>

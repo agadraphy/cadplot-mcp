@@ -1,4 +1,5 @@
 using CadPlotMcp.Core;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Xunit;
 
@@ -112,6 +113,14 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void QueueRequiresExistingTrustedWorkspace()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), "cadplot-missing-" + Guid.NewGuid());
+
+        Assert.Throws<ArgumentException>(() => new PublishJobQueue(missing, 5));
+    }
+
+    [Fact]
     public void ManifestPlanMismatchIsRejected()
     {
         _request.PlanId = "sha256:" + new string('b', 64);
@@ -132,6 +141,41 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void StagedDrawingChangedAfterManifestIsRejected()
+    {
+        File.AppendAllText(_request.StagedDrawing, "changed");
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("staged_drawing_changed", error);
+    }
+
+    [Fact]
+    public void ManifestChangedAfterApprovalIsRejected()
+    {
+        File.AppendAllText(_request.ManifestPath, " ");
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("manifest_changed", error);
+    }
+
+    [Fact]
+    public void LockedManifestReturnsBoundedAvailabilityError()
+    {
+        using var locked = new FileStream(
+            _request.ManifestPath,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None
+        );
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("job_files_unavailable", error);
+    }
+
+    [Fact]
     public void DispatcherValidatesStagedJobWithoutQueueingIt()
     {
         var dispatcher = new CommandDispatcher(
@@ -148,6 +192,7 @@ public sealed class PublishJobTests : IDisposable
                 Command = "validate_staged_job",
                 PlanId = _request.PlanId,
                 ManifestPath = _request.ManifestPath,
+                ManifestSha256 = _request.ManifestSha256,
                 Drawing = _request.StagedDrawing,
                 OutputDirectory = _request.OutputDirectory,
                 SheetCount = _request.SheetCount,
@@ -177,6 +222,81 @@ public sealed class PublishJobTests : IDisposable
 
         Assert.False(response.Ok);
         Assert.Equal("workspace_not_configured", response.Error);
+    }
+
+    [Fact]
+    public void DispatcherKeepsPublishMutationDisabledByDefault()
+    {
+        var queue = NewQueue();
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            Path.GetDirectoryName(_jobRoot),
+            queue
+        );
+
+        var response = dispatcher.Dispatch(JobPipeRequest("queue_publish_job"));
+
+        Assert.False(response.Ok);
+        Assert.Equal("publish_disabled", response.Error);
+        Assert.Equal(0, queue.PendingCount);
+    }
+
+    [Fact]
+    public void EnabledDispatcherQueuesValidatedJobAndReportsStatus()
+    {
+        var queue = NewQueue();
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            Path.GetDirectoryName(_jobRoot),
+            queue,
+            publishEnabled: true
+        );
+
+        var queued = dispatcher.Dispatch(JobPipeRequest("queue_publish_job"));
+        var status = dispatcher.Dispatch(new PipeRequest
+        {
+            Version = "1",
+            Command = "publish_job_status",
+            PlanId = _request.PlanId,
+        });
+
+        Assert.True(queued.Ok);
+        Assert.False(queued.ReadOnly);
+        Assert.True(queued.PublishEnabled);
+        Assert.Equal("Pending", queued.JobState);
+        Assert.True(status.Ok);
+        Assert.True(status.ReadOnly);
+        Assert.Equal("Pending", status.JobState);
+    }
+
+    [Fact]
+    public void StatusSeparatesCompletedJobFailureFromProtocolFailure()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        Assert.True(queue.TryStartNext(out _));
+        queue.Complete(_request.PlanId, succeeded: false, error: "plot_failed");
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            Path.GetDirectoryName(_jobRoot),
+            queue,
+            publishEnabled: true
+        );
+
+        var response = dispatcher.Dispatch(new PipeRequest
+        {
+            Version = "1",
+            Command = "publish_job_status",
+            PlanId = _request.PlanId,
+        });
+
+        Assert.True(response.Ok);
+        Assert.Null(response.Error);
+        Assert.Equal("Failed", response.JobState);
+        Assert.Equal("plot_failed", response.JobError);
     }
 
     [Fact]
@@ -261,6 +381,18 @@ public sealed class PublishJobTests : IDisposable
     private PublishJobQueue NewQueue() =>
         new(Path.GetDirectoryName(_jobRoot)!, 5);
 
+    private PipeRequest JobPipeRequest(string command) => new()
+    {
+        Version = "1",
+        Command = command,
+        PlanId = _request.PlanId,
+        ManifestPath = _request.ManifestPath,
+        ManifestSha256 = _request.ManifestSha256,
+        Drawing = _request.StagedDrawing,
+        OutputDirectory = _request.OutputDirectory,
+        SheetCount = _request.SheetCount,
+    };
+
     private sealed class DelegateExecutor(
         Func<PublishJobRequest, PublishExecutionResult> execute
     ) : IPublishJobExecutor
@@ -301,9 +433,17 @@ public sealed class PublishJobTests : IDisposable
             plan_id = "sha256:" + new string('a', 64),
             staged_drawing = _request.StagedDrawing,
             output_directory = _request.OutputDirectory,
+            source_fingerprint = new
+            {
+                sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(_request.StagedDrawing))).ToLowerInvariant(),
+                size_bytes = new FileInfo(_request.StagedDrawing).Length,
+            },
             outputs,
         };
         File.WriteAllText(_request.ManifestPath, JsonSerializer.Serialize(manifest));
+        _request.ManifestSha256 = Convert.ToHexString(
+            SHA256.HashData(File.ReadAllBytes(_request.ManifestPath))
+        ).ToLowerInvariant();
     }
 
     public void Dispose()

@@ -14,6 +14,8 @@ namespace CadPlotMcp.Core
         public const string StatusCommand = "status";
         public const string PreviewPublishPlanCommand = "preview_publish_plan";
         public const string ValidateStagedJobCommand = "validate_staged_job";
+        public const string QueuePublishJobCommand = "queue_publish_job";
+        public const string PublishJobStatusCommand = "publish_job_status";
         public const int MaxLineCharacters = 65536;
     }
 
@@ -27,6 +29,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "drawing", EmitDefaultValue = false)] public string Drawing { get; set; }
         [DataMember(Name = "sheet_count", EmitDefaultValue = false)] public int SheetCount { get; set; }
         [DataMember(Name = "manifest_path", EmitDefaultValue = false)] public string ManifestPath { get; set; }
+        [DataMember(Name = "manifest_sha256", EmitDefaultValue = false)] public string ManifestSha256 { get; set; }
         [DataMember(Name = "output_directory", EmitDefaultValue = false)] public string OutputDirectory { get; set; }
     }
 
@@ -43,6 +46,9 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "plan_id", EmitDefaultValue = false)] public string PlanId { get; set; }
         [DataMember(Name = "acceptedSheetCount", EmitDefaultValue = false)] public int AcceptedSheetCount { get; set; }
         [DataMember(Name = "workspaceConfigured", EmitDefaultValue = false)] public bool WorkspaceConfigured { get; set; }
+        [DataMember(Name = "publishEnabled", EmitDefaultValue = false)] public bool PublishEnabled { get; set; }
+        [DataMember(Name = "jobState", EmitDefaultValue = false)] public string JobState { get; set; }
+        [DataMember(Name = "jobError", EmitDefaultValue = false)] public string JobError { get; set; }
     }
 
     public static class JsonLineCodec
@@ -86,12 +92,22 @@ namespace CadPlotMcp.Core
         private readonly string _adapter;
         private readonly Func<string> _productName;
         private readonly string _trustedWorkspaceRoot;
+        private readonly PublishJobQueue _publishQueue;
+        private readonly bool _publishEnabled;
 
-        public CommandDispatcher(string adapter, Func<string> productName, string trustedWorkspaceRoot = null)
+        public CommandDispatcher(
+            string adapter,
+            Func<string> productName,
+            string trustedWorkspaceRoot = null,
+            PublishJobQueue publishQueue = null,
+            bool publishEnabled = false
+        )
         {
             _adapter = adapter ?? "unknown";
             _productName = productName ?? (() => "AutoCAD");
             _trustedWorkspaceRoot = trustedWorkspaceRoot;
+            _publishQueue = publishQueue;
+            _publishEnabled = publishEnabled && publishQueue != null;
         }
 
         public PipeResponse Dispatch(PipeRequest request)
@@ -110,6 +126,7 @@ namespace CadPlotMcp.Core
                 response.Adapter = _adapter;
                 response.ReadOnly = true;
                 response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
+                response.PublishEnabled = _publishEnabled;
                 return response;
             }
             if (String.Equals(request.Command, PipeProtocol.PreviewPublishPlanCommand, StringComparison.Ordinal))
@@ -134,16 +151,22 @@ namespace CadPlotMcp.Core
                     response.Error = "workspace_not_configured";
                     return response;
                 }
-                var job = new PublishJobRequest
+                var job = CreateJob(request);
+                string error;
+                try
                 {
-                    PlanId = request.PlanId,
-                    ManifestPath = request.ManifestPath,
-                    StagedDrawing = request.Drawing,
-                    OutputDirectory = request.OutputDirectory,
-                    SheetCount = request.SheetCount,
-                };
-                var error = PublishJobValidator.Validate(job, _trustedWorkspaceRoot)
-                    ?? PublishManifestReader.Validate(job);
+                    error = PublishJobValidator.Validate(job, _trustedWorkspaceRoot)
+                        ?? PublishManifestReader.Validate(job);
+                }
+                catch (Exception exception)
+                {
+                    if (exception is IOException
+                        || exception is UnauthorizedAccessException
+                        || exception is System.Security.SecurityException)
+                        error = "job_files_unavailable";
+                    else
+                        throw;
+                }
                 if (error != null)
                 {
                     response.Error = error;
@@ -158,11 +181,76 @@ namespace CadPlotMcp.Core
                 response.WorkspaceConfigured = true;
                 return response;
             }
+            if (String.Equals(request.Command, PipeProtocol.QueuePublishJobCommand, StringComparison.Ordinal))
+            {
+                if (!_publishEnabled)
+                {
+                    response.Error = "publish_disabled";
+                    return response;
+                }
+                var job = CreateJob(request);
+                string error;
+                if (!_publishQueue.TryEnqueue(job, out error))
+                {
+                    response.Error = error;
+                    return response;
+                }
+                response.Ok = true;
+                response.Product = _productName();
+                response.Adapter = _adapter;
+                response.ReadOnly = false;
+                response.PublishEnabled = true;
+                response.PlanId = request.PlanId;
+                response.AcceptedSheetCount = request.SheetCount;
+                response.JobState = PublishJobState.Pending.ToString();
+                return response;
+            }
+            if (String.Equals(request.Command, PipeProtocol.PublishJobStatusCommand, StringComparison.Ordinal))
+            {
+                if (!_publishEnabled)
+                {
+                    response.Error = "publish_disabled";
+                    return response;
+                }
+                if (String.IsNullOrWhiteSpace(request.PlanId) || !PlanIdPattern.IsMatch(request.PlanId))
+                {
+                    response.Error = "invalid_plan_id";
+                    return response;
+                }
+                var snapshot = _publishQueue.GetStatus(request.PlanId);
+                if (snapshot == null)
+                {
+                    response.Error = "job_not_found";
+                    return response;
+                }
+                response.Ok = true;
+                response.Product = _productName();
+                response.Adapter = _adapter;
+                response.ReadOnly = true;
+                response.PublishEnabled = true;
+                response.PlanId = snapshot.PlanId;
+                response.JobState = snapshot.State.ToString();
+                response.JobError = snapshot.Error;
+                return response;
+            }
             else
             {
                 response.Error = "command_not_allowed";
                 return response;
             }
+        }
+
+        private static PublishJobRequest CreateJob(PipeRequest request)
+        {
+            return new PublishJobRequest
+            {
+                PlanId = request.PlanId,
+                ManifestPath = request.ManifestPath,
+                ManifestSha256 = request.ManifestSha256,
+                StagedDrawing = request.Drawing,
+                OutputDirectory = request.OutputDirectory,
+                SheetCount = request.SheetCount,
+            };
         }
 
         private static bool IsValidPreview(PipeRequest request)

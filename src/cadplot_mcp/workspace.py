@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import uuid
@@ -82,7 +83,12 @@ def stage_publish_job(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return {**manifest, "manifest": str(manifest_path)}
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    return {
+        **manifest,
+        "manifest": str(manifest_path),
+        "manifest_sha256": manifest_sha256,
+    }
 
 
 def _single_root_policy(root: Path) -> PathPolicy:

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Security;
 using System.Text.RegularExpressions;
 
 namespace CadPlotMcp.Core
@@ -17,6 +19,7 @@ namespace CadPlotMcp.Core
     {
         public string PlanId { get; set; }
         public string ManifestPath { get; set; }
+        public string ManifestSha256 { get; set; }
         public string StagedDrawing { get; set; }
         public string OutputDirectory { get; set; }
         public int SheetCount { get; set; }
@@ -35,6 +38,10 @@ namespace CadPlotMcp.Core
             "^sha256:[0-9a-f]{64}$",
             RegexOptions.CultureInvariant
         );
+        private static readonly Regex Sha256Pattern = new Regex(
+            "^[0-9a-f]{64}$",
+            RegexOptions.CultureInvariant
+        );
 
         public static string Validate(PublishJobRequest request, string trustedWorkspaceRoot)
         {
@@ -43,6 +50,9 @@ namespace CadPlotMcp.Core
                 return "invalid_plan_id";
             if (request.SheetCount < 1 || request.SheetCount > 5000)
                 return "invalid_sheet_count";
+            if (String.IsNullOrWhiteSpace(request.ManifestSha256)
+                || !Sha256Pattern.IsMatch(request.ManifestSha256))
+                return "invalid_manifest_sha256";
 
             string manifest;
             string drawing;
@@ -74,6 +84,18 @@ namespace CadPlotMcp.Core
             if (!SamePath(output, expectedOutput)) return "output_outside_job";
             if (!File.Exists(manifest) || !File.Exists(drawing) || !Directory.Exists(output))
                 return "job_files_missing";
+            if (HasReparsePoint(workspace, workspace)
+                || HasReparsePoint(jobRoot, workspace)
+                || HasReparsePoint(expectedSource, workspace)
+                || HasReparsePoint(output, workspace)
+                || HasReparsePoint(manifest, workspace)
+                || HasReparsePoint(drawing, workspace))
+                return "job_path_redirected";
+            if (!String.Equals(
+                FileSha256.Compute(manifest),
+                request.ManifestSha256,
+                StringComparison.Ordinal
+            )) return "manifest_changed";
             return null;
         }
 
@@ -98,6 +120,42 @@ namespace CadPlotMcp.Core
             return value.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 + Path.DirectorySeparatorChar;
         }
+
+        private static bool HasReparsePoint(string candidate, string root)
+        {
+            var current = Path.GetFullPath(candidate)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var boundary = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (!String.Equals(current, boundary, StringComparison.OrdinalIgnoreCase)
+                && !WithTrailingSeparator(current).StartsWith(
+                    WithTrailingSeparator(boundary),
+                    StringComparison.OrdinalIgnoreCase
+                )) return true;
+
+            while (true)
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    return true;
+                if (String.Equals(current, boundary, StringComparison.OrdinalIgnoreCase))
+                    return false;
+                current = Path.GetDirectoryName(current);
+                if (String.IsNullOrWhiteSpace(current)) return true;
+            }
+        }
+    }
+
+    internal static class FileSha256
+    {
+        public static string Compute(string path)
+        {
+            using (var algorithm = SHA256.Create())
+            using (var stream = File.OpenRead(path))
+            {
+                var bytes = algorithm.ComputeHash(stream);
+                return BitConverter.ToString(bytes).Replace("-", String.Empty).ToLowerInvariant();
+            }
+        }
     }
 
     public sealed class PublishJobQueue
@@ -115,6 +173,10 @@ namespace CadPlotMcp.Core
                 throw new ArgumentException("A trusted workspace root is required.", "trustedWorkspaceRoot");
             if (capacity < 1 || capacity > 1000) throw new ArgumentOutOfRangeException("capacity");
             _trustedWorkspaceRoot = Path.GetFullPath(trustedWorkspaceRoot);
+            if (!Directory.Exists(_trustedWorkspaceRoot))
+                throw new ArgumentException("The trusted workspace root must exist.", "trustedWorkspaceRoot");
+            if ((File.GetAttributes(_trustedWorkspaceRoot) & FileAttributes.ReparsePoint) != 0)
+                throw new ArgumentException("The trusted workspace root cannot be redirected.", "trustedWorkspaceRoot");
             _capacity = capacity;
         }
 
@@ -125,10 +187,24 @@ namespace CadPlotMcp.Core
 
         public bool TryEnqueue(PublishJobRequest request, out string error)
         {
-            error = PublishJobValidator.Validate(request, _trustedWorkspaceRoot);
-            if (error != null) return false;
-            error = PublishManifestReader.Validate(request);
-            if (error != null) return false;
+            try
+            {
+                error = PublishJobValidator.Validate(request, _trustedWorkspaceRoot);
+                if (error != null) return false;
+                error = PublishManifestReader.Validate(request);
+                if (error != null) return false;
+            }
+            catch (Exception exception)
+            {
+                if (exception is IOException
+                    || exception is UnauthorizedAccessException
+                    || exception is SecurityException)
+                {
+                    error = "job_files_unavailable";
+                    return false;
+                }
+                throw;
+            }
             lock (_gate)
             {
                 if (_pending.Count >= _capacity)

@@ -9,7 +9,13 @@ import pytest
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
-from cadplot_mcp.pipe_client import get_plugin_status, preview_publish_plan, validate_staged_job
+from cadplot_mcp.pipe_client import (
+    get_plugin_status,
+    get_publish_job_status,
+    preview_publish_plan,
+    queue_staged_job,
+    validate_staged_job,
+)
 from cadplot_mcp.planner import create_publish_plan
 
 
@@ -73,6 +79,28 @@ def test_pipe_client_rejects_invalid_name(monkeypatch: pytest.MonkeyPatch) -> No
 def test_pipe_client_rejects_invalid_timeout() -> None:
     with pytest.raises(ValueError, match="timeout_ms"):
         get_plugin_status(timeout_ms=0)
+
+
+def test_queue_requires_exact_approved_plan_before_connecting(tmp_path: Path) -> None:
+    manifest = {
+        "plan_id": "sha256:" + "a" * 64,
+        "manifest": str(tmp_path / "manifest.json"),
+        "manifest_sha256": "c" * 64,
+        "staged_drawing": str(tmp_path / "sheet.dwg"),
+        "output_directory": str(tmp_path / "output"),
+        "outputs": [{"pdf": str(tmp_path / "output" / "sheet.pdf")}],
+    }
+
+    with pytest.raises(ValueError, match="approved_plan_id"):
+        queue_staged_job(manifest, "sha256:" + "b" * 64, "c" * 64)
+
+    with pytest.raises(ValueError, match="approved_manifest_sha256"):
+        queue_staged_job(manifest, manifest["plan_id"], "d" * 64)
+
+
+def test_publish_status_rejects_invalid_plan_before_connecting() -> None:
+    with pytest.raises(ValueError, match="Invalid plan_id"):
+        get_publish_job_status("not-a-plan")
 
 
 def test_pipe_client_rejects_tampered_preview_before_connecting(tmp_path: Path) -> None:
@@ -248,6 +276,7 @@ def test_pipe_client_staged_job_round_trip(tmp_path: Path) -> None:
     manifest = {
         "plan_id": "sha256:" + "a" * 64,
         "manifest": str(tmp_path / "job" / "manifest.json"),
+        "manifest_sha256": "c" * 64,
         "staged_drawing": str(tmp_path / "job" / "source" / "sheet.dwg"),
         "output_directory": str(tmp_path / "job" / "output"),
         "outputs": [{"pdf": str(tmp_path / "job" / "output" / "sheet.pdf")}],

@@ -33,6 +33,12 @@ All notable changes to this project are documented in this file.
 - Optional case-insensitive office frame-layer allowlist.
 - Reproducible synthetic plan-to-stage-to-PDF-audit demo and integration test.
 - Python-to-Windows-pipe and .NET protocol integration tests.
+- Opt-in pipe commands for approval-gated publish queueing and bounded job-status reporting.
+- Shared main-context AutoCAD executor for named page setups, locked scaled viewports, and
+  one-PDF-per-sheet PlotEngine output.
+- Byte-preserving execution that discards in-memory layout scaffolding after plotting.
+- Plug-in-side staged-DWG SHA-256 revalidation immediately before queueing and execution.
+- Compile-only AutoCAD managed-API probe plus a separate licensed-workstation write pilot.
 
 ### Notes
 

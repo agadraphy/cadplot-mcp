@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Settings as FastMCPSettings
+from mcp.types import ToolAnnotations
 
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.audit import load_staged_manifest
@@ -18,7 +20,13 @@ from cadplot_mcp.pipe_client import (
     PluginConnectionError,
     get_plugin_status,
 )
+from cadplot_mcp.pipe_client import (
+    get_publish_job_status as request_publish_job_status,
+)
 from cadplot_mcp.pipe_client import preview_publish_plan as request_publish_preview
+from cadplot_mcp.pipe_client import (
+    queue_staged_job as request_publish_queue,
+)
 from cadplot_mcp.pipe_client import validate_staged_job as request_staged_job_validation
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
@@ -28,6 +36,18 @@ from cadplot_mcp.workspace import stage_publish_job as stage_job
 # before construction under current pydantic-settings releases.
 FastMCPSettings.model_rebuild()
 mcp = FastMCP("CadPlot MCP")
+READ_ONLY = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=False,
+)
+LOCAL_WRITE = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=False,
+    idempotentHint=False,
+    openWorldHint=False,
+)
 
 
 def _config() -> CadPlotConfig:
@@ -39,7 +59,7 @@ def _config() -> CadPlotConfig:
     return load_config(value)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def validate_environment() -> dict[str, Any]:
     """Validate configuration, allowed roots, and the read-only AutoCAD COM connection."""
     try:
@@ -71,7 +91,7 @@ def validate_environment() -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_autocad_plugin_status(timeout_ms: int = 2_000) -> dict[str, Any]:
     """Check the installed AutoCAD plug-in through its read-only local named-pipe command."""
     try:
@@ -81,7 +101,7 @@ def get_autocad_plugin_status(timeout_ms: int = 2_000) -> dict[str, Any]:
     return {"connected": True, "status": response}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def scan_drawings(root: str, recursive: bool = True, max_files: int = 5_000) -> dict[str, Any]:
     """List DWG files under an explicitly allowed project root without opening them."""
     config = _config()
@@ -98,21 +118,21 @@ def scan_drawings(root: str, recursive: bool = True, max_files: int = 5_000) -> 
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def inspect_drawing(path: str) -> dict[str, Any]:
     """Inspect one explicit DWG read-only: layouts, plot settings, and labelled frames."""
     config = _config()
     return AutoCADComInspector(config.path_policy).inspect_drawing(path).to_dict()
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def create_publish_plan(path: str) -> dict[str, Any]:
     """Inspect one DWG and return a deterministic dry-run plan; never modifies or plots it."""
     config = _config()
     return _build_current_plan(path, config)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def create_batch_publish_plans(
     root: str,
     recursive: bool = True,
@@ -136,7 +156,7 @@ def create_batch_publish_plans(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def preview_publish_plan(path: str, timeout_ms: int = 2_000) -> dict[str, Any]:
     """Validate a ready dry-run plan with AutoCAD; never edits, saves, or plots the DWG."""
     config = _config()
@@ -154,7 +174,7 @@ def preview_publish_plan(path: str, timeout_ms: int = 2_000) -> dict[str, Any]:
     return {"accepted": bool(response.get("ok")), "plan": plan, "plugin": response}
 
 
-@mcp.tool()
+@mcp.tool(annotations=LOCAL_WRITE)
 def stage_publish_job(path: str, approved_plan_id: str) -> dict[str, Any]:
     """Revalidate an approved plan and copy its DWG into an isolated workspace; never plots."""
     config = _config()
@@ -172,7 +192,7 @@ def stage_publish_job(path: str, approved_plan_id: str) -> dict[str, Any]:
     return {"staged": True, "plan": plan, "job": job}
 
 
-@mcp.tool()
+@mcp.tool(annotations=LOCAL_WRITE)
 def stage_publish_batch(approvals: list[dict[str, str]]) -> dict[str, Any]:
     """Stage up to 20 explicit DWG/plan-ID approvals; never plots or edits originals."""
     config = _config()
@@ -187,7 +207,7 @@ def stage_publish_batch(approvals: list[dict[str, str]]) -> dict[str, Any]:
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def audit_publish_outputs(manifest_path: str) -> dict[str, Any]:
     """Inspect expected PDFs and return hashes/statuses; never modifies the job or outputs."""
     config = _config()
@@ -198,7 +218,7 @@ def audit_publish_outputs(manifest_path: str) -> dict[str, Any]:
     return report
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def validate_staged_job(manifest_path: str, timeout_ms: int = 2_000) -> dict[str, Any]:
     """Cross-check a staged manifest with the local plug-in; never queues or plots the job."""
     config = _config()
@@ -207,6 +227,7 @@ def validate_staged_job(manifest_path: str, timeout_ms: int = 2_000) -> dict[str
         request = {
             **manifest,
             "manifest": str(Path(manifest_path).expanduser().resolve(strict=True)),
+            "manifest_sha256": _file_sha256(manifest_path),
         }
         response = request_staged_job_validation(request, timeout_ms=timeout_ms)
     except (OSError, PluginConnectionError, ValueError) as exc:
@@ -214,7 +235,48 @@ def validate_staged_job(manifest_path: str, timeout_ms: int = 2_000) -> dict[str
     return {"accepted": bool(response.get("ok")), "plugin": response}
 
 
-@mcp.tool()
+@mcp.tool(annotations=LOCAL_WRITE)
+def queue_publish_job(
+    manifest_path: str,
+    approved_plan_id: str,
+    approved_manifest_sha256: str,
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Queue an exact approved staged plan for PDF publishing; may create output PDFs."""
+    config = _config()
+    try:
+        manifest, _ = load_staged_manifest(manifest_path, config)
+        request = {
+            **manifest,
+            "manifest": str(Path(manifest_path).expanduser().resolve(strict=True)),
+            "manifest_sha256": _file_sha256(manifest_path),
+        }
+        response = request_publish_queue(
+            request,
+            approved_plan_id,
+            approved_manifest_sha256,
+            timeout_ms=timeout_ms,
+        )
+    except (OSError, PluginConnectionError, ValueError) as exc:
+        return {"queued": False, "error": str(exc)}
+    return {
+        "queued": bool(response.get("ok")),
+        "plan_id": manifest["plan_id"],
+        "plugin": response,
+    }
+
+
+@mcp.tool(annotations=READ_ONLY)
+def get_publish_job_status(plan_id: str, timeout_ms: int = 2_000) -> dict[str, Any]:
+    """Read a queued publish job state; never edits drawings or output files."""
+    try:
+        response = request_publish_job_status(plan_id, timeout_ms=timeout_ms)
+    except (PluginConnectionError, ValueError) as exc:
+        return {"found": False, "error": str(exc)}
+    return {"found": bool(response.get("ok")), "plugin": response}
+
+
+@mcp.tool(annotations=READ_ONLY)
 def match_paper_profile(label: str) -> dict[str, Any]:
     """Match a frame's paper-size label to a configured office paper profile."""
     config = _config()
@@ -241,6 +303,14 @@ def _build_current_plan(path: str, config: CadPlotConfig) -> dict[str, Any]:
     if before != after:
         raise RuntimeError("Drawing changed during inspection; retry after it is stable.")
     return build_publish_plan(inspection, config, drawing_fingerprint=after)
+
+
+def _file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main() -> None:

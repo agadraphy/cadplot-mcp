@@ -75,6 +75,7 @@ def test_stage_publish_job_copies_source_and_writes_manifest(tmp_path: Path) -> 
     assert staged.read_bytes() == drawing.read_bytes()
     assert manifest.is_file()
     assert job["state"] == "staged"
+    assert len(job["manifest_sha256"]) == 64
     assert job["outputs"][0]["pdf"].endswith("0001-Sheet_01-office_a4.pdf")
     assert job["outputs"][0]["target_layout"] == "CADPLOT_0001_A1"
     assert job["outputs"][0]["page_setup"] == "OFFICE_A4"

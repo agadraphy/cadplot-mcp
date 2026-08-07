@@ -19,6 +19,8 @@ Use this checklist for every alpha release.
       `audit_complete=true`.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
+- [ ] The compile-only API probe passes against an installed managed API folder and is labelled
+      compile-only evidence.
 - [ ] The real bundle was built with Autodesk references while no Autodesk DLL was packaged.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
@@ -31,6 +33,8 @@ Use this checklist for every alpha release.
 - [ ] Synthetic demo evidence is labelled synthetic and is not presented as AutoCAD evidence.
 - [ ] Known limitations and incompatible changes are stated in release notes.
 - [ ] A maintainer has reviewed the release artifacts before publication.
+- [ ] Licensed AutoCAD 2016 and 2025 live results are recorded separately; one version's result is
+      not treated as proof for the other.
 
 ## Publish
 

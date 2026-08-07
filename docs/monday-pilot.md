@@ -1,12 +1,12 @@
 # Monday Licensed-Workstation Pilot
 
-This pilot proves installation, read-only inspection, approval-gated copy staging, and
-MCP-to-AutoCAD validation before any layout mutation or plot command is introduced.
+This pilot first proves installation, inspection, and staging with publishing disabled. It then
+enables one explicitly approved sheet and proves the real in-memory layout/viewport/PDF path.
 
 ## Inputs to collect
 
 - Licensed AutoCAD release and `ACADVER` value.
-- Managed API folder containing `AcMgd.dll` and `AcDbMgd.dll` for that release.
+- Managed API folder containing `AcMgd.dll`, `AcDbMgd.dll`, and `AcCoreMgd.dll` for that release.
 - One anonymized/non-production DWG copy.
 - The expected PDF for that DWG.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
@@ -39,7 +39,8 @@ First preview the copy:
 ```
 
 Then run without `-WhatIf`. Start AutoCAD and call MCP tool `get_autocad_plugin_status`. Required
-result: `connected=true`, correct adapter/release, and `readOnly=true`.
+result: `connected=true`, correct adapter/release, `readOnly=true`, and `publishEnabled=false`.
+The product field must include the live `ACADVER`; record it with the pilot evidence.
 
 ## Gate 4: drawing inspection
 
@@ -58,6 +59,24 @@ result: `connected=true`, correct adapter/release, and `readOnly=true`.
    `workspaceConfigured=true`.
 4. Confirm the job contains a verified source copy, an empty output directory, and manifest only.
 
+## Gate 6: one-sheet write pilot
+
+1. Close AutoCAD. In the same launcher environment set `CADPLOT_ENABLE_PUBLISH=1`; keep the same
+   `CADPLOT_WORKSPACE_ROOT`, then restart AutoCAD.
+2. Require `get_autocad_plugin_status` to report `publishEnabled=true`.
+3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.
+4. Call `queue_publish_job` with the exact manifest path, approved `plan_id`, and approved
+   `manifest_sha256` returned by staging.
+5. Poll `get_publish_job_status`; require `Succeeded`. A failure code is evidence to diagnose, not
+   permission to overwrite or bypass a gate.
+6. Call `audit_publish_outputs`; require one valid, unencrypted, one-page PDF with the expected
+   physical paper dimensions.
+7. Require both source and staged DWG hashes to remain unchanged.
+8. Visually compare orientation, crop, viewport scale, lineweights, plot style, text/font output,
+   and title block against the office reference PDF.
+
+Repeat Gate 6 separately on licensed AutoCAD 2016 and 2025. Do not infer one from the other.
+
 ## Pilot pass condition
 
 - Source hash unchanged.
@@ -65,6 +84,9 @@ result: `connected=true`, correct adapter/release, and `readOnly=true`.
 - Correct layout/frame/profile inventory returned.
 - MCP-to-plug-in status round trip works.
 - Staged manifest passes the independent plug-in workspace check.
+- The queued job succeeds and the PDF audit is complete.
+- Source and staged DWG hashes remain unchanged after plotting.
+- The authorized visual comparison is accepted for scale, crop, style, and orientation.
 - No proprietary asset is present in the Git repository or release archive.
 
-PDF writing remains out of scope until these gates pass on the licensed workstation.
+Production rollout remains blocked until every gate passes and the office accepts the sample PDF.

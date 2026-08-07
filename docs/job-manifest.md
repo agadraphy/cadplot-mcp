@@ -19,6 +19,11 @@ On success it creates a unique `job-*` directory below `workspace_root` containi
 - `output/`: an initially empty directory with collision-free expected PDF names;
 - `manifest.json`: job identity, source fingerprint, plan identity, and output states.
 
+The staging response also returns `manifest_sha256`. It is not embedded in the manifest (which
+would be self-referential). `queue_publish_job` requires the caller to approve both `plan_id` and
+this exact digest. The plug-in verifies the manifest digest when queueing and again immediately
+before execution, closing the staging-to-execution time-of-check/time-of-use gap.
+
 Each expected output also carries the immutable execution specification copied from the approved
 plan: target layout, named page setup, plotter, plot style, plot window, rotation, scale
 denominator, and drawing-unit conversion. The .NET queue rereads this manifest and cross-checks it

@@ -27,7 +27,7 @@ foreach ($sdk in @(
     @{ Name = "AutoCAD 2025"; Path = $AutoCAD2025SdkDir }
 )) {
     $resolved = [System.IO.Path]::GetFullPath($sdk.Path)
-    foreach ($assembly in @("AcMgd.dll", "AcDbMgd.dll")) {
+    foreach ($assembly in @("AcMgd.dll", "AcDbMgd.dll", "AcCoreMgd.dll")) {
         if (-not (Test-Path -LiteralPath (Join-Path $resolved $assembly) -PathType Leaf)) {
             throw "$($sdk.Name) SDK is missing $assembly in $resolved"
         }
