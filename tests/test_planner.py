@@ -37,7 +37,7 @@ def _frame(label: str) -> FrameCandidate:
         label=label,
         width_mm=700.0,
         height_mm=1000.0,
-        confidence=0.75,
+        confidence=1.0,
     )
 
 
@@ -218,3 +218,27 @@ def test_publish_plan_refuses_existing_target_layout(tmp_path: Path) -> None:
     assert plan["ready"] is False
     assert plan["sheets"][0]["status"] == "layout_conflict"
     assert plan["sheets"][0]["target_layout"] == "CADPLOT_0001_AB12"
+
+
+def test_publish_plan_blocks_low_confidence_frame(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    frame = FrameCandidate(
+        handle="LOW",
+        layer="SHEET",
+        min_point=(0.0, 0.0, 0.0),
+        max_point=(1000.0, 700.0, 0.0),
+        label="70x100",
+        width_mm=700.0,
+        height_mm=1000.0,
+        confidence=0.8,
+    )
+
+    plan = create_publish_plan(
+        _inspection([frame]),
+        config,
+        drawing_fingerprint=_fingerprint(),
+    )
+
+    assert plan["ready"] is False
+    assert plan["sheets"][0]["status"] == "low_confidence"
+    assert "below required" in plan["warnings"][0]

@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file.
 - Parser-based PDF structure, encryption, page-count, and page-dimension output auditing.
 - Orientation-independent expected-versus-actual PDF paper-size validation.
 - Single-job .NET publish worker with concurrency guard and safe failure-state transitions.
+- Label-centric frame deduplication, nested selection, ambiguity rejection, and confidence gate.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

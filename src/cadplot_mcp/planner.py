@@ -43,6 +43,22 @@ def create_publish_plan(
             continue
 
         profile_payload = _profile_payload(profile)
+        if frame.confidence < config.minimum_frame_confidence:
+            warnings.append(
+                f"Frame {frame.handle or '<no handle>'} confidence {frame.confidence:.3f} "
+                f"is below required {config.minimum_frame_confidence:.3f}."
+            )
+            sheets.append(
+                {
+                    "frame_handle": frame.handle,
+                    "label": frame.label,
+                    "status": "low_confidence",
+                    "profile": profile_payload,
+                    "target_layout": target_layout,
+                    "plot_geometry": None,
+                }
+            )
+            continue
         page_setup_error = _page_setup_error(profile, inspection.page_setups, config)
         if page_setup_error is not None:
             warnings.append(f"Frame {frame.handle or '<no handle>'}: {page_setup_error}")

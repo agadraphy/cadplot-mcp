@@ -164,31 +164,76 @@ def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str
         return [], warnings
 
     frames: list[FrameCandidate] = []
-    for entity, minimum, maximum in rectangles:
-        for text, point in texts:
-            size = parse_paper_size(text)
-            if not size or not _inside(point, minimum, maximum):
-                continue
-            if not _aspect_ratio_matches(size.width_mm, size.height_mm, minimum, maximum):
+    selected_handles: set[str] = set()
+    for text, point in texts:
+        size = parse_paper_size(text)
+        if not size:
+            continue
+        containing = [
+            rectangle
+            for rectangle in rectangles
+            if _inside(point, rectangle[1], rectangle[2])
+        ]
+        matching = [
+            rectangle
+            for rectangle in containing
+            if _aspect_ratio_matches(size.width_mm, size.height_mm, rectangle[1], rectangle[2])
+        ]
+        if not matching:
+            if containing:
                 warnings.append(
-                    f"Frame {_safe(entity, 'Handle', '')} label {size.source!r} "
-                    "does not match its geometry ratio."
+                    f"Label {size.source!r} is inside a rectangle but no frame ratio matches."
                 )
-                continue
-            frames.append(
-                FrameCandidate(
-                    handle=str(_safe(entity, "Handle", "")),
-                    layer=str(_safe(entity, "Layer", "")),
-                    min_point=minimum,
-                    max_point=maximum,
-                    label=size.source,
-                    width_mm=size.width_mm,
-                    height_mm=size.height_mm,
-                    confidence=0.75,
-                )
+            continue
+        matching.sort(
+            key=lambda item: (
+                _rectangle_area(item[1], item[2]),
+                str(_safe(item[0], "Handle", "")),
             )
-            break
+        )
+        if len(matching) > 1 and _areas_nearly_equal(matching[0], matching[1]):
+            warnings.append(
+                f"Label {size.source!r} has multiple equal-size frame candidates; skipped."
+            )
+            continue
+        entity, minimum, maximum = matching[0]
+        handle = str(_safe(entity, "Handle", ""))
+        if handle in selected_handles:
+            continue
+        selected_handles.add(handle)
+        if len(matching) > 1:
+            warnings.append(
+                f"Label {size.source!r} has nested frame candidates; selected smallest {handle}."
+            )
+        frames.append(
+            FrameCandidate(
+                handle=handle,
+                layer=str(_safe(entity, "Layer", "")),
+                min_point=minimum,
+                max_point=maximum,
+                label=size.source,
+                width_mm=size.width_mm,
+                height_mm=size.height_mm,
+                confidence=0.9 if len(matching) == 1 else 0.8,
+            )
+        )
     return frames, warnings
+
+
+def _rectangle_area(
+    minimum: tuple[float, float, float], maximum: tuple[float, float, float]
+) -> float:
+    return (maximum[0] - minimum[0]) * (maximum[1] - minimum[1])
+
+
+def _areas_nearly_equal(
+    left: tuple[Any, tuple[float, float, float], tuple[float, float, float]],
+    right: tuple[Any, tuple[float, float, float], tuple[float, float, float]],
+    tolerance: float = 0.01,
+) -> bool:
+    left_area = _rectangle_area(left[1], left[2])
+    right_area = _rectangle_area(right[1], right[2])
+    return abs(left_area - right_area) / max(left_area, right_area) <= tolerance
 
 
 def _safe(value: Any, attribute: str, default: Any = None) -> Any:

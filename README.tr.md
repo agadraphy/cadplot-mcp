@@ -54,6 +54,8 @@ birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 harf kullanılarak girilmelidir.
 `pdf_page_tolerance_mm`, üretilen PDF'nin fiziksel sayfa ölçüsü kontrolünü belirler ve güvenlik
 nedeniyle 10 mm'yi geçemez.
+`minimum_frame_confidence` varsayılan olarak `0.85` değerindedir; nested veya belirsiz çerçeveler
+bu eşiğin altında otomatik yayına alınmaz.
 
 ## Önerilen pilot akışı
 

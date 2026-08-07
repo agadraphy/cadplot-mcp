@@ -72,6 +72,7 @@ paper_profiles:
         ("layout_prefix: ../bad", "layout_prefix"),
         ("require_page_setup_match: maybe", "must be true or false"),
         ("pdf_page_tolerance_mm: 20", "between 0 and 10"),
+        ("minimum_frame_confidence: 2", "between 0 and 1"),
     ],
 )
 def test_config_rejects_unsafe_scale_settings(
