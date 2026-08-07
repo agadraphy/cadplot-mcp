@@ -9,6 +9,7 @@ from mcp.server.fastmcp.server import Settings as FastMCPSettings
 
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
+from cadplot_mcp.batch import build_batch_page
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
 from cadplot_mcp.fingerprint import fingerprint_drawing
@@ -107,6 +108,30 @@ def create_publish_plan(path: str) -> dict[str, Any]:
     """Inspect one DWG and return a deterministic dry-run plan; never modifies or plots it."""
     config = _config()
     return _build_current_plan(path, config)
+
+
+@mcp.tool()
+def create_batch_publish_plans(
+    root: str,
+    recursive: bool = True,
+    offset: int = 0,
+    limit: int = 20,
+    max_files: int = 5_000,
+) -> dict[str, Any]:
+    """Inspect a restartable page of DWGs; one drawing failure does not stop the batch."""
+    config = _config()
+    drawings = discover_drawings(
+        root,
+        config.path_policy,
+        recursive=recursive,
+        max_files=max_files,
+    )
+    return build_batch_page(
+        [drawing.path for drawing in drawings],
+        lambda path: _build_current_plan(path, config),
+        offset=offset,
+        limit=limit,
+    )
 
 
 @mcp.tool()

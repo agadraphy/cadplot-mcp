@@ -51,6 +51,8 @@ worker used by the write-capable milestone.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, and labelled rectangular frames.
 - `create_publish_plan`: generate a deterministic, hashed dry-run plan with blockers.
+- `create_batch_publish_plans`: inspect up to 50 drawings per restartable page while isolating
+  per-file blockers and AutoCAD errors.
 - `preview_publish_plan`: send only ready, hash-verified plan metadata to the local plug-in;
   it never edits, saves, or plots the drawing.
 - `stage_publish_job`: require the exact approved plan ID, re-inspect and re-hash the DWG,
@@ -69,6 +71,10 @@ PC3/PMP, title blocks, and project drawings must not be committed to this reposi
 and the detected paper label are used to derive rotation and scale. Only values listed under
 `scale_denominators` within `scale_tolerance_ratio` are accepted; nonstandard or distorted frames
 remain blockers in the dry-run plan.
+
+For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
+`has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
+MCP request.
 
 ## Roadmap
 
