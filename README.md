@@ -89,8 +89,11 @@ uv run python scripts/run-synthetic-demo.py
   plug-in refusal or connection error.
 - `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, or `Failed` plus a bounded
   machine-safe failure code.
+- `read_publish_receipt`: recover immutable, digest-bound terminal execution evidence from the
+  staged job even after AutoCAD has restarted.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
-  count, expected physical paper dimensions, sizes, and SHA-256 hashes without changing output.
+  count, expected physical paper dimensions, sizes, SHA-256 hashes, and execution evidence without
+  changing output. `publish_verified=true` requires both valid PDFs and a successful receipt.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration
@@ -127,6 +130,9 @@ For large folders, call `create_batch_publish_plans` with the returned `next_off
 MCP request.
 After staging and approving the returned manifest digests, use `queue_publish_batch` in bounded
 pages; do not submit all 300 jobs as one call.
+Process-local queue status disappears when AutoCAD exits, but every terminal job writes an
+immutable `receipt.json`. Use `read_publish_receipt` or the audit report to resume verification
+without guessing from the presence of PDFs alone.
 
 ## Delivery gates
 

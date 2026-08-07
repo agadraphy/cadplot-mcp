@@ -16,7 +16,7 @@ Use this checklist for every alpha release.
 - [ ] `uv run ruff check .` passes.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
-      `audit_complete=true`.
+      `audit_complete=true`, while truthfully retaining `publish_verified=false`.
 - [ ] `uv build` and `uv run python scripts/audit-release-artifacts.py dist` pass.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
@@ -25,6 +25,8 @@ Use this checklist for every alpha release.
 - [ ] The real bundle was built with Autodesk references while no Autodesk DLL was packaged.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
+- [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as
+      execution proof unless `publish_verified=true`.
 - [ ] Dependency lock data has been reviewed for intended versions.
 
 ## Alpha release criteria

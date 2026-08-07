@@ -19,4 +19,6 @@ It does not connect to or launch AutoCAD. It exercises:
 
 Success is evidence for the platform-independent workflow only. It is not evidence that an
 AutoCAD plug-in loaded, a real DWG was interpreted, company plot resources matched, or AutoCAD
-produced a PDF. Those remain licensed-workstation acceptance gates.
+produced a PDF. The demo therefore reports `execution_verified=false` and
+`publish_verified=false` even when its synthetic PDF audit is complete. Those remain
+licensed-workstation acceptance gates.

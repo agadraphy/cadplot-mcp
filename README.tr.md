@@ -89,7 +89,9 @@ Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
 9. Lisanslı pilotta aynı `plan_id` ve staging sonucundaki `manifest_sha256` değerlerini
    `queue_publish_job` aracına açıkça verin.
 10. `get_publish_job_status` sonucu `Succeeded` olana kadar durumu okuyun.
-11. Üretilen dosyaları `audit_publish_outputs` ile doğrulayın ve beklenen PDF ile karşılaştırın.
+11. `read_publish_receipt` ile manifest hash'ine bağlı kalıcı başarı kanıtını doğrulayın.
+12. Üretilen dosyaları `audit_publish_outputs` ile doğrulayın; ancak hem PDF'ler hem receipt
+    geçerliyse dönen `publish_verified=true` sonucunu kabul edin.
 
 300 çizim için `create_batch_publish_plans` aracını varsayılan 20'lik sayfalarla kullanın ve
 `has_more=false` olana kadar dönen `next_offset` değeriyle devam edin.
@@ -99,6 +101,8 @@ orijinalleri değiştirmez; her sonuç ayrı raporlanır.
 Staging sonuçlarındaki benzersiz `(manifest_path, plan_id, manifest_sha256)` üçlülerini yine en
 fazla 20'şer adet `queue_publish_batch` çağrısıyla sıraya alın; 300 işi tek bir MCP çağrısına
 doldurmayın.
+AutoCAD kapanınca canlı kuyruk durumu silinir; terminal sonuçtaki `receipt.json` silinmez.
+Yeniden başladıktan sonra `read_publish_receipt` ile kaldığınız işi güvenle doğrulayabilirsiniz.
 
 ## ChatGPT bağlantısı
 

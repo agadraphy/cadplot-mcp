@@ -69,10 +69,12 @@ The product field must include the live `ACADVER`; record it with the pilot evid
    `manifest_sha256` returned by staging.
 5. Poll `get_publish_job_status`; require `Succeeded`. A failure code is evidence to diagnose, not
    permission to overwrite or bypass a gate.
-6. Call `audit_publish_outputs`; require one valid, unencrypted, one-page PDF with the expected
-   physical paper dimensions.
-7. Require both source and staged DWG hashes to remain unchanged.
-8. Visually compare orientation, crop, viewport scale, lineweights, plot style, text/font output,
+6. Call `read_publish_receipt`; require a digest-bound `succeeded` terminal receipt. Restart
+   AutoCAD once and confirm the same receipt can still be read.
+7. Call `audit_publish_outputs`; require `publish_verified=true` plus one valid, unencrypted,
+   one-page PDF with the expected physical paper dimensions.
+8. Require both source and staged DWG hashes to remain unchanged.
+9. Visually compare orientation, crop, viewport scale, lineweights, plot style, text/font output,
    and title block against the office reference PDF.
 
 Repeat Gate 6 separately on licensed AutoCAD 2016 and 2025. Do not infer one from the other.
@@ -84,7 +86,8 @@ Repeat Gate 6 separately on licensed AutoCAD 2016 and 2025. Do not infer one fro
 - Correct layout/frame/profile inventory returned.
 - MCP-to-plug-in status round trip works.
 - Staged manifest passes the independent plug-in workspace check.
-- The queued job succeeds and the PDF audit is complete.
+- The queued job succeeds, its immutable receipt validates after restart, and the PDF audit reports
+  `publish_verified=true`.
 - Source and staged DWG hashes remain unchanged after plotting.
 - The authorized visual comparison is accepted for scale, crop, style, and orientation.
 - No proprietary asset is present in the Git repository or release archive.

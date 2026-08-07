@@ -40,12 +40,18 @@ namespace CadPlotMcp.Core
     {
         private readonly PublishJobQueue _queue;
         private readonly IPublishJobExecutor _executor;
+        private readonly IPublishReceiptWriter _receiptWriter;
         private int _busy;
 
-        public PublishJobWorker(PublishJobQueue queue, IPublishJobExecutor executor)
+        public PublishJobWorker(
+            PublishJobQueue queue,
+            IPublishJobExecutor executor,
+            IPublishReceiptWriter receiptWriter = null
+        )
         {
             _queue = queue ?? throw new ArgumentNullException("queue");
             _executor = executor ?? throw new ArgumentNullException("executor");
+            _receiptWriter = receiptWriter;
         }
 
         public PublishProcessResult ProcessNext()
@@ -69,6 +75,17 @@ namespace CadPlotMcp.Core
                     execution = PublishExecutionResult.Failure(
                         "publisher_exception:" + exception.GetType().Name
                     );
+                }
+                if (_receiptWriter != null)
+                {
+                    string receiptError;
+                    try { receiptError = _receiptWriter.Write(request, execution); }
+                    catch (Exception exception)
+                    {
+                        receiptError = "receipt_exception:" + exception.GetType().Name;
+                    }
+                    if (receiptError != null)
+                        execution = PublishExecutionResult.Failure(receiptError);
                 }
                 _queue.Complete(request.PlanId, execution.Succeeded, execution.Error);
                 return new PublishProcessResult

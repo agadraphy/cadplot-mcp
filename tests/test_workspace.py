@@ -1,10 +1,11 @@
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
 
-from cadplot_mcp.audit import audit_publish_outputs
+from cadplot_mcp.audit import audit_publish_outputs, read_publish_receipt
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
@@ -109,7 +110,11 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
 
     missing = audit_publish_outputs(job["manifest"], config)
     assert missing["complete"] is False
+    assert missing["outputs_complete"] is False
+    assert missing["execution_verified"] is False
+    assert missing["publish_verified"] is False
     assert missing["summary"] == {"expected": 1, "valid": 0, "missing": 1, "invalid": 0}
+    assert missing["execution_receipt"] == {"found": False, "receipt": None}
 
     pdf = Path(job["outputs"][0]["pdf"])
     writer = PdfWriter()
@@ -118,11 +123,92 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
         writer.write(stream)
     complete = audit_publish_outputs(job["manifest"], config)
     assert complete["complete"] is True
+    assert complete["outputs_complete"] is True
+    assert complete["execution_verified"] is False
+    assert complete["publish_verified"] is False
     assert complete["summary"] == {"expected": 1, "valid": 1, "missing": 0, "invalid": 0}
     assert len(complete["outputs"][0]["sha256"]) == 64
     assert complete["outputs"][0]["page_count"] == 1
     assert complete["outputs"][0]["page_width_points"] == 595
     assert complete["outputs"][0]["page_width_mm"] == pytest.approx(209.903, abs=0.001)
+
+
+def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    receipt = {
+        "schema_version": 1,
+        "plan_id": plan["plan_id"],
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "state": "succeeded",
+        "completed_utc": "2026-08-07T20:00:00+00:00",
+    }
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
+    pdf_writer = PdfWriter()
+    pdf_writer.add_blank_page(width=595, height=842)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        pdf_writer.write(stream)
+
+    result = read_publish_receipt(manifest_path, config)
+    report = audit_publish_outputs(manifest_path, config)
+
+    assert result == {"found": True, "receipt": receipt}
+    assert report["execution_receipt"] == result
+    assert report["execution_verified"] is True
+    assert report["publish_verified"] is True
+
+
+def test_receipt_reader_rejects_manifest_digest_mismatch(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plan_id": plan["plan_id"],
+                "manifest_sha256": "0" * 64,
+                "state": "succeeded",
+                "completed_utc": "2026-08-07T20:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="manifest digest mismatch"):
+        read_publish_receipt(manifest_path, config)
+
+
+@pytest.mark.parametrize(
+    ("error", "accepted"),
+    [("plot_failed:InvalidInput", True), (r"failed C:\\secret\\drawing.dwg", False)],
+)
+def test_failed_receipt_allows_only_bounded_error_codes(
+    tmp_path: Path, error: str, accepted: bool
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    receipt = {
+        "schema_version": 1,
+        "plan_id": plan["plan_id"],
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "state": "failed",
+        "error": error,
+        "completed_utc": "2026-08-07T20:00:00Z",
+    }
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
+
+    if accepted:
+        assert read_publish_receipt(manifest_path, config)["receipt"] == receipt
+    else:
+        with pytest.raises(ValueError, match="invalid error code"):
+            read_publish_receipt(manifest_path, config)
 
 
 def test_output_audit_rejects_manifest_path_escape(tmp_path: Path) -> None:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +14,7 @@ from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.security import PathPolicyError
 
 MAX_MANIFEST_BYTES = 1024 * 1024
+MAX_RECEIPT_BYTES = 64 * 1024
 HASH_CHUNK_BYTES = 1024 * 1024
 
 
@@ -25,11 +28,19 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
     valid = sum(item["status"] == "valid" for item in results)
     missing = sum(item["status"] == "missing" for item in results)
     invalid = len(results) - valid - missing
+    receipt = read_publish_receipt(manifest_value, config)
+    outputs_complete = valid == len(results)
+    execution_verified = bool(
+        receipt["found"] and receipt["receipt"]["state"] == "succeeded"
+    )
     return {
         "schema_version": 1,
         "job_id": manifest["job_id"],
         "plan_id": manifest["plan_id"],
-        "complete": valid == len(results),
+        "complete": outputs_complete,
+        "outputs_complete": outputs_complete,
+        "execution_verified": execution_verified,
+        "publish_verified": outputs_complete and execution_verified,
         "summary": {
             "expected": len(results),
             "valid": valid,
@@ -37,7 +48,54 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
             "invalid": invalid,
         },
         "outputs": results,
+        "execution_receipt": receipt,
     }
+
+
+def read_publish_receipt(
+    manifest_value: str | Path,
+    config: CadPlotConfig,
+) -> dict[str, Any]:
+    """Read and cross-check immutable plug-in execution evidence for a staged job."""
+    manifest, job_root = load_staged_manifest(manifest_value, config)
+    receipt_path = job_root / "receipt.json"
+    if not receipt_path.exists():
+        return {"found": False, "receipt": None}
+    resolved = receipt_path.resolve(strict=True)
+    if resolved.parent != job_root.resolve(strict=True) or not resolved.is_file():
+        raise PathPolicyError("Publish receipt is outside its job boundary.")
+    if resolved.stat().st_size > MAX_RECEIPT_BYTES:
+        raise ValueError("Publish receipt exceeds the 64 KiB safety limit.")
+    try:
+        raw = json.loads(resolved.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Publish receipt is not valid UTF-8 JSON.") from exc
+    if not isinstance(raw, dict) or raw.get("schema_version") != 1:
+        raise ValueError("Unsupported publish receipt schema.")
+    if raw.get("plan_id") != manifest["plan_id"]:
+        raise ValueError("Publish receipt plan identity mismatch.")
+    manifest_digest = _sha256(job_root / "manifest.json")
+    if raw.get("manifest_sha256") != manifest_digest:
+        raise ValueError("Publish receipt manifest digest mismatch.")
+    state = raw.get("state")
+    error = raw.get("error")
+    if state not in {"succeeded", "failed"}:
+        raise ValueError("Publish receipt has an invalid terminal state.")
+    if state == "succeeded" and error is not None:
+        raise ValueError("Successful publish receipt cannot contain an error.")
+    if state == "failed" and (
+        not isinstance(error, str)
+        or not re.fullmatch(r"[A-Za-z0-9_:-]{1,128}", error)
+    ):
+        raise ValueError("Failed publish receipt has an invalid error code.")
+    completed = raw.get("completed_utc")
+    try:
+        parsed = datetime.fromisoformat(completed)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Publish receipt has an invalid completion timestamp.") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("Publish receipt completion timestamp must include a timezone.")
+    return {"found": True, "receipt": raw}
 
 
 def load_staged_manifest(

@@ -11,6 +11,7 @@ from mcp.types import ToolAnnotations
 
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.audit import load_staged_manifest
+from cadplot_mcp.audit import read_publish_receipt as load_publish_receipt
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_approved_batch
 from cadplot_mcp.config import CadPlotConfig, load_config
@@ -274,6 +275,15 @@ def get_publish_job_status(plan_id: str, timeout_ms: int = 2_000) -> dict[str, A
     except (PluginConnectionError, ValueError) as exc:
         return {"found": False, "error": str(exc)}
     return {"found": bool(response.get("ok")), "plugin": response}
+
+
+@mcp.tool(annotations=READ_ONLY)
+def read_publish_receipt(manifest_path: str) -> dict[str, Any]:
+    """Read persistent terminal publish evidence after AutoCAD restarts; never writes files."""
+    try:
+        return load_publish_receipt(manifest_path, _config())
+    except (OSError, ValueError) as exc:
+        return {"found": False, "error": str(exc)}
 
 
 @mcp.tool(annotations=LOCAL_WRITE)

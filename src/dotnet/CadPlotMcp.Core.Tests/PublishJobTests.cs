@@ -378,6 +378,64 @@ public sealed class PublishJobTests : IDisposable
         Assert.True(completed.Succeeded);
     }
 
+    [Fact]
+    public void ReceiptWriterPersistsImmutableTerminalEvidence()
+    {
+        var writer = new PublishReceiptWriter(Path.GetDirectoryName(_jobRoot)!);
+
+        var error = writer.Write(_request, PublishExecutionResult.Success());
+        var receiptPath = Path.Combine(_jobRoot, PublishReceiptWriter.ReceiptFileName);
+        using var receipt = JsonDocument.Parse(File.ReadAllText(receiptPath));
+
+        Assert.Null(error);
+        Assert.Equal(1, receipt.RootElement.GetProperty("schema_version").GetInt32());
+        Assert.Equal(_request.PlanId, receipt.RootElement.GetProperty("plan_id").GetString());
+        Assert.Equal(
+            _request.ManifestSha256,
+            receipt.RootElement.GetProperty("manifest_sha256").GetString()
+        );
+        Assert.Equal("succeeded", receipt.RootElement.GetProperty("state").GetString());
+        Assert.False(receipt.RootElement.TryGetProperty("error", out _));
+        Assert.Equal(
+            "receipt_exists",
+            writer.Write(_request, PublishExecutionResult.Failure("plot_failed"))
+        );
+    }
+
+    [Fact]
+    public void ReceiptWriterPersistsBoundedFailureEvidence()
+    {
+        var writer = new PublishReceiptWriter(Path.GetDirectoryName(_jobRoot)!);
+
+        var error = writer.Write(_request, PublishExecutionResult.Failure("plot_failed"));
+        using var receipt = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(_jobRoot, PublishReceiptWriter.ReceiptFileName))
+        );
+
+        Assert.Null(error);
+        Assert.Equal("failed", receipt.RootElement.GetProperty("state").GetString());
+        Assert.Equal("plot_failed", receipt.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public void WorkerTurnsReceiptFailureIntoBoundedJobFailure()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        var worker = new PublishJobWorker(
+            queue,
+            new DelegateExecutor(_ => PublishExecutionResult.Success()),
+            new DelegateReceiptWriter((_, _) => "receipt_write_failed")
+        );
+
+        var result = worker.ProcessNext();
+
+        Assert.True(result.Processed);
+        Assert.False(result.Succeeded);
+        Assert.Equal("receipt_write_failed", result.Error);
+        Assert.Equal(PublishJobState.Failed, queue.GetStatus(_request.PlanId)!.State);
+    }
+
     private PublishJobQueue NewQueue() =>
         new(Path.GetDirectoryName(_jobRoot)!, 5);
 
@@ -398,6 +456,14 @@ public sealed class PublishJobTests : IDisposable
     ) : IPublishJobExecutor
     {
         public PublishExecutionResult Execute(PublishJobRequest request) => execute(request);
+    }
+
+    private sealed class DelegateReceiptWriter(
+        Func<PublishJobRequest, PublishExecutionResult, string> write
+    ) : IPublishReceiptWriter
+    {
+        public string Write(PublishJobRequest request, PublishExecutionResult execution) =>
+            write(request, execution);
     }
 
     private void WriteManifest(string? firstPdf = null)

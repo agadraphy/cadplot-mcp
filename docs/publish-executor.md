@@ -19,7 +19,8 @@ For every job the plug-in:
 6. temporarily forces foreground plotting (`BACKGROUNDPLOT=0`), plots each current layout through
    the nested PlotEngine lifecycle to its explicit job PDF, and restores the user's prior value;
 7. closes the DWG without saving, so the staged file remains byte-identical;
-8. exposes only bounded error codes through job status. Raw exception messages are not returned.
+8. atomically writes an immutable, manifest-digest-bound terminal `receipt.json` and exposes only
+   bounded error codes through job status. Raw exception messages are not returned.
 
 The executor does not run arbitrary AutoCAD commands or AutoLISP. It does not accept a source path,
 workspace root, plotter, layout name, or output path beyond the independently validated staged
@@ -52,7 +53,8 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 
 ## Current limitations
 
-- The queue and status history are process-local; restarting AutoCAD clears them.
+- The queue and live status history are process-local; restarting AutoCAD clears them. Terminal
+  results survive in `receipt.json` and can be cross-checked through `read_publish_receipt`.
 - A mid-job failure can leave already-created PDFs in that job. They are never overwritten. Audit
   the job, diagnose the bounded failure code, and stage a new job for a clean retry.
 - The first live gate is intentionally one sheet. Large batches are enabled only after both

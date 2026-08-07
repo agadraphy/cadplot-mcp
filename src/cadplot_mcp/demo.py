@@ -88,6 +88,8 @@ paper_profiles:
         "job_id": job["job_id"],
         "job_state": job["state"],
         "audit_complete": audit["complete"],
+        "execution_verified": audit["execution_verified"],
+        "publish_verified": audit["publish_verified"],
         "audit_summary": audit["summary"],
         "pdf": audit["outputs"][0],
     }

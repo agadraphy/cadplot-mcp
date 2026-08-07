@@ -44,7 +44,11 @@ namespace CadPlotMcp.AutoCAD
                 {
                     queue = new PublishJobQueue(workspace, ReadQueueCapacity());
                     _queue = queue;
-                    _worker = new PublishJobWorker(queue, new AutoCadPublishExecutor(workspace));
+                    _worker = new PublishJobWorker(
+                        queue,
+                        new AutoCadPublishExecutor(workspace),
+                        new PublishReceiptWriter(workspace)
+                    );
                     publishEnabled = true;
                 }
                 catch (Exception exception)

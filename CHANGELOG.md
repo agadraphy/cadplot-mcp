@@ -42,6 +42,9 @@ All notable changes to this project are documented in this file.
 - CI release-archive audit that rejects proprietary CAD/plot assets, secrets, Autodesk assemblies,
   and unexpected binaries from Python distributions or bundle ZIPs.
 - Approval-bound publish batching for up to 20 unique manifest/plan/hash triples per call.
+- Immutable, manifest-digest-bound terminal publish receipts that survive AutoCAD restarts.
+- Cross-checked receipt reading and a `publish_verified` audit gate requiring both valid PDFs and
+  successful execution evidence.
 
 ### Notes
 
