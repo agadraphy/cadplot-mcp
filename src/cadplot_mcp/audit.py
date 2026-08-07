@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
+
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.security import PathPolicyError
 
@@ -103,16 +106,81 @@ def _audit_pdf(item: dict[str, Any], job_root: Path) -> dict[str, Any]:
         "pdf": str(pdf),
     }
     if not pdf.exists():
-        return {**result, "status": "missing", "size_bytes": None, "sha256": None}
+        return {
+            **result,
+            "status": "missing",
+            "size_bytes": None,
+            "sha256": None,
+            "page_count": None,
+        }
     resolved = pdf.resolve(strict=True)
     if resolved.parent != (job_root / "output").resolve(strict=True) or not resolved.is_file():
-        return {**result, "status": "invalid_path", "size_bytes": None, "sha256": None}
+        return {
+            **result,
+            "status": "invalid_path",
+            "size_bytes": None,
+            "sha256": None,
+            "page_count": None,
+        }
     size = resolved.stat().st_size
     with resolved.open("rb") as stream:
         header = stream.read(5)
     if header != b"%PDF-":
-        return {**result, "status": "invalid_pdf_header", "size_bytes": size, "sha256": None}
-    return {**result, "status": "valid", "size_bytes": size, "sha256": _sha256(resolved)}
+        return {
+            **result,
+            "status": "invalid_pdf_header",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": None,
+        }
+    try:
+        with resolved.open("rb") as stream:
+            reader = PdfReader(stream, strict=False)
+            if reader.is_encrypted:
+                return {
+                    **result,
+                    "status": "encrypted_pdf",
+                    "size_bytes": size,
+                    "sha256": None,
+                    "page_count": None,
+                }
+            page_count = len(reader.pages)
+            if page_count != 1:
+                return {
+                    **result,
+                    "status": "unexpected_page_count",
+                    "size_bytes": size,
+                    "sha256": None,
+                    "page_count": page_count,
+                }
+            media_box = reader.pages[0].mediabox
+            width_points = float(media_box.width)
+            height_points = float(media_box.height)
+    except (OSError, PdfReadError, TypeError, ValueError):
+        return {
+            **result,
+            "status": "invalid_pdf_structure",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": None,
+        }
+    if min(width_points, height_points) <= 0:
+        return {
+            **result,
+            "status": "invalid_page_size",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": 1,
+        }
+    return {
+        **result,
+        "status": "valid",
+        "size_bytes": size,
+        "sha256": _sha256(resolved),
+        "page_count": 1,
+        "page_width_points": round(width_points, 3),
+        "page_height_points": round(height_points, 3),
+    }
 
 
 def _sha256(path: Path) -> str:

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pypdf import PdfWriter
 
 from cadplot_mcp.audit import audit_publish_outputs
 from cadplot_mcp.config import load_config
@@ -110,11 +111,16 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
     assert missing["summary"] == {"expected": 1, "valid": 0, "missing": 1, "invalid": 0}
 
     pdf = Path(job["outputs"][0]["pdf"])
-    pdf.write_bytes(b"%PDF-1.7\nsynthetic test pdf\n%%EOF\n")
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
     complete = audit_publish_outputs(job["manifest"], config)
     assert complete["complete"] is True
     assert complete["summary"] == {"expected": 1, "valid": 1, "missing": 0, "invalid": 0}
     assert len(complete["outputs"][0]["sha256"]) == 64
+    assert complete["outputs"][0]["page_count"] == 1
+    assert complete["outputs"][0]["page_width_points"] == 595
 
 
 def test_output_audit_rejects_manifest_path_escape(tmp_path: Path) -> None:
@@ -138,3 +144,30 @@ def test_output_audit_marks_non_pdf_content_invalid(tmp_path: Path) -> None:
 
     assert report["complete"] is False
     assert report["outputs"][0]["status"] == "invalid_pdf_header"
+
+
+def test_output_audit_rejects_multi_page_pdf(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    writer.add_blank_page(width=595, height=842)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["complete"] is False
+    assert report["outputs"][0]["status"] == "unexpected_page_count"
+    assert report["outputs"][0]["page_count"] == 2
+
+
+def test_output_audit_rejects_pdf_header_without_valid_structure(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    Path(job["outputs"][0]["pdf"]).write_bytes(b"%PDF-this-is-not-a-valid-document")
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["complete"] is False
+    assert report["outputs"][0]["status"] == "invalid_pdf_structure"

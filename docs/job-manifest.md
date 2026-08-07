@@ -28,5 +28,6 @@ The manifest starts in `staged` state. A future AutoCAD publisher may only opera
 `staged_drawing` named in this manifest and must write PDFs under its `output_directory`.
 
 After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
-rejects path escapes, duplicate PDF targets, a changed staged DWG, non-PDF headers, and manifests
-outside `workspace_root`. Its report includes each valid PDF's byte size and SHA-256 digest.
+rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,
+and any output that is not exactly one page. Its report includes page dimensions, byte size, and
+SHA-256 digest for each valid PDF.

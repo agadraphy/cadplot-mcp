@@ -63,8 +63,8 @@ worker used by the write-capable milestone.
   isolating per-file reinspection or approval failures.
 - `validate_staged_job`: ask the local plug-in to cross-check the staged manifest against its
   independently configured trusted workspace; it does not queue or plot the job.
-- `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, expected PDF headers,
-  sizes, and SHA-256 hashes without changing any output.
+- `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
+  count, page dimensions, sizes, and SHA-256 hashes without changing any output.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration

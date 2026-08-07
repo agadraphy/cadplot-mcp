@@ -8,6 +8,7 @@ Current direct dependencies include:
 
 - MCP Python SDK (`mcp`)
 - Pydantic (`pydantic`)
+- pypdf (`pypdf`, BSD-3-Clause)
 - PyYAML (`pyyaml`)
 - pywin32 (optional, Windows/AutoCAD integration)
 

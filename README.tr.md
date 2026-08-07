@@ -16,7 +16,8 @@ Hazır olan parçalar:
 - hash'li ve onay kapılı dry-run planı;
 - 50 DWG'ye kadar sayfalı, kaldığı yerden devam edebilen batch planlama;
 - orijinale dokunmadan izole çalışma klasörüne doğrulanmış DWG kopyası alma;
-- beklenen PDF'leri yol, başlık, boyut ve SHA-256 açısından denetleme;
+- beklenen PDF'leri yol, gerçek PDF yapısı, tek sayfa, sayfa ölçüsü, boyut ve SHA-256 açısından
+  denetleme;
 - AutoCAD 2016 ve 2025-2026 için ayrı .NET adaptör/bundle iskeleti.
 
 Henüz tamamlanmamış kapı: gerçek layout oluşturma ve PDF plot işlemi, Autodesk SDK referanslarıyla
