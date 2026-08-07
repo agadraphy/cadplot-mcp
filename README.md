@@ -193,6 +193,9 @@ This is only an API-signature probe. It does not validate plotting or version co
 See [publish executor](docs/publish-executor.md) and the
 [licensed-workstation pilot](docs/monday-pilot.md). A concise Turkish presentation flow is in the
 [Monday demo runbook](docs/pazartesi-demo-tr.md).
+The final two-version acceptance record is checked by
+[`scripts/validate-pilot-evidence.py`](scripts/validate-pilot-evidence.py); its completed company
+evidence file stays outside the public repository.
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration

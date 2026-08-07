@@ -55,6 +55,8 @@ All notable changes to this project are documented in this file.
   reparse-point checks.
 - Optional approved in-drawing paper-space layout cloning that preserves title-block geometry and
   deterministically retargets exactly one existing floating viewport.
+- Strict machine-readable licensed-pilot evidence validation requiring distinct 2016/2025 runs,
+  unchanged DWG hashes, manifest-bound receipts, restart proof, and complete visual acceptance.
 
 ### Notes
 

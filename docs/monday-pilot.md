@@ -78,6 +78,8 @@ The product field must include the live `ACADVER`; record it with the pilot evid
    and title block against the office reference PDF.
 
 Repeat Gate 6 separately on licensed AutoCAD 2016 and 2025. Do not infer one from the other.
+Record both runs using the [licensed pilot evidence contract](pilot-evidence.md) and require its
+validator to return `valid=true`.
 
 ## Gate 7: bounded batch recovery
 

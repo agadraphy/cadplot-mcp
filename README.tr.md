@@ -79,6 +79,8 @@ uv run python scripts/run-synthetic-demo.py
 ```
 
 Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
+2016 ve 2025 canlı sonuçları ayrı JSON kayıtları olarak tutulur ve
+`scripts/validate-pilot-evidence.py` ile birlikte doğrulanmadan üretim kabulü verilmez.
 
 ## Önerilen pilot akışı
 
