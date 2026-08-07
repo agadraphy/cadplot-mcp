@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from cadplot_mcp.config import load_config
 from cadplot_mcp.models import DrawingInspection, FrameCandidate
-from cadplot_mcp.planner import create_publish_plan
+from cadplot_mcp.planner import create_publish_plan, validate_publish_plan
 
 
 def _config(tmp_path: Path):
@@ -49,6 +51,7 @@ def test_publish_plan_is_deterministic_and_ready(tmp_path: Path) -> None:
     assert first["ready"] is True
     assert first["plan_id"].startswith("sha256:")
     assert first["sheets"][0]["profile"]["page_setup"] == "OFFICE_70x100"
+    validate_publish_plan(first)
 
 
 def test_publish_plan_blocks_unmatched_frame(tmp_path: Path) -> None:
@@ -61,3 +64,15 @@ def test_publish_plan_blocks_unmatched_frame(tmp_path: Path) -> None:
     assert plan["sheets"][0]["status"] == "unmatched"
     assert "no profile" in plan["warnings"][0]
 
+    with pytest.raises(ValueError, match="not ready"):
+        validate_publish_plan(plan)
+
+
+def test_publish_plan_rejects_tampering(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[_frame("70x100")])
+    plan = create_publish_plan(inspection, config)
+    plan["sheets"][0]["profile"]["page_setup"] = "ATTACKER_SETUP"
+
+    with pytest.raises(ValueError, match="hash mismatch"):
+        validate_publish_plan(plan)

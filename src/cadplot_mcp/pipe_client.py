@@ -6,6 +6,8 @@ import re
 import uuid
 from typing import Any
 
+from cadplot_mcp.planner import validate_publish_plan
+
 PIPE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 DEFAULT_PIPE_NAME = "cadplot-mcp"
 PROTOCOL_VERSION = "1"
@@ -22,6 +24,40 @@ def get_plugin_status(
     timeout_ms: int = 2_000,
 ) -> dict[str, Any]:
     """Request read-only status from the local AutoCAD plug-in named pipe."""
+    return _request_plugin(
+        "status",
+        pipe_name=pipe_name,
+        timeout_ms=timeout_ms,
+    )
+
+
+def preview_publish_plan(
+    plan: dict[str, Any],
+    pipe_name: str | None = None,
+    *,
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Ask the plug-in to validate plan metadata without plotting or editing."""
+    validate_publish_plan(plan)
+    return _request_plugin(
+        "preview_publish_plan",
+        pipe_name=pipe_name,
+        timeout_ms=timeout_ms,
+        payload={
+            "plan_id": plan["plan_id"],
+            "drawing": plan["drawing"],
+            "sheet_count": len(plan["sheets"]),
+        },
+    )
+
+
+def _request_plugin(
+    command: str,
+    *,
+    pipe_name: str | None,
+    timeout_ms: int,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if os.name != "nt":
         raise PluginConnectionError("The AutoCAD plug-in bridge is Windows-only.")
     selected_name = pipe_name or os.environ.get("CADPLOT_PIPE_NAME", DEFAULT_PIPE_NAME)
@@ -58,8 +94,10 @@ def get_plugin_status(
     request = {
         "id": request_id,
         "version": PROTOCOL_VERSION,
-        "command": "status",
+        "command": command,
     }
+    if payload:
+        request.update(payload)
     try:
         win32file.WriteFile(
             handle,

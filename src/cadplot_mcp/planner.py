@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import re
 from typing import Any
 
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.models import DrawingInspection
+
+PLAN_ID_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 def create_publish_plan(
@@ -61,3 +65,36 @@ def create_publish_plan(
         **payload,
     }
 
+
+def validate_publish_plan(plan: dict[str, Any]) -> None:
+    """Reject malformed, stale, modified, or non-dry-run publish plans."""
+    if plan.get("schema_version") != 1:
+        raise ValueError("Unsupported publish-plan schema version.")
+    if plan.get("mode") != "dry-run":
+        raise ValueError("Only dry-run publish plans can be previewed.")
+    if plan.get("ready") is not True:
+        raise ValueError("Publish plan is not ready; resolve every blocker first.")
+
+    sheets = plan.get("sheets")
+    if not isinstance(sheets, list) or not sheets:
+        raise ValueError("Publish plan must contain at least one sheet.")
+    if len(sheets) > 5_000:
+        raise ValueError("Publish plan exceeds the 5000-sheet safety limit.")
+    if any(not isinstance(sheet, dict) or sheet.get("status") != "matched" for sheet in sheets):
+        raise ValueError("Every sheet must have an approved paper-profile match.")
+
+    plan_id = plan.get("plan_id")
+    if not isinstance(plan_id, str) or not PLAN_ID_PATTERN.fullmatch(plan_id):
+        raise ValueError("Publish plan has an invalid plan_id.")
+
+    payload = {
+        "schema_version": plan["schema_version"],
+        "mode": plan["mode"],
+        "drawing": plan.get("drawing"),
+        "sheets": sheets,
+        "warnings": plan.get("warnings"),
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    expected = "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(plan_id, expected):
+        raise ValueError("Publish plan hash mismatch; recreate the plan before continuing.")

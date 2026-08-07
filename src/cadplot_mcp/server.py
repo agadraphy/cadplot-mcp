@@ -10,7 +10,11 @@ from mcp.server.fastmcp.server import Settings as FastMCPSettings
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
-from cadplot_mcp.pipe_client import PluginConnectionError, get_plugin_status
+from cadplot_mcp.pipe_client import (
+    PluginConnectionError,
+    get_plugin_status,
+)
+from cadplot_mcp.pipe_client import preview_publish_plan as request_publish_preview
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 
 # MCP 1.29 ships a generic settings model whose forward reference is not rebuilt
@@ -91,6 +95,25 @@ def create_publish_plan(path: str) -> dict[str, Any]:
     config = _config()
     inspection = AutoCADComInspector(config.path_policy).inspect_drawing(path)
     return build_publish_plan(inspection, config)
+
+
+@mcp.tool()
+def preview_publish_plan(path: str, timeout_ms: int = 2_000) -> dict[str, Any]:
+    """Validate a ready dry-run plan with AutoCAD; never edits, saves, or plots the DWG."""
+    config = _config()
+    inspection = AutoCADComInspector(config.path_policy).inspect_drawing(path)
+    plan = build_publish_plan(inspection, config)
+    if not plan["ready"]:
+        return {
+            "accepted": False,
+            "plan": plan,
+            "error": "Publish plan has blockers; AutoCAD preview was not requested.",
+        }
+    try:
+        response = request_publish_preview(plan, timeout_ms=timeout_ms)
+    except (PluginConnectionError, ValueError) as exc:
+        return {"accepted": False, "plan": plan, "error": str(exc)}
+    return {"accepted": bool(response.get("ok")), "plan": plan, "plugin": response}
 
 
 @mcp.tool()

@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
 - AutoCAD 2016 (`net45`) and AutoCAD 2025–2026 (`net8.0-windows`) adapter scaffolds.
 - Version-routed Autodesk `.bundle` manifest and guarded bundle/install scripts.
 - Whitelisted, size-limited read-only named-pipe status protocol.
+- Hash-verified, read-only publish-plan preview across the Python and .NET boundary.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

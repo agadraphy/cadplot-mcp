@@ -4,7 +4,7 @@ CadPlot MCP is a safety-first MCP server for repeatable AutoCAD plotting workflo
 It is designed for architecture offices that need to inspect many revised drawings,
 identify sheet frames, map company page setups, and publish PDFs consistently.
 
-## Current milestone: read-only inspector
+## Current milestone: read-only inspector and publish preview
 
 The first milestone intentionally cannot modify or plot a drawing. It provides:
 
@@ -49,6 +49,8 @@ worker used by the write-capable milestone.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, and labelled rectangular frames.
 - `create_publish_plan`: generate a deterministic, hashed dry-run plan with blockers.
+- `preview_publish_plan`: send only ready, hash-verified plan metadata to the local plug-in;
+  it never edits, saves, or plots the drawing.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration

@@ -36,6 +36,55 @@ public sealed class ProtocolTests
     }
 
     [Fact]
+    public void ValidPublishPreviewIsAcceptedButRemainsReadOnly()
+    {
+        var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");
+        var planId = "sha256:" + new string('a', 64);
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest
+            {
+                Id = "preview-1",
+                Version = "1",
+                Command = "preview_publish_plan",
+                PlanId = planId,
+                Drawing = @"C:\Projects\sample.dwg",
+                SheetCount = 12,
+            }
+        );
+
+        Assert.True(response.Ok);
+        Assert.True(response.ReadOnly);
+        Assert.Equal(planId, response.PlanId);
+        Assert.Equal(12, response.AcceptedSheetCount);
+    }
+
+    [Theory]
+    [InlineData("invalid", @"C:\Projects\sample.dwg", 1)]
+    [InlineData("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sample.dwg", 1)]
+    [InlineData("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", @"C:\Projects\sample.pdf", 1)]
+    [InlineData("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", @"C:\Projects\sample.dwg", 0)]
+    public void InvalidPublishPreviewIsRejected(string planId, string drawing, int sheetCount)
+    {
+        var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest
+            {
+                Id = "preview-invalid",
+                Version = "1",
+                Command = "preview_publish_plan",
+                PlanId = planId,
+                Drawing = drawing,
+                SheetCount = sheetCount,
+            }
+        );
+
+        Assert.False(response.Ok);
+        Assert.Equal("invalid_publish_plan_preview", response.Error);
+    }
+
+    [Fact]
     public void UnsupportedProtocolVersionIsRejected()
     {
         var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");
