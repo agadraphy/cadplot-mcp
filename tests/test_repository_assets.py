@@ -71,3 +71,23 @@ def test_api_probe_is_compile_only() -> None:
     assert "dotnet" in script.casefold()
     assert "AutoCAD was not launched" in script
     assert "Start-Process" not in script
+
+
+def test_build_and_install_require_exact_bundle_verification() -> None:
+    verifier = (REPOSITORY_ROOT / "scripts" / "verify-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+    for required in (
+        "PackageContents.xml",
+        "CadPlotMcp.AutoCAD2016.dll",
+        "CadPlotMcp.AutoCAD2025.dll",
+        "CadPlotMcp.Core.dll",
+        "GetAssemblyName",
+        "Get-FileHash",
+        "ReparsePoint",
+    ):
+        assert required in verifier
+
+    for script_name in ("build-bundle.ps1", "install-bundle.ps1"):
+        script = (REPOSITORY_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
+        assert "verify-bundle.ps1" in script

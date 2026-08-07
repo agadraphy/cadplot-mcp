@@ -37,8 +37,8 @@ The plot geometry includes the expected physical paper width and height. PDF aud
 those values to the parsed PDF MediaBox independent of orientation, using configured
 `pdf_page_tolerance_mm`.
 
-The manifest starts in `staged` state. A future AutoCAD publisher may only operate on the
-`staged_drawing` named in this manifest and must write PDFs under its `output_directory`.
+The manifest starts in `staged` state. The AutoCAD executor may operate only on the
+`staged_drawing` named in this manifest and may write PDFs only under its `output_directory`.
 
 After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
 rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,

@@ -63,6 +63,8 @@ Copy-Item -LiteralPath (Join-Path $bin2016 "CadPlotMcp.Core.dll") -Destination $
 Copy-Item -LiteralPath (Join-Path $bin2025 "CadPlotMcp.AutoCAD2025.dll") -Destination $dest2025
 Copy-Item -LiteralPath (Join-Path $bin2025 "CadPlotMcp.Core.dll") -Destination $dest2025
 
+& (Join-Path $PSScriptRoot "verify-bundle.ps1") -BundlePath $outputBundle
+
 $zipPath = Join-Path $artifactsRoot "CadPlotMcp.bundle.zip"
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for implementation; not yet connected to an AutoCAD publishing adapter.
+Implemented. Licensed AutoCAD 2016 and 2025 live acceptance remains pending.
 
 ## Context
 
@@ -34,7 +34,10 @@ exception type only; exception messages are not returned across the job boundary
 
 ## Consequences
 
-The named-pipe listener will enqueue validated requests only. A future version-specific AutoCAD
-adapter must drain at most one job at a time from AutoCAD's supported application context and must
-report completion back to this queue. Until that adapter is implemented and tested with licensed
-AutoCAD, no pipe command exposes the queue.
+The named-pipe listener enqueues validated requests only. Both version adapters share an
+`Application.Idle` scheduler that drains at most one job at a time on AutoCAD's application
+context, reports bounded live status, and persists immutable terminal evidence. The queue command
+remains disabled unless the operator explicitly enables publishing before AutoCAD starts.
+
+Source-level implementation and managed-API compilation do not replace the separately recorded
+licensed AutoCAD 2016 and 2025 pilots.

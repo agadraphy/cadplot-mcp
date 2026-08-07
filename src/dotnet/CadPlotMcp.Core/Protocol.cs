@@ -118,7 +118,7 @@ namespace CadPlotMcp.Core
                 response.Error = "unsupported_protocol_version";
                 return response;
             }
-            // Deliberately a positive whitelist. Neither command can mutate a drawing.
+            // Deliberately a positive whitelist. Write capability remains separately opt-in.
             if (String.Equals(request.Command, PipeProtocol.StatusCommand, StringComparison.Ordinal))
             {
                 response.Ok = true;

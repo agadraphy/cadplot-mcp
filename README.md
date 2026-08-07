@@ -165,6 +165,9 @@ ObjectARX/AutoCAD managed reference folders:
 
 The script intentionally fails if the Autodesk reference assemblies are missing. Autodesk SDK
 assemblies are development inputs and are not committed or copied into the public bundle.
+Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
+checks both module routes and managed assembly identities, rejects extra files/reparse points, and
+prints SHA-256 hashes. The build and install scripts invoke it automatically.
 
 To compile-check the shared executor against a locally installed API without launching AutoCAD:
 

@@ -47,6 +47,8 @@ All notable changes to this project are documented in this file.
   successful execution evidence.
 - Restartable, cursor-paginated workspace operations reports with safe recovery actions and exact
   requeue approvals for untouched jobs.
+- Exact-file AutoCAD bundle verification with module-route, managed-assembly, reparse-point, and
+  SHA-256 checks before archive creation or installation.
 
 ### Notes
 

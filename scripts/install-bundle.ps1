@@ -23,6 +23,7 @@ if (-not (Test-Path -LiteralPath $resolvedSource -PathType Container)) {
 if (-not (Test-Path -LiteralPath (Join-Path $resolvedSource "PackageContents.xml") -PathType Leaf)) {
     throw "Bundle source has no PackageContents.xml: $resolvedSource"
 }
+& (Join-Path $PSScriptRoot "verify-bundle.ps1") -BundlePath $resolvedSource
 if (Test-Path -LiteralPath $destinationBundle) {
     throw "CadPlotMcp.bundle is already installed. This script will not overwrite it: $destinationBundle"
 }
