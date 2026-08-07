@@ -56,6 +56,8 @@ harf kullanılarak girilmelidir.
 nedeniyle 10 mm'yi geçemez.
 `minimum_frame_confidence` varsayılan olarak `0.85` değerindedir; nested veya belirsiz çerçeveler
 bu eşiğin altında otomatik yayına alınmaz.
+Ofisin güvenilir bir çerçeve layer standardı varsa `frame_layers` listesi doldurulabilir; diğer
+layer'lardaki adaylar blocker olur.
 
 ## Önerilen pilot akışı
 

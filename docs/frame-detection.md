@@ -18,3 +18,7 @@ blockers until an operator fixes the source ambiguity or deliberately changes of
 Current limitation: rotated/non-axis-aligned frames and complex block-based borders are not yet
 automatic candidates. They must be handled by an approved office-specific detector or reviewed
 manually rather than guessed.
+
+If the office has a frame-layer standard, configure `frame_layers`. Matching is case-insensitive;
+any detected candidate on another layer receives `disallowed_frame_layer` and blocks the plan.
+An empty list keeps the general-purpose allow-all behavior.

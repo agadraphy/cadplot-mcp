@@ -35,6 +35,7 @@ class CadPlotConfig:
     layout_prefix: str = "CADPLOT"
     pdf_page_tolerance_mm: float = 2.0
     minimum_frame_confidence: float = 0.85
+    frame_layers: tuple[str, ...] = ()
 
     def match_paper_profile(self, label: str) -> PaperProfile | None:
         normalized = normalize_label(label)
@@ -94,6 +95,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
     layout_prefix = str(raw.get("layout_prefix", "CADPLOT"))
     pdf_page_tolerance_mm = float(raw.get("pdf_page_tolerance_mm", 2.0))
     minimum_frame_confidence = float(raw.get("minimum_frame_confidence", 0.85))
+    frame_layers = tuple(str(item).strip() for item in raw.get("frame_layers", ()))
     if drawing_unit_mm <= 0:
         raise ValueError("drawing_unit_mm must be greater than zero")
     if not scale_denominators or any(item <= 0 for item in scale_denominators):
@@ -110,6 +112,11 @@ def load_config(path: str | Path) -> CadPlotConfig:
         raise ValueError("pdf_page_tolerance_mm must be between 0 and 10")
     if not 0 <= minimum_frame_confidence <= 1:
         raise ValueError("minimum_frame_confidence must be between 0 and 1")
+    if any(not item for item in frame_layers):
+        raise ValueError("frame_layers must not contain empty names")
+    normalized_layers = [item.casefold() for item in frame_layers]
+    if len(normalized_layers) != len(set(normalized_layers)):
+        raise ValueError("frame_layers must be unique ignoring case")
     _validate_profiles(profiles)
     return CadPlotConfig(
         source=source,
@@ -123,6 +130,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
         layout_prefix=layout_prefix,
         pdf_page_tolerance_mm=pdf_page_tolerance_mm,
         minimum_frame_confidence=minimum_frame_confidence,
+        frame_layers=frame_layers,
     )
 
 

@@ -24,6 +24,7 @@ def create_publish_plan(
     warnings = list(inspection.warnings)
 
     existing_layouts = {layout.name.casefold() for layout in inspection.layouts}
+    allowed_frame_layers = {layer.casefold() for layer in config.frame_layers}
     for index, frame in enumerate(inspection.frames, start=1):
         target_layout = _target_layout_name(index, frame, config)
         profile = config.match_paper_profile(frame.label)
@@ -43,6 +44,21 @@ def create_publish_plan(
             continue
 
         profile_payload = _profile_payload(profile)
+        if allowed_frame_layers and frame.layer.casefold() not in allowed_frame_layers:
+            warnings.append(
+                f"Frame {frame.handle or '<no handle>'} is on unapproved layer {frame.layer!r}."
+            )
+            sheets.append(
+                {
+                    "frame_handle": frame.handle,
+                    "label": frame.label,
+                    "status": "disallowed_frame_layer",
+                    "profile": profile_payload,
+                    "target_layout": target_layout,
+                    "plot_geometry": None,
+                }
+            )
+            continue
         if frame.confidence < config.minimum_frame_confidence:
             warnings.append(
                 f"Frame {frame.handle or '<no handle>'} confidence {frame.confidence:.3f} "

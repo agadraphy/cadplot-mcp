@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -242,3 +243,23 @@ def test_publish_plan_blocks_low_confidence_frame(tmp_path: Path) -> None:
     assert plan["ready"] is False
     assert plan["sheets"][0]["status"] == "low_confidence"
     assert "below required" in plan["warnings"][0]
+
+
+def test_publish_plan_enforces_optional_frame_layer_allowlist(tmp_path: Path) -> None:
+    base = _config(tmp_path)
+    blocked_config = replace(base, frame_layers=("PLOT_FRAME",))
+
+    blocked = create_publish_plan(
+        _inspection([_frame("70x100")]),
+        blocked_config,
+        drawing_fingerprint=_fingerprint(),
+    )
+    allowed = create_publish_plan(
+        _inspection([_frame("70x100")]),
+        replace(base, frame_layers=("sheet",)),
+        drawing_fingerprint=_fingerprint(),
+    )
+
+    assert blocked["ready"] is False
+    assert blocked["sheets"][0]["status"] == "disallowed_frame_layer"
+    assert allowed["ready"] is True

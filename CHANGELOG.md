@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file.
 - Orientation-independent expected-versus-actual PDF paper-size validation.
 - Single-job .NET publish worker with concurrency guard and safe failure-state transitions.
 - Label-centric frame deduplication, nested selection, ambiguity rejection, and confidence gate.
+- Optional case-insensitive office frame-layer allowlist.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

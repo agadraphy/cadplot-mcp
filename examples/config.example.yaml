@@ -15,6 +15,8 @@ require_page_setup_match: true
 layout_prefix: "CADPLOT"
 pdf_page_tolerance_mm: 2
 minimum_frame_confidence: 0.85
+# Optional office-standard allowlist. Empty means any layer may be inspected as a frame.
+frame_layers: []
 
 paper_profiles:
   - id: "sheet_70x100"

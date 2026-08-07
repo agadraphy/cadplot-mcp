@@ -94,6 +94,7 @@ setup is the accepted source of media configuration and the office has approved 
 `pdf_page_tolerance_mm` controls the final PDF MediaBox comparison and is capped at 10 mm.
 `minimum_frame_confidence` defaults to `0.85`; ambiguous/nested frame detection remains a blocker
 below that threshold. See [frame detection](docs/frame-detection.md).
+Set optional `frame_layers` when the office has a reliable frame-layer allowlist.
 
 For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
