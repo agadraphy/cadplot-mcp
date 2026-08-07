@@ -46,6 +46,13 @@ AutoCAD must already be running for `inspect_drawing`. The server will not launc
 Close modal AutoCAD dialogs before inspection; COM-level timeouts will be added with the isolated
 worker used by the write-capable milestone.
 
+Before AutoCAD testing, run the clearly labelled platform-independent
+[synthetic demo](docs/synthetic-demo.md):
+
+```powershell
+uv run python scripts/run-synthetic-demo.py
+```
+
 ## MCP tools
 
 - `validate_environment`: report configuration and AutoCAD connection readiness.

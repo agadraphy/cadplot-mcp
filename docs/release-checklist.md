@@ -15,6 +15,8 @@ Use this checklist for every alpha release.
 
 - [ ] `uv run ruff check .` passes.
 - [ ] `uv run pytest` passes.
+- [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
+      `audit_complete=true`.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
 - [ ] The real bundle was built with Autodesk references while no Autodesk DLL was packaged.
@@ -26,6 +28,7 @@ Use this checklist for every alpha release.
 
 - [ ] The change has focused test coverage and a documented safety impact.
 - [ ] At least one dry-run transcript or equivalent manual result is reviewed.
+- [ ] Synthetic demo evidence is labelled synthetic and is not presented as AutoCAD evidence.
 - [ ] Known limitations and incompatible changes are stated in release notes.
 - [ ] A maintainer has reviewed the release artifacts before publication.
 

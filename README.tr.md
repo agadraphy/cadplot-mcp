@@ -59,6 +59,14 @@ bu eşiğin altında otomatik yayına alınmaz.
 Ofisin güvenilir bir çerçeve layer standardı varsa `frame_layers` listesi doldurulabilir; diğer
 layer'lardaki adaylar blocker olur.
 
+AutoCAD kullanmadan plan→onay→kopya staging→PDF audit zincirini denemek için:
+
+```powershell
+uv run python scripts/run-synthetic-demo.py
+```
+
+Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
+
 ## Önerilen pilot akışı
 
 1. Lisanslı AutoCAD'i açın ve modal pencere bırakmayın.

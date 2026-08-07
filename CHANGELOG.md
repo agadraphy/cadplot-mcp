@@ -31,6 +31,7 @@ All notable changes to this project are documented in this file.
 - Single-job .NET publish worker with concurrency guard and safe failure-state transitions.
 - Label-centric frame deduplication, nested selection, ambiguity rejection, and confidence gate.
 - Optional case-insensitive office frame-layer allowlist.
+- Reproducible synthetic plan-to-stage-to-PDF-audit demo and integration test.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes
