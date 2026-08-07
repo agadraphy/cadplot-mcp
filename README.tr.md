@@ -119,6 +119,9 @@ noktasıdır. Yalnız `awaiting_execution` işlerinde yeniden sıra onayı döne
 
 Yerel MCP istemcisi, Python sunucusunu `stdio` ile aynı Windows bilgisayarda çalıştırabilir ve
 yerel AutoCAD eklentisine named pipe üzerinden ulaşabilir.
+Repo içindeki doğrulanmış opsiyonel Codex wrapper'ı
+[`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md) klasöründedir; yalnız
+önceden kurulmuş `cadplot-mcp` komutunu başlatır ve şirket dosyalarını paketlemez.
 
 AutoCAD başlatılmadan önce aynı terminal/başlatıcı ortamında `CADPLOT_WORKSPACE_ROOT`, Python
 ayarındaki `workspace_root` ile aynı klasöre ayarlanmalıdır. Eklenti güvenilir workspace değerini

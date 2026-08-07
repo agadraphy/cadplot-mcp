@@ -103,3 +103,17 @@ def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     assert "ReparsePoint" in script
     assert "ShouldProcess($destinationBundle" in script
     assert "Remove-Item -LiteralPath $destinationBundle" in script
+
+
+def test_codex_plugin_manifest_routes_installed_cadplot_cli() -> None:
+    plugin_root = REPOSITORY_ROOT / "integrations" / "codex" / "cadplot-mcp"
+    manifest = json.loads(
+        (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    mcp = json.loads((plugin_root / ".mcp.json").read_text(encoding="utf-8"))
+
+    assert manifest["name"] == "cadplot-mcp"
+    assert manifest["license"] == "MIT"
+    assert manifest["mcpServers"] == "./.mcp.json"
+    assert "Write" in manifest["interface"]["capabilities"]
+    assert mcp["mcpServers"]["cadplot"] == {"command": "cadplot-mcp", "args": []}

@@ -57,6 +57,8 @@ All notable changes to this project are documented in this file.
   deterministically retargets exactly one existing floating viewport.
 - Strict machine-readable licensed-pilot evidence validation requiring distinct 2016/2025 runs,
   unchanged DWG hashes, manifest-bound receipts, restart proof, and complete visual acceptance.
+- Validated optional Codex plugin wrapper for launching the installed local stdio MCP without
+  packaging Autodesk or company assets.
 
 ### Notes
 

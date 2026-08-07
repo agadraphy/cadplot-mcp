@@ -1,0 +1,24 @@
+{
+  "name": "cadplot-mcp",
+  "version": "0.1.0",
+  "description": "Safety-first local AutoCAD batch PDF planning, staging, publishing, and audit tools.",
+  "author": {
+    "name": "Demir Eren"
+  },
+  "license": "MIT",
+  "keywords": ["autocad", "cad", "pdf", "plot", "mcp"],
+  "interface": {
+    "displayName": "CadPlot MCP",
+    "shortDescription": "Plan and audit approval-gated AutoCAD PDF batches.",
+    "longDescription": "Inspects local DWG copies, builds deterministic plot plans, stages approved jobs, invokes the opt-in local AutoCAD plug-in, and audits PDF evidence without overwriting source drawings.",
+    "developerName": "Demir Eren",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Validate my CadPlot environment without publishing.",
+      "Inspect this DWG and create a dry-run plot plan.",
+      "Show the restartable publish operations report."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

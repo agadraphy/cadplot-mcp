@@ -110,6 +110,10 @@ A generic local stdio client example is available at
 [examples/mcp.local.example.json](examples/mcp.local.example.json). Client configuration formats
 vary; see [deployment modes](docs/deployment-modes.md) before connecting a managed ChatGPT
 workspace.
+An optional validated Codex plugin wrapper is available under
+[`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md). It invokes an already
+installed `cadplot-mcp` CLI and intentionally packages no DWGs, credentials, Autodesk binaries, or
+office configuration.
 
 `drawing_unit_mm` declares how many millimetres one model-space unit represents. Frame geometry
 and the detected paper label are used to derive rotation and scale. Only values listed under
