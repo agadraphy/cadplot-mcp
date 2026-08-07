@@ -81,6 +81,26 @@ def test_api_probe_is_compile_only() -> None:
     assert "Start-Process" not in script
 
 
+def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1").read_text(encoding="utf-8")
+
+    for required in (
+        "uv sync --frozen",
+        "uv run ruff check .",
+        "uv run pytest -q",
+        "run-synthetic-demo.py",
+        "uv build",
+        "audit-release-artifacts.py",
+        "dotnet\\CadPlotMcp.sln",
+        "probe-autocad-api.ps1",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+    ):
+        assert required in script
+    assert '$ErrorActionPreference = "Stop"' in script
+    assert "Start-Process" not in script
+
+
 def test_build_and_install_require_exact_bundle_verification() -> None:
     verifier = (REPOSITORY_ROOT / "scripts" / "verify-bundle.ps1").read_text(encoding="utf-8")
     for required in (

@@ -16,6 +16,21 @@ Do not copy company drawings or resources to a personal computer without written
 
 ## Gate 1: repository checks
 
+Run the fail-fast local preflight. It does not launch AutoCAD and therefore does not prove live
+publishing:
+
+```powershell
+.\scripts\run-local-preflight.ps1 `
+  -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2025"
+```
+
+If the installed SDK is outside `PATH`, pass `-DotNet` explicitly. The script runs the locked
+environment sync, lint, Python tests, synthetic demo, Python package/audit, .NET build/tests, and
+the optional compile-only API probe. Its final JSON must show `passed=true`,
+`autocad_launched=false`, and `live_publish_proven=false`.
+
+Equivalent individual commands are:
+
 ```powershell
 uv sync --extra autocad --extra dev
 uv run ruff check .

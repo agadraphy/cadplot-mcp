@@ -65,6 +65,8 @@ All notable changes to this project are documented in this file.
   tunnels, managed company HTTPS gateways, and public plugin submission requirements.
 - Read-only licensed-run collector and no-overwrite two-release evidence assembler that eliminate
   manual hash copying while preserving explicit license, asset, restart, and visual attestations.
+- Fail-fast Windows preflight command for locked Python checks, synthetic workflow, release audit,
+  .NET build/tests, and an optional compile-only installed AutoCAD API probe without launching CAD.
 
 ### Notes
 

@@ -1,5 +1,15 @@
 # Pazartesi CadPlot MCP demo akışı
 
+## Sunum öncesi tek komut kontrol
+
+```powershell
+.\scripts\run-local-preflight.ps1 `
+  -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2025"
+```
+
+Bu komut AutoCAD'i açmaz ve canlı plot kanıtı üretmez. Son JSON'da `passed=true` görülmeden demoya
+başlamayın; `live_publish_proven=false` değeri canlı pilot yapılana kadar doğru kalmalıdır.
+
 Bu demo yalnız lisanslı şirket iş istasyonunda, sorumlunun izin verdiği anonim veya üretim dışı bir
 DWG kopyasıyla yapılır. Şirket DWG/PC3/PMP/CTB/STB/DWT dosyaları kişisel bilgisayara veya GitHub'a
 taşınmaz.

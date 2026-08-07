@@ -13,6 +13,8 @@ Use this checklist for every alpha release.
 
 ## Quality
 
+- [ ] `scripts/run-local-preflight.ps1` passes and truthfully reports
+      `autocad_launched=false`, `live_publish_proven=false` before the licensed pilot.
 - [ ] `uv run ruff check .` passes.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
