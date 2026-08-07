@@ -16,15 +16,21 @@ def test_local_mcp_example_is_valid_json() -> None:
     assert "CADPLOT_CONFIG" in server["env"]
 
 
-def test_readme_local_links_exist() -> None:
+def test_repository_markdown_local_links_exist() -> None:
+    documents = list(REPOSITORY_ROOT.glob("*.md"))
+    for folder in ("docs", "bundle", "integrations"):
+        documents.extend((REPOSITORY_ROOT / folder).rglob("*.md"))
+
     missing: list[str] = []
-    for readme in (REPOSITORY_ROOT / "README.md", REPOSITORY_ROOT / "README.tr.md"):
-        text = readme.read_text(encoding="utf-8")
+    for document in documents:
+        text = document.read_text(encoding="utf-8")
         for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", text):
             if "://" in target or target.startswith("#"):
                 continue
-            if not (readme.parent / target).resolve().exists():
-                missing.append(f"{readme.name}: {target}")
+            path_part = target.split("#", 1)[0]
+            if path_part and not (document.parent / path_part).resolve().exists():
+                relative_document = document.relative_to(REPOSITORY_ROOT)
+                missing.append(f"{relative_document}: {target}")
 
     assert missing == []
 

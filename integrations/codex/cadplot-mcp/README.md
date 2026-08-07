@@ -15,4 +15,5 @@ jobs create PDFs. Source DWGs remain outside the plugin and are never packaged w
 
 This wrapper is for local Codex clients that can launch an MCP server over `stdio`. It is not a
 ChatGPT web connector and it does not create a public HTTPS endpoint. A managed ChatGPT workspace
-requires the separately governed bridge described in `docs/deployment-modes.md` at repository root.
+requires the separately governed bridge described in the repository's
+[deployment modes](../../../docs/deployment-modes.md).
