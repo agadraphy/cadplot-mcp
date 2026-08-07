@@ -7,6 +7,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Settings as FastMCPSettings
 
+from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
@@ -142,6 +143,17 @@ def stage_publish_job(path: str, approved_plan_id: str) -> dict[str, Any]:
     except ValueError as exc:
         return {"staged": False, "plan": plan, "error": str(exc)}
     return {"staged": True, "plan": plan, "job": job}
+
+
+@mcp.tool()
+def audit_publish_outputs(manifest_path: str) -> dict[str, Any]:
+    """Inspect expected PDFs and return hashes/statuses; never modifies the job or outputs."""
+    config = _config()
+    try:
+        report = build_output_audit(manifest_path, config)
+    except (OSError, ValueError) as exc:
+        return {"complete": False, "error": str(exc)}
+    return report
 
 
 @mcp.tool()

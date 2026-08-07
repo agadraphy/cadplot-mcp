@@ -21,3 +21,7 @@ On success it creates a unique `job-*` directory below `workspace_root` containi
 
 The manifest starts in `staged` state. A future AutoCAD publisher may only operate on the
 `staged_drawing` named in this manifest and must write PDFs under its `output_directory`.
+
+After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
+rejects path escapes, duplicate PDF targets, a changed staged DWG, non-PDF headers, and manifests
+outside `workspace_root`. Its report includes each valid PDF's byte size and SHA-256 digest.

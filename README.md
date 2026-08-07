@@ -55,6 +55,8 @@ worker used by the write-capable milestone.
   it never edits, saves, or plots the drawing.
 - `stage_publish_job`: require the exact approved plan ID, re-inspect and re-hash the DWG,
   then create a verified working copy and audit manifest without plotting.
+- `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, expected PDF headers,
+  sizes, and SHA-256 hashes without changing any output.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration

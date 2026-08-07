@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 
 import pytest
 
+from cadplot_mcp.audit import audit_publish_outputs
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate
@@ -80,3 +82,42 @@ def test_stage_publish_job_rejects_changed_source(tmp_path: Path) -> None:
         stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
 
     assert not (tmp_path / "work").exists()
+
+
+def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+
+    missing = audit_publish_outputs(job["manifest"], config)
+    assert missing["complete"] is False
+    assert missing["summary"] == {"expected": 1, "valid": 0, "missing": 1, "invalid": 0}
+
+    pdf = Path(job["outputs"][0]["pdf"])
+    pdf.write_bytes(b"%PDF-1.7\nsynthetic test pdf\n%%EOF\n")
+    complete = audit_publish_outputs(job["manifest"], config)
+    assert complete["complete"] is True
+    assert complete["summary"] == {"expected": 1, "valid": 1, "missing": 0, "invalid": 0}
+    assert len(complete["outputs"][0]["sha256"]) == 64
+
+
+def test_output_audit_rejects_manifest_path_escape(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["outputs"][0]["pdf"] = str(tmp_path / "outside.pdf")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="outside its job output"):
+        audit_publish_outputs(manifest_path, config)
+
+
+def test_output_audit_marks_non_pdf_content_invalid(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    Path(job["outputs"][0]["pdf"]).write_bytes(b"not really a pdf")
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["complete"] is False
+    assert report["outputs"][0]["status"] == "invalid_pdf_header"
