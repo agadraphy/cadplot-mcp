@@ -28,6 +28,10 @@ The shared .NET core owns a bounded FIFO queue. A request is accepted only when:
 Jobs transition from `Pending` to `Running`, then to `Succeeded` or `Failed`. Completed plan IDs
 remain recorded for the process lifetime, preventing accidental duplicate plotting.
 
+`PublishJobWorker` drains one request through an `IPublishJobExecutor`. An interlocked busy guard
+rejects concurrent processing. Executor exceptions are converted to a failed state containing the
+exception type only; exception messages are not returned across the job boundary.
+
 ## Consequences
 
 The named-pipe listener will enqueue validated requests only. A future version-specific AutoCAD

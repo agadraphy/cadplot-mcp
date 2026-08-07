@@ -179,6 +179,95 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal("workspace_not_configured", response.Error);
     }
 
+    [Fact]
+    public void WorkerCompletesOneQueuedJobSuccessfully()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        var worker = new PublishJobWorker(
+            queue,
+            new DelegateExecutor(_ => PublishExecutionResult.Success())
+        );
+
+        var result = worker.ProcessNext();
+
+        Assert.True(result.Processed);
+        Assert.True(result.Succeeded);
+        Assert.Equal(PublishJobState.Succeeded, queue.GetStatus(_request.PlanId)!.State);
+    }
+
+    [Fact]
+    public void WorkerRecordsExecutorFailure()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        var worker = new PublishJobWorker(
+            queue,
+            new DelegateExecutor(_ => PublishExecutionResult.Failure("plot_failed"))
+        );
+
+        var result = worker.ProcessNext();
+
+        Assert.True(result.Processed);
+        Assert.False(result.Succeeded);
+        Assert.Equal("plot_failed", queue.GetStatus(_request.PlanId)!.Error);
+    }
+
+    [Fact]
+    public void WorkerConvertsExecutorExceptionToSafeFailure()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        var worker = new PublishJobWorker(
+            queue,
+            new DelegateExecutor(_ => throw new InvalidOperationException("sensitive details"))
+        );
+
+        var result = worker.ProcessNext();
+
+        Assert.Equal("publisher_exception:InvalidOperationException", result.Error);
+        Assert.DoesNotContain("sensitive details", result.Error);
+        Assert.Equal(PublishJobState.Failed, queue.GetStatus(_request.PlanId)!.State);
+    }
+
+    [Fact]
+    public async Task WorkerRejectsConcurrentProcessing()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var worker = new PublishJobWorker(
+            queue,
+            new DelegateExecutor(_ =>
+            {
+                entered.Set();
+                release.Wait(TimeSpan.FromSeconds(2));
+                return PublishExecutionResult.Success();
+            })
+        );
+
+        var first = Task.Run(worker.ProcessNext);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(2)));
+        var concurrent = worker.ProcessNext();
+        release.Set();
+        var completed = await first;
+
+        Assert.False(concurrent.Processed);
+        Assert.Equal("worker_busy", concurrent.Error);
+        Assert.True(completed.Succeeded);
+    }
+
+    private PublishJobQueue NewQueue() =>
+        new(Path.GetDirectoryName(_jobRoot)!, 5);
+
+    private sealed class DelegateExecutor(
+        Func<PublishJobRequest, PublishExecutionResult> execute
+    ) : IPublishJobExecutor
+    {
+        public PublishExecutionResult Execute(PublishJobRequest request) => execute(request);
+    }
+
     private void WriteManifest(string? firstPdf = null)
     {
         var outputs = Enumerable.Range(1, 2).Select(index => new

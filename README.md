@@ -125,6 +125,8 @@ assemblies are development inputs and are not committed or copied into the publi
 The shared .NET core also contains a bounded, trusted-workspace publish queue. It is deliberately
 not exposed through the named pipe yet; an AutoCAD-version adapter must execute queued work on the
 supported application context and pass licensed-workstation tests first.
+Its worker processes at most one job at a time and records success/failure without exposing raw
+executor exception messages.
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration
