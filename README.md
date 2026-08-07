@@ -104,6 +104,9 @@ dedicated output folder that is not a symlink or junction and does not overlap a
 source tree. Unknown fields, malformed profile types, empty resource names, non-finite numeric
 values, and unsafe tolerance ranges are rejected at startup. Company-owned DWT, CTB/STB,
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
+If the exact office resource names are not yet known, follow the
+[read-only office profile onboarding](docs/office-profile-onboarding.md) with the deliberately
+non-matching inventory config; do not guess production profile values.
 
 A generic local stdio client example is available at
 [examples/mcp.local.example.json](examples/mcp.local.example.json). Client configuration formats

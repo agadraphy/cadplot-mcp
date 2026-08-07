@@ -58,6 +58,9 @@ uv run cadplot-mcp
 
 `config.yaml` içindeki `allowed_roots`, `workspace_root`, page setup, plotter, plot style, çizim
 birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
+Bu adlar henüz bilinmiyorsa gerçek değerleri tahmin etmek yerine
+[salt-okunur ofis profili envanteri](docs/office-profile-onboarding.md) ve bilerek hiçbir normal
+kâğıt etiketiyle eşleşmeyen `examples/config.inventory.example.yaml` kullanılmalıdır.
 Özel PC3 kâğıtlarında `canonical_media`, AutoCAD'in bildirdiği değerle aynı yazım ve büyük/küçük
 harf kullanılarak girilmelidir.
 `pdf_page_tolerance_mm`, üretilen PDF'nin fiziksel sayfa ölçüsü kontrolünü belirler ve güvenlik

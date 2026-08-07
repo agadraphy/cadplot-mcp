@@ -100,9 +100,7 @@ paper_profiles:
         ("frame_layers: SHEET", "must be a list"),
     ],
 )
-def test_config_rejects_unsafe_scale_settings(
-    tmp_path: Path, setting: str, message: str
-) -> None:
+def test_config_rejects_unsafe_scale_settings(tmp_path: Path, setting: str, message: str) -> None:
     (tmp_path / "project").mkdir()
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
@@ -232,3 +230,14 @@ paper_profiles:
 
     with pytest.raises(ValueError, match="must be separate"):
         load_config(config_path)
+
+
+def test_inventory_example_cannot_match_normal_paper_labels() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    config = load_config(repository_root / "examples" / "config.inventory.example.yaml")
+
+    assert [profile.id for profile in config.paper_profiles] == ["inventory_only"]
+    assert config.require_page_setup_match is True
+    assert config.match_paper_profile("A4") is None
+    assert config.match_paper_profile("70x100") is None
+    assert config.match_paper_profile("700x1000 mm") is None

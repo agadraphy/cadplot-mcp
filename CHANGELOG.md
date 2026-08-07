@@ -67,6 +67,8 @@ All notable changes to this project are documented in this file.
   manual hash copying while preserving explicit license, asset, restart, and visual attestations.
 - Fail-fast Windows preflight command for locked Python checks, synthetic workflow, release audit,
   .NET build/tests, and an optional compile-only installed AutoCAD API probe without launching CAD.
+- Deliberately non-matching inventory configuration and read-only onboarding flow for discovering
+  exact authorized office page setup, plotter, style, media, frame, and template-layout names.
 
 ### Notes
 
