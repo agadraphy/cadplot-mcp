@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "cadplot": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "C:/path/to/cadplot-mcp",
+        "run",
+        "cadplot-mcp"
+      ],
+      "env": {
+        "CADPLOT_CONFIG": "C:/path/to/cadplot-mcp/config.yaml"
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+import json
+import re
+import xml.etree.ElementTree as element_tree
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_local_mcp_example_is_valid_json() -> None:
+    path = REPOSITORY_ROOT / "examples" / "mcp.local.example.json"
+
+    value = json.loads(path.read_text(encoding="utf-8"))
+
+    server = value["mcpServers"]["cadplot"]
+    assert server["command"] == "uv"
+    assert "CADPLOT_CONFIG" in server["env"]
+
+
+def test_readme_local_links_exist() -> None:
+    missing: list[str] = []
+    for readme in (REPOSITORY_ROOT / "README.md", REPOSITORY_ROOT / "README.tr.md"):
+        text = readme.read_text(encoding="utf-8")
+        for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", text):
+            if "://" in target or target.startswith("#"):
+                continue
+            if not (readme.parent / target).resolve().exists():
+                missing.append(f"{readme.name}: {target}")
+
+    assert missing == []
+
+
+def test_bundle_routes_supported_autocad_series() -> None:
+    path = REPOSITORY_ROOT / "bundle" / "CadPlotMcp.bundle" / "PackageContents.xml"
+    root = element_tree.parse(path).getroot()
+    routes = {
+        (
+            item.attrib["SeriesMin"],
+            item.attrib["SeriesMax"],
+        )
+        for item in root.findall("./Components/ComponentEntry/RuntimeRequirements")
+    }
+
+    assert routes == {("R20.1", "R20.1"), ("R25.0", "R25.1")}
+
+
+def test_repository_contains_mit_license() -> None:
+    license_text = (REPOSITORY_ROOT / "LICENSE").read_text(encoding="utf-8")
+
+    assert "MIT License" in license_text
+    assert "Demir Eren" in license_text

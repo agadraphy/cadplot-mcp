@@ -69,6 +69,11 @@ Copy [examples/config.example.yaml](examples/config.example.yaml). Set `workspac
 dedicated output folder that is not a symlink or junction. Company-owned DWT, CTB/STB,
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
 
+A generic local stdio client example is available at
+[examples/mcp.local.example.json](examples/mcp.local.example.json). Client configuration formats
+vary; see [deployment modes](docs/deployment-modes.md) before connecting a managed ChatGPT
+workspace.
+
 `drawing_unit_mm` declares how many millimetres one model-space unit represents. Frame geometry
 and the detected paper label are used to derive rotation and scale. Only values listed under
 `scale_denominators` within `scale_tolerance_ratio` are accepted; nonstandard or distorted frames

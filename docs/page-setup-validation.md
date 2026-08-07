@@ -14,6 +14,11 @@ A missing setup or mismatched device/style produces `page_setup_mismatch` and ke
 blocked. Canonical media-name validation will be added with the licensed AutoCAD plot adapter,
 because Autodesk documents canonical media names as case-sensitive.
 
+Autodesk references:
+
+- <https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_PlotSettingsValidator_SetCanonicalMediaName_PlotSettings_string.html>
+- <https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_PlotSettingsValidator_SetPlotConfigurationName_PlotSettings_string_string.html>
+
 New layout targets use:
 
 `<layout_prefix>_<four-digit sheet index>_<frame handle>`
