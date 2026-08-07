@@ -79,6 +79,15 @@ The product field must include the live `ACADVER`; record it with the pilot evid
 
 Repeat Gate 6 separately on licensed AutoCAD 2016 and 2025. Do not infer one from the other.
 
+## Gate 7: bounded batch recovery
+
+1. Stage and queue a small authorized batch before increasing volume.
+2. Restart AutoCAD after terminal receipts exist.
+3. Page `create_publish_operations_report` using `next_after_job_id` until `has_more=false`.
+4. Require completed jobs to remain `complete`; require every other item to expose an explicit
+   safe next action. Never requeue `manual_review` or `failed` jobs in place.
+5. Retain each `report_page_id` in the pilot evidence.
+
 ## Pilot pass condition
 
 - Source hash unchanged.

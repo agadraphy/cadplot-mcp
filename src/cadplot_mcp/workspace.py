@@ -38,7 +38,7 @@ def stage_publish_job(
     if resolved_root != workspace_root:
         raise ValueError("workspace_root changed or resolved through a filesystem redirect.")
 
-    job_id = f"job-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
+    job_id = f"job-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}-{uuid.uuid4().hex[:12]}"
     job_root = resolved_root / job_id
     source_dir = job_root / "source"
     output_dir = job_root / "output"

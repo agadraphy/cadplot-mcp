@@ -27,6 +27,7 @@ Use this checklist for every alpha release.
 - [ ] README and API examples match the released behavior, where changed.
 - [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as
       execution proof unless `publish_verified=true`.
+- [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.
 - [ ] Dependency lock data has been reviewed for intended versions.
 
 ## Alpha release criteria

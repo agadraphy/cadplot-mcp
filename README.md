@@ -91,6 +91,8 @@ uv run python scripts/run-synthetic-demo.py
   machine-safe failure code.
 - `read_publish_receipt`: recover immutable, digest-bound terminal execution evidence from the
   staged job even after AutoCAD has restarted.
+- `create_publish_operations_report`: page through up to 50 staged workspace jobs with a stable
+  cursor, terminal evidence, output issues, safe next actions, and exact requeue approvals.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
   count, expected physical paper dimensions, sizes, SHA-256 hashes, and execution evidence without
   changing output. `publish_verified=true` requires both valid PDFs and a successful receipt.
@@ -133,6 +135,10 @@ pages; do not submit all 300 jobs as one call.
 Process-local queue status disappears when AutoCAD exits, but every terminal job writes an
 immutable `receipt.json`. Use `read_publish_receipt` or the audit report to resume verification
 without guessing from the presence of PDFs alone.
+For a large run, call `create_publish_operations_report` until `has_more=false`, passing each
+`next_after_job_id` to the next call. Its summary is page-local; retain every `report_page_id` as a
+checkpoint. Only items in `awaiting_execution` include a `queue_approval`, and live status must be
+checked before submitting it.
 
 ## Delivery gates
 

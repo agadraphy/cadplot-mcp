@@ -45,6 +45,8 @@ All notable changes to this project are documented in this file.
 - Immutable, manifest-digest-bound terminal publish receipts that survive AutoCAD restarts.
 - Cross-checked receipt reading and a `publish_verified` audit gate requiring both valid PDFs and
   successful execution evidence.
+- Restartable, cursor-paginated workspace operations reports with safe recovery actions and exact
+  requeue approvals for untouched jobs.
 
 ### Notes
 

@@ -10,6 +10,7 @@ from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
 from cadplot_mcp.planner import create_publish_plan
+from cadplot_mcp.reporting import build_publish_operations_report
 from cadplot_mcp.workspace import stage_publish_job
 
 
@@ -209,6 +210,86 @@ def test_failed_receipt_allows_only_bounded_error_codes(
     else:
         with pytest.raises(ValueError, match="invalid error code"):
             read_publish_receipt(manifest_path, config)
+
+
+def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    complete_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    failed_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    review_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    awaiting_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+
+    complete_manifest = Path(complete_job["manifest"])
+    complete_receipt = {
+        "schema_version": 1,
+        "plan_id": plan["plan_id"],
+        "manifest_sha256": hashlib.sha256(complete_manifest.read_bytes()).hexdigest(),
+        "state": "succeeded",
+        "completed_utc": "2026-08-07T20:00:00Z",
+    }
+    (complete_manifest.parent / "receipt.json").write_text(
+        json.dumps(complete_receipt), encoding="utf-8"
+    )
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    with Path(complete_job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    failed_manifest = Path(failed_job["manifest"])
+    (failed_manifest.parent / "receipt.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plan_id": plan["plan_id"],
+                "manifest_sha256": hashlib.sha256(failed_manifest.read_bytes()).hexdigest(),
+                "state": "failed",
+                "error": "plot_failed",
+                "completed_utc": "2026-08-07T20:01:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    Path(review_job["outputs"][0]["pdf"]).write_bytes(b"partial output")
+
+    report = build_publish_operations_report(config, limit=20)
+    by_job = {item["job_id"]: item for item in report["items"]}
+
+    assert report["summary"] == {
+        "complete": 1,
+        "awaiting_execution": 1,
+        "failed": 1,
+        "manual_review": 1,
+        "invalid_job": 0,
+    }
+    assert by_job[complete_job["job_id"]]["publish_verified"] is True
+    assert by_job[failed_job["job_id"]]["next_action"] == "diagnose_then_stage_new_job"
+    assert by_job[review_job["job_id"]]["next_action"].startswith("review_partial")
+    approval = by_job[awaiting_job["job_id"]]["queue_approval"]
+    assert approval == {
+        "manifest_path": awaiting_job["manifest"],
+        "plan_id": plan["plan_id"],
+        "manifest_sha256": awaiting_job["manifest_sha256"],
+    }
+
+
+def test_operations_report_cursor_resumes_without_repeating_jobs(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    jobs = [
+        stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+        for _ in range(3)
+    ]
+
+    first = build_publish_operations_report(config, limit=2)
+    second = build_publish_operations_report(
+        config, after_job_id=first["next_after_job_id"], limit=2
+    )
+
+    expected_ids = sorted(job["job_id"] for job in jobs)
+    assert [item["job_id"] for item in first["items"]] == expected_ids[:2]
+    assert first["has_more"] is True
+    assert [item["job_id"] for item in second["items"]] == expected_ids[2:]
+    assert second["has_more"] is False
+    assert second["next_after_job_id"] is None
 
 
 def test_output_audit_rejects_manifest_path_escape(tmp_path: Path) -> None:

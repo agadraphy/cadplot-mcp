@@ -103,6 +103,9 @@ fazla 20'şer adet `queue_publish_batch` çağrısıyla sıraya alın; 300 işi 
 doldurmayın.
 AutoCAD kapanınca canlı kuyruk durumu silinir; terminal sonuçtaki `receipt.json` silinmez.
 Yeniden başladıktan sonra `read_publish_receipt` ile kaldığınız işi güvenle doğrulayabilirsiniz.
+Tüm çalışma alanını kaldığınız yerden taramak için `create_publish_operations_report` çağrısını
+`has_more=false` olana kadar `next_after_job_id` ile sayfalayın. Her `report_page_id` bir kontrol
+noktasıdır. Yalnız `awaiting_execution` işlerinde yeniden sıra onayı döner; önce canlı durum bakılır.
 
 ## ChatGPT bağlantısı
 

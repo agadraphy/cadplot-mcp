@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+from cadplot_mcp.audit import audit_publish_outputs
+from cadplot_mcp.config import CadPlotConfig
+from cadplot_mcp.security import require_plain_directory_path
+
+# Accept the earlier second-precision IDs while new jobs use sortable microsecond precision.
+JOB_ID_PATTERN = re.compile(r"job-\d{8}T(?:\d{6}|\d{12})Z-[0-9a-f]{12}")
+MAX_REPORTED_ISSUES_PER_JOB = 20
+
+
+def build_publish_operations_report(
+    config: CadPlotConfig,
+    *,
+    after_job_id: str | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Build one restartable, read-only page over staged workspace jobs."""
+    if not 1 <= limit <= 50:
+        raise ValueError("limit must be between 1 and 50.")
+    if after_job_id is not None and not JOB_ID_PATTERN.fullmatch(after_job_id):
+        raise ValueError("after_job_id must be a valid CadPlot job ID.")
+    if config.workspace_root is None:
+        raise ValueError("workspace_root must be configured before reporting jobs.")
+
+    workspace = require_plain_directory_path(config.workspace_root)
+    if not workspace.exists():
+        return _report_page([], after_job_id=after_job_id, limit=limit, has_more=False)
+    workspace = workspace.resolve(strict=True)
+    job_ids = sorted(
+        child.name
+        for child in workspace.iterdir()
+        if JOB_ID_PATTERN.fullmatch(child.name) and child.is_dir()
+    )
+    if after_job_id is not None:
+        job_ids = [job_id for job_id in job_ids if job_id > after_job_id]
+    selected = job_ids[:limit]
+    items = [_inspect_job(workspace / job_id, config) for job_id in selected]
+    return _report_page(
+        items,
+        after_job_id=after_job_id,
+        limit=limit,
+        has_more=len(job_ids) > len(selected),
+    )
+
+
+def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
+    manifest_path = job_root / "manifest.json"
+    base = {"job_id": job_root.name, "manifest_path": str(manifest_path)}
+    try:
+        report = audit_publish_outputs(manifest_path, config)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_sha256 = _sha256(manifest_path)
+    except (OSError, ValueError) as exc:
+        return {
+            **base,
+            "status": "invalid_job",
+            "next_action": "repair_or_remove_from_workspace_after_review",
+            "error": str(exc),
+        }
+
+    receipt_wrapper = report["execution_receipt"]
+    receipt = receipt_wrapper["receipt"] if receipt_wrapper["found"] else None
+    summary = report["summary"]
+    if report["publish_verified"]:
+        status = "complete"
+        next_action = "none"
+    elif receipt is not None and receipt["state"] == "failed":
+        status = "failed"
+        next_action = "diagnose_then_stage_new_job"
+    elif summary["valid"] or summary["invalid"]:
+        status = "manual_review"
+        next_action = "review_partial_outputs_then_stage_new_job"
+    else:
+        status = "awaiting_execution"
+        next_action = "check_live_status_then_queue"
+
+    output_issues = [
+        {
+            "sheet_index": output.get("sheet_index"),
+            "frame_handle": output.get("frame_handle"),
+            "status": output["status"],
+            "pdf": output["pdf"],
+        }
+        for output in report["outputs"]
+        if output["status"] != "valid"
+    ]
+
+    item: dict[str, Any] = {
+        **base,
+        "status": status,
+        "next_action": next_action,
+        "plan_id": manifest["plan_id"],
+        "created_utc": manifest.get("created_utc"),
+        "source_drawing": manifest.get("source_drawing"),
+        "outputs_complete": report["outputs_complete"],
+        "execution_verified": report["execution_verified"],
+        "publish_verified": report["publish_verified"],
+        "output_summary": summary,
+        "output_issues": output_issues[:MAX_REPORTED_ISSUES_PER_JOB],
+        "output_issue_count": len(output_issues),
+        "output_issues_truncated": len(output_issues) > MAX_REPORTED_ISSUES_PER_JOB,
+        "receipt": receipt,
+    }
+    if status == "awaiting_execution":
+        item["queue_approval"] = {
+            "manifest_path": str(manifest_path),
+            "plan_id": manifest["plan_id"],
+            "manifest_sha256": manifest_sha256,
+        }
+    return item
+
+
+def _report_page(
+    items: list[dict[str, Any]],
+    *,
+    after_job_id: str | None,
+    limit: int,
+    has_more: bool,
+) -> dict[str, Any]:
+    statuses = {
+        name: sum(item["status"] == name for item in items)
+        for name in ("complete", "awaiting_execution", "failed", "manual_review", "invalid_job")
+    }
+    next_after_job_id = items[-1]["job_id"] if items and has_more else None
+    payload = {
+        "schema_version": 1,
+        "after_job_id": after_job_id,
+        "limit": limit,
+        "processed": len(items),
+        "has_more": has_more,
+        "next_after_job_id": next_after_job_id,
+        "summary": statuses,
+        "items": items,
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return {
+        "report_page_id": "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        **payload,
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()

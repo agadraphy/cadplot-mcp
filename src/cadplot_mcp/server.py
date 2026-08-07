@@ -30,6 +30,7 @@ from cadplot_mcp.pipe_client import (
 )
 from cadplot_mcp.pipe_client import validate_staged_job as request_staged_job_validation
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
+from cadplot_mcp.reporting import build_publish_operations_report
 from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
 from cadplot_mcp.workspace import stage_publish_job as stage_job
 
@@ -284,6 +285,20 @@ def read_publish_receipt(manifest_path: str) -> dict[str, Any]:
         return load_publish_receipt(manifest_path, _config())
     except (OSError, ValueError) as exc:
         return {"found": False, "error": str(exc)}
+
+
+@mcp.tool(annotations=READ_ONLY)
+def create_publish_operations_report(
+    after_job_id: str | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Summarize staged jobs as a restartable page and suggest safe next actions; never writes."""
+    try:
+        return build_publish_operations_report(
+            _config(), after_job_id=after_job_id, limit=limit
+        )
+    except (OSError, ValueError) as exc:
+        return {"processed": 0, "has_more": False, "error": str(exc)}
 
 
 @mcp.tool(annotations=LOCAL_WRITE)
