@@ -10,6 +10,7 @@ from mcp.server.fastmcp.server import Settings as FastMCPSettings
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
+from cadplot_mcp.pipe_client import PluginConnectionError, get_plugin_status
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 
 # MCP 1.29 ships a generic settings model whose forward reference is not rebuilt
@@ -48,6 +49,16 @@ def validate_environment() -> dict[str, Any]:
         "autocad": autocad,
         "errors": errors,
     }
+
+
+@mcp.tool()
+def get_autocad_plugin_status(timeout_ms: int = 2_000) -> dict[str, Any]:
+    """Check the installed AutoCAD plug-in through its read-only local named-pipe command."""
+    try:
+        response = get_plugin_status(timeout_ms=timeout_ms)
+    except (PluginConnectionError, ValueError) as exc:
+        return {"connected": False, "error": str(exc)}
+    return {"connected": True, "status": response}
 
 
 @mcp.tool()

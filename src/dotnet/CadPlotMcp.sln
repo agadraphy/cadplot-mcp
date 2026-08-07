@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.Core", "CadPlotMcp.Core\CadPlotMcp.Core.csproj", "{C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.AutoCAD2016", "CadPlotMcp.AutoCAD2016\CadPlotMcp.AutoCAD2016.csproj", "{6AF8EC02-C5FC-4A6A-A4BA-B2F498E4A44C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.AutoCAD2025", "CadPlotMcp.AutoCAD2025\CadPlotMcp.AutoCAD2025.csproj", "{D0D3B10B-7191-4AA9-BEE6-9AD47C5B4BCA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.Core.Tests", "CadPlotMcp.Core.Tests\CadPlotMcp.Core.Tests.csproj", "{63F37C9C-B4D8-4C9D-996F-E3EB36A1B183}"
+EndProject
+Global
+ GlobalSection(SolutionConfigurationPlatforms) = preSolution
+  Debug|Any CPU = Debug|Any CPU
+  Release|Any CPU = Release|Any CPU
+ EndGlobalSection
+ GlobalSection(ProjectConfigurationPlatforms) = postSolution
+  {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Release|Any CPU.Build.0 = Release|Any CPU
+  {6AF8EC02-C5FC-4A6A-A4BA-B2F498E4A44C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {6AF8EC02-C5FC-4A6A-A4BA-B2F498E4A44C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {6AF8EC02-C5FC-4A6A-A4BA-B2F498E4A44C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {6AF8EC02-C5FC-4A6A-A4BA-B2F498E4A44C}.Release|Any CPU.Build.0 = Release|Any CPU
+  {D0D3B10B-7191-4AA9-BEE6-9AD47C5B4BCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {D0D3B10B-7191-4AA9-BEE6-9AD47C5B4BCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {D0D3B10B-7191-4AA9-BEE6-9AD47C5B4BCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {D0D3B10B-7191-4AA9-BEE6-9AD47C5B4BCA}.Release|Any CPU.Build.0 = Release|Any CPU
+  {63F37C9C-B4D8-4C9D-996F-E3EB36A1B183}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {63F37C9C-B4D8-4C9D-996F-E3EB36A1B183}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {63F37C9C-B4D8-4C9D-996F-E3EB36A1B183}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {63F37C9C-B4D8-4C9D-996F-E3EB36A1B183}.Release|Any CPU.Build.0 = Release|Any CPU
+ EndGlobalSection
+EndGlobal

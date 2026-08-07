@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net45</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Set AutoCAD2016SdkDir to AutoCAD's managed assembly directory to build the ICommandClass. -->
+    <AutoCADSdkAvailable Condition="Exists('$(AutoCAD2016SdkDir)\\AcMgd.dll')">true</AutoCADSdkAvailable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CadPlotMcp.Core\CadPlotMcp.Core.csproj" />
+    <Compile Remove="AutodeskExtension.cs" Condition="'$(AutoCADSdkAvailable)' != 'true'" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(AutoCADSdkAvailable)' == 'true'">
+    <Reference Include="AcMgd"><HintPath>$(AutoCAD2016SdkDir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcDbMgd"><HintPath>$(AutoCAD2016SdkDir)\AcDbMgd.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="RequireAutoCADSdk" BeforeTargets="CoreCompile" Condition="'$(BuildAutoCADPlugin)' == 'true' and '$(AutoCADSdkAvailable)' != 'true'">
+    <Error Text="AutoCAD 2016 SDK references were not found. Set AutoCAD2016SdkDir to the folder containing AcMgd.dll and AcDbMgd.dll." />
+  </Target>
+</Project>

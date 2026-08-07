@@ -9,8 +9,10 @@ build/
 .env
 config.yaml
 published/
+artifacts/
+**/bin/
+**/obj/
 *.dwg
 *.dxf
 *.bak
 *.sv$
-

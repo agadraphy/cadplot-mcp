@@ -13,7 +13,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync --extra dev
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: uv sync --extra dev --extra autocad
       - run: uv run ruff check .
       - run: uv run pytest
-
+      - run: dotnet build src/dotnet/CadPlotMcp.sln --configuration Release
+      - run: dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release --no-build

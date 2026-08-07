@@ -45,6 +45,7 @@ worker used by the write-capable milestone.
 ## MCP tools
 
 - `validate_environment`: report configuration and AutoCAD connection readiness.
+- `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, and labelled rectangular frames.
 - `create_publish_plan`: generate a deterministic, hashed dry-run plan with blockers.
@@ -62,6 +63,23 @@ PC3/PMP, title blocks, and project drawings must not be committed to this reposi
 3. In-process AutoCAD .NET worker for layout/page-setup operations.
 4. Copy-only PDF publishing with output validation and an audit report.
 5. Optional remote MCP bridge for managed ChatGPT workspaces.
+
+## AutoCAD plug-in builds
+
+The repository contains separate adapters for AutoCAD 2016 (`net45`, release `R20.1`) and
+AutoCAD 2025–2026 (`net8.0-windows`, releases `R25.0`–`R25.1`). A normal solution build validates
+the shared protocol without Autodesk binaries. A distributable bundle must be built with local
+ObjectARX/AutoCAD managed reference folders:
+
+```powershell
+.\scripts\build-bundle.ps1 `
+  -AutoCAD2016SdkDir "C:\ObjectARX2016\inc" `
+  -AutoCAD2025SdkDir "C:\ObjectARX2025\inc" `
+  -DotNet "C:\Users\YOUR-USER\.dotnet\dotnet.exe"
+```
+
+The script intentionally fails if the Autodesk reference assemblies are missing. Autodesk SDK
+assemblies are development inputs and are not committed or copied into the public bundle.
 
 ## License
 
