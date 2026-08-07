@@ -13,6 +13,7 @@ namespace CadPlotMcp.Core
         public const string DefaultPipeName = "cadplot-mcp";
         public const string StatusCommand = "status";
         public const string PreviewPublishPlanCommand = "preview_publish_plan";
+        public const string ValidateStagedJobCommand = "validate_staged_job";
         public const int MaxLineCharacters = 65536;
     }
 
@@ -25,6 +26,8 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "plan_id", EmitDefaultValue = false)] public string PlanId { get; set; }
         [DataMember(Name = "drawing", EmitDefaultValue = false)] public string Drawing { get; set; }
         [DataMember(Name = "sheet_count", EmitDefaultValue = false)] public int SheetCount { get; set; }
+        [DataMember(Name = "manifest_path", EmitDefaultValue = false)] public string ManifestPath { get; set; }
+        [DataMember(Name = "output_directory", EmitDefaultValue = false)] public string OutputDirectory { get; set; }
     }
 
     [DataContract]
@@ -39,6 +42,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "readOnly", EmitDefaultValue = false)] public bool ReadOnly { get; set; }
         [DataMember(Name = "plan_id", EmitDefaultValue = false)] public string PlanId { get; set; }
         [DataMember(Name = "acceptedSheetCount", EmitDefaultValue = false)] public int AcceptedSheetCount { get; set; }
+        [DataMember(Name = "workspaceConfigured", EmitDefaultValue = false)] public bool WorkspaceConfigured { get; set; }
     }
 
     public static class JsonLineCodec
@@ -81,11 +85,13 @@ namespace CadPlotMcp.Core
         );
         private readonly string _adapter;
         private readonly Func<string> _productName;
+        private readonly string _trustedWorkspaceRoot;
 
-        public CommandDispatcher(string adapter, Func<string> productName)
+        public CommandDispatcher(string adapter, Func<string> productName, string trustedWorkspaceRoot = null)
         {
             _adapter = adapter ?? "unknown";
             _productName = productName ?? (() => "AutoCAD");
+            _trustedWorkspaceRoot = trustedWorkspaceRoot;
         }
 
         public PipeResponse Dispatch(PipeRequest request)
@@ -103,6 +109,7 @@ namespace CadPlotMcp.Core
                 response.Product = _productName();
                 response.Adapter = _adapter;
                 response.ReadOnly = true;
+                response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
                 return response;
             }
             if (String.Equals(request.Command, PipeProtocol.PreviewPublishPlanCommand, StringComparison.Ordinal))
@@ -118,6 +125,37 @@ namespace CadPlotMcp.Core
                 response.ReadOnly = true;
                 response.PlanId = request.PlanId;
                 response.AcceptedSheetCount = request.SheetCount;
+                return response;
+            }
+            if (String.Equals(request.Command, PipeProtocol.ValidateStagedJobCommand, StringComparison.Ordinal))
+            {
+                if (String.IsNullOrWhiteSpace(_trustedWorkspaceRoot))
+                {
+                    response.Error = "workspace_not_configured";
+                    return response;
+                }
+                var job = new PublishJobRequest
+                {
+                    PlanId = request.PlanId,
+                    ManifestPath = request.ManifestPath,
+                    StagedDrawing = request.Drawing,
+                    OutputDirectory = request.OutputDirectory,
+                    SheetCount = request.SheetCount,
+                };
+                var error = PublishJobValidator.Validate(job, _trustedWorkspaceRoot)
+                    ?? PublishManifestReader.Validate(job);
+                if (error != null)
+                {
+                    response.Error = error;
+                    return response;
+                }
+                response.Ok = true;
+                response.Product = _productName();
+                response.Adapter = _adapter;
+                response.ReadOnly = true;
+                response.PlanId = request.PlanId;
+                response.AcceptedSheetCount = request.SheetCount;
+                response.WorkspaceConfigured = true;
                 return response;
             }
             else

@@ -51,6 +51,34 @@ def preview_publish_plan(
     )
 
 
+def validate_staged_job(
+    manifest: dict[str, Any],
+    pipe_name: str | None = None,
+    *,
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Ask the plug-in to validate a staged manifest without queueing or plotting it."""
+    outputs = manifest.get("outputs")
+    if not isinstance(outputs, list) or not outputs:
+        raise ValueError("Staged manifest must contain outputs.")
+    required = ("plan_id", "manifest", "staged_drawing", "output_directory")
+    missing = [field for field in required if not manifest.get(field)]
+    if missing:
+        raise ValueError(f"Staged manifest is missing fields: {', '.join(missing)}")
+    return _request_plugin(
+        "validate_staged_job",
+        pipe_name=pipe_name,
+        timeout_ms=timeout_ms,
+        payload={
+            "plan_id": manifest["plan_id"],
+            "manifest_path": manifest["manifest"],
+            "drawing": manifest["staged_drawing"],
+            "output_directory": manifest["output_directory"],
+            "sheet_count": len(outputs),
+        },
+    )
+
+
 def _request_plugin(
     command: str,
     *,

@@ -23,6 +23,7 @@ All notable changes to this project are documented in this file.
 - Deterministic target-layout naming with existing-layout collision blockers.
 - Execution-complete staged manifests and strict .NET manifest/request consistency validation.
 - Current-user-only named-pipe access for both .NET 8 and .NET Framework 4.5 adapters.
+- Read-only staged-job validation across Python, the local pipe, and the .NET manifest parser.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

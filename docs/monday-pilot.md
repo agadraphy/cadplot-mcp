@@ -1,7 +1,7 @@
 # Monday Licensed-Workstation Pilot
 
-This pilot proves installation and a read-only MCP-to-AutoCAD status round trip before any drawing
-write or plot command is introduced.
+This pilot proves installation, read-only inspection, approval-gated copy staging, and
+MCP-to-AutoCAD validation before any layout mutation or plot command is introduced.
 
 ## Inputs to collect
 
@@ -43,9 +43,19 @@ result: `connected=true`, correct adapter/release, and `readOnly=true`.
 ## Gate 4: drawing inspection
 
 1. Configure an allowed root containing only the approved DWG copy.
-2. Run `scan_drawings` and confirm the exact target path.
-3. Run `inspect_drawing` and compare layouts, plotter, media, style sheet, and frame label.
-4. Run `create_publish_plan`; unmatched or ambiguous paper profiles must keep `ready=false`.
+2. Configure `workspace_root`. Set `CADPLOT_WORKSPACE_ROOT` to the same directory in the
+   environment that launches AutoCAD.
+3. Run `scan_drawings` and confirm the exact target path.
+4. Run `inspect_drawing` and compare layouts, page setups, plotter, media, style, and frame label.
+5. Run `create_publish_plan`; every page setup, scale, and target layout must be ready.
+
+## Gate 5: approved staging validation
+
+1. Record and explicitly approve the current `plan_id`.
+2. Call `stage_publish_job` with that exact ID; confirm the original DWG hash is unchanged.
+3. Call `validate_staged_job`; require `accepted=true`, `readOnly=true`, and
+   `workspaceConfigured=true`.
+4. Confirm the job contains a verified source copy, an empty output directory, and manifest only.
 
 ## Pilot pass condition
 
@@ -53,6 +63,7 @@ result: `connected=true`, correct adapter/release, and `readOnly=true`.
 - No AutoCAD document saved or closed by the tool.
 - Correct layout/frame/profile inventory returned.
 - MCP-to-plug-in status round trip works.
+- Staged manifest passes the independent plug-in workspace check.
 - No proprietary asset is present in the Git repository or release archive.
 
 PDF writing remains out of scope until these gates pass on the licensed workstation.

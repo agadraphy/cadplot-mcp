@@ -9,7 +9,7 @@ import pytest
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
-from cadplot_mcp.pipe_client import get_plugin_status, preview_publish_plan
+from cadplot_mcp.pipe_client import get_plugin_status, preview_publish_plan, validate_staged_job
 from cadplot_mcp.planner import create_publish_plan
 
 
@@ -193,3 +193,68 @@ def test_pipe_client_preview_round_trip(tmp_path: Path) -> None:
     assert received[0]["plan_id"] == plan["plan_id"]
     assert response["readOnly"] is True
     assert response["acceptedSheetCount"] == 1
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows named pipes are required")
+def test_pipe_client_staged_job_round_trip(tmp_path: Path) -> None:
+    import pywintypes
+    import win32file
+    import win32pipe
+
+    pipe_name = "cadplot-mcp-test-" + uuid.uuid4().hex
+    pipe_path = rf"\\.\pipe\{pipe_name}"
+    ready = threading.Event()
+    received: list[dict] = []
+
+    def serve() -> None:
+        handle = win32pipe.CreateNamedPipe(
+            pipe_path,
+            win32pipe.PIPE_ACCESS_DUPLEX,
+            win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_READMODE_BYTE | win32pipe.PIPE_WAIT,
+            1,
+            65_536,
+            65_536,
+            5_000,
+            None,
+        )
+        try:
+            ready.set()
+            try:
+                win32pipe.ConnectNamedPipe(handle, None)
+            except pywintypes.error as exc:
+                if exc.winerror != 535:
+                    raise
+            _, payload = win32file.ReadFile(handle, 65_536)
+            request = json.loads(payload.decode("utf-8"))
+            received.append(request)
+            response = {
+                "id": request["id"],
+                "version": "1",
+                "ok": True,
+                "readOnly": True,
+                "plan_id": request["plan_id"],
+                "acceptedSheetCount": request["sheet_count"],
+                "workspaceConfigured": True,
+            }
+            win32file.WriteFile(handle, (json.dumps(response) + "\n").encode("utf-8"))
+        finally:
+            win32file.CloseHandle(handle)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    assert ready.wait(2)
+    manifest = {
+        "plan_id": "sha256:" + "a" * 64,
+        "manifest": str(tmp_path / "job" / "manifest.json"),
+        "staged_drawing": str(tmp_path / "job" / "source" / "sheet.dwg"),
+        "output_directory": str(tmp_path / "job" / "output"),
+        "outputs": [{"pdf": str(tmp_path / "job" / "output" / "sheet.pdf")}],
+    }
+
+    response = validate_staged_job(manifest, pipe_name, timeout_ms=2_000)
+    thread.join(2)
+
+    assert received[0]["command"] == "validate_staged_job"
+    assert received[0]["manifest_path"] == manifest["manifest"]
+    assert received[0]["sheet_count"] == 1
+    assert response["workspaceConfigured"] is True

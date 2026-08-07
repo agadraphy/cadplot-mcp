@@ -59,6 +59,8 @@ worker used by the write-capable milestone.
   it never edits, saves, or plots the drawing.
 - `stage_publish_job`: require the exact approved plan ID, re-inspect and re-hash the DWG,
   then create a verified working copy and audit manifest without plotting.
+- `validate_staged_job`: ask the local plug-in to cross-check the staged manifest against its
+  independently configured trusted workspace; it does not queue or plot the job.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, expected PDF headers,
   sizes, and SHA-256 hashes without changing any output.
 - `match_paper_profile`: map a detected label to a configured office profile.
@@ -116,6 +118,10 @@ assemblies are development inputs and are not committed or copied into the publi
 The shared .NET core also contains a bounded, trusted-workspace publish queue. It is deliberately
 not exposed through the named pipe yet; an AutoCAD-version adapter must execute queued work on the
 supported application context and pass licensed-workstation tests first.
+
+Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
+that starts AutoCAD. It must resolve to the same directory as Python configuration
+`workspace_root`. The plug-in never accepts a trusted workspace path from an MCP request.
 
 ## License
 

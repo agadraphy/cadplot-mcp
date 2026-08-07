@@ -59,7 +59,8 @@ birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 5. `create_publish_plan` sonucundaki blocker'ları çözün.
 6. `preview_publish_plan` ile aynı hash'li planı eklentiye doğrulatın.
 7. Plan kimliğini açıkça onaylayarak `stage_publish_job` çağırın.
-8. Gerçek publisher tamamlandığında üretilen dosyaları `audit_publish_outputs` ile doğrulayın.
+8. `validate_staged_job` ile manifesti eklentinin bağımsız workspace ayarına doğrulatın.
+9. Gerçek publisher tamamlandığında üretilen dosyaları `audit_publish_outputs` ile doğrulayın.
 
 300 çizim için `create_batch_publish_plans` aracını varsayılan 20'lik sayfalarla kullanın ve
 `has_more=false` olana kadar dönen `next_offset` değeriyle devam edin.
@@ -68,6 +69,10 @@ birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 
 Yerel MCP istemcisi, Python sunucusunu `stdio` ile aynı Windows bilgisayarda çalıştırabilir ve
 yerel AutoCAD eklentisine named pipe üzerinden ulaşabilir.
+
+AutoCAD başlatılmadan önce aynı terminal/başlatıcı ortamında `CADPLOT_WORKSPACE_ROOT`, Python
+ayarındaki `workspace_root` ile aynı klasöre ayarlanmalıdır. Eklenti güvenilir workspace değerini
+MCP isteğinden kabul etmez.
 
 Merkezi ChatGPT Business/Enterprise/Edu ortamında ise şirket yöneticisinin MCP bağlantısını
 onaylaması ve merkezi servis ile AutoCAD iş istasyonu arasında yönetilen güvenli bağlantı kurması

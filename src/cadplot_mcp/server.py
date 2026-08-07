@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Settings as FastMCPSettings
 
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
+from cadplot_mcp.audit import load_staged_manifest
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.batch import build_batch_page
 from cadplot_mcp.config import CadPlotConfig, load_config
@@ -18,6 +19,7 @@ from cadplot_mcp.pipe_client import (
     get_plugin_status,
 )
 from cadplot_mcp.pipe_client import preview_publish_plan as request_publish_preview
+from cadplot_mcp.pipe_client import validate_staged_job as request_staged_job_validation
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
 from cadplot_mcp.workspace import stage_publish_job as stage_job
@@ -179,6 +181,22 @@ def audit_publish_outputs(manifest_path: str) -> dict[str, Any]:
     except (OSError, ValueError) as exc:
         return {"complete": False, "error": str(exc)}
     return report
+
+
+@mcp.tool()
+def validate_staged_job(manifest_path: str, timeout_ms: int = 2_000) -> dict[str, Any]:
+    """Cross-check a staged manifest with the local plug-in; never queues or plots the job."""
+    config = _config()
+    try:
+        manifest, _ = load_staged_manifest(manifest_path, config)
+        request = {
+            **manifest,
+            "manifest": str(Path(manifest_path).expanduser().resolve(strict=True)),
+        }
+        response = request_staged_job_validation(request, timeout_ms=timeout_ms)
+    except (OSError, PluginConnectionError, ValueError) as exc:
+        return {"accepted": False, "error": str(exc)}
+    return {"accepted": bool(response.get("ok")), "plugin": response}
 
 
 @mcp.tool()

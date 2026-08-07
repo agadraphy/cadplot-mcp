@@ -131,6 +131,54 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal("pdf_outside_job", error);
     }
 
+    [Fact]
+    public void DispatcherValidatesStagedJobWithoutQueueingIt()
+    {
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            Path.GetDirectoryName(_jobRoot)
+        );
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest
+            {
+                Id = "validate-1",
+                Version = "1",
+                Command = "validate_staged_job",
+                PlanId = _request.PlanId,
+                ManifestPath = _request.ManifestPath,
+                Drawing = _request.StagedDrawing,
+                OutputDirectory = _request.OutputDirectory,
+                SheetCount = _request.SheetCount,
+            }
+        );
+
+        Assert.True(response.Ok);
+        Assert.True(response.ReadOnly);
+        Assert.True(response.WorkspaceConfigured);
+        Assert.Equal(_request.PlanId, response.PlanId);
+        Assert.Equal(2, response.AcceptedSheetCount);
+    }
+
+    [Fact]
+    public void DispatcherRequiresPluginSideWorkspaceConfiguration()
+    {
+        var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest
+            {
+                Id = "validate-2",
+                Version = "1",
+                Command = "validate_staged_job",
+            }
+        );
+
+        Assert.False(response.Ok);
+        Assert.Equal("workspace_not_configured", response.Error);
+    }
+
     private void WriteManifest(string? firstPdf = null)
     {
         var outputs = Enumerable.Range(1, 2).Select(index => new

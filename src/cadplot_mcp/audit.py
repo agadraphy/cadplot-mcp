@@ -14,7 +14,7 @@ HASH_CHUNK_BYTES = 1024 * 1024
 
 def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> dict[str, Any]:
     """Validate one staged job and inspect expected PDFs without writing any files."""
-    manifest, job_root = _load_manifest(manifest_value, config)
+    manifest, job_root = load_staged_manifest(manifest_value, config)
     results = [_audit_pdf(item, job_root) for item in manifest["outputs"]]
     valid = sum(item["status"] == "valid" for item in results)
     missing = sum(item["status"] == "missing" for item in results)
@@ -34,7 +34,7 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
     }
 
 
-def _load_manifest(
+def load_staged_manifest(
     manifest_value: str | Path,
     config: CadPlotConfig,
 ) -> tuple[dict[str, Any], Path]:
