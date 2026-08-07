@@ -122,6 +122,9 @@ yerel AutoCAD eklentisine named pipe üzerinden ulaşabilir.
 Repo içindeki doğrulanmış opsiyonel Codex wrapper'ı
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md) klasöründedir; yalnız
 önceden kurulmuş `cadplot-mcp` komutunu başlatır ve şirket dosyalarını paketlemez.
+[Dağıtım modları](docs/deployment-modes.md) ve
+[ChatGPT bağlantı mimarisi](docs/chatgpt-connection.md), hazır yerel işçi ile henüz uygulanmamış
+yönetilen HTTPS köprüsünü ayrı teslim kapıları olarak tanımlar.
 
 AutoCAD başlatılmadan önce aynı terminal/başlatıcı ortamında `CADPLOT_WORKSPACE_ROOT`, Python
 ayarındaki `workspace_root` ile aynı klasöre ayarlanmalıdır. Eklenti güvenilir workspace değerini

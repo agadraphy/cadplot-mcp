@@ -1,12 +1,28 @@
 # Deployment modes
 
+CadPlot MCP has two boundaries that must not be confused:
+
+- the MCP client-to-Python connection; and
+- the workstation-local Python-to-AutoCAD connection.
+
+The AutoCAD named pipe, COM automation, authorized DWGs, and company plot resources always stay
+on the licensed Windows workstation. A remote MCP endpoint is a controlled message bridge, not a
+public AutoCAD port or file share.
+
+| Mode | MCP connection | AutoCAD worker | Intended use | Current status |
+| --- | --- | --- | --- | --- |
+| Local workstation | `stdio` launched by Codex or ChatGPT desktop | Same Windows workstation | First licensed pilot and normal single-user operation | Implemented |
+| ChatGPT web developer pilot | Secure MCP Tunnel or an organization-managed HTTPS `/mcp` endpoint | Workstation behind the bridge | Temporary Business/Enterprise/Edu evaluation | Bridge not implemented |
+| Managed company deployment | Authenticated, publicly reachable HTTPS Streamable HTTP `/mcp` proxy | Registered company workstations | Centrally governed internal use | Architecture only |
+| Public ChatGPT plugin | Stable public HTTPS Streamable HTTP `/mcp`, verified domain, review requirements | Requires a separately designed managed worker service | Marketplace/public distribution | Not implemented or claimed |
+
 ## Local workstation pilot
 
 Recommended first deployment:
 
 1. A local MCP client launches `cadplot-mcp` over `stdio`.
 2. The Python process reads only configured project/workspace paths.
-3. The installed AutoCAD bundle exposes a local named pipe.
+3. The installed AutoCAD bundle exposes a current-user local named pipe.
 4. AutoCAD remains user-visible and runs on the same licensed Windows workstation.
 
 The installed plug-in is read-only by default. `CADPLOT_ENABLE_PUBLISH=1` must be set before
@@ -15,28 +31,64 @@ AutoCAD starts to expose the approval-gated queue. Keep this off until staging v
 No inbound network service is required. The named pipe must never be exposed through a public
 port or generic command relay.
 
-## Managed company ChatGPT
+## ChatGPT web developer pilot
 
-A centrally managed ChatGPT workspace cannot implicitly access a user's local AutoCAD process.
-The organization must approve its MCP connector and provide a managed secure bridge/tunnel to the
-workstation-side service. Authentication, device identity, authorization, audit retention, and
-connector ownership are IT decisions, not defaults inferred by CadPlot MCP.
+ChatGPT web cannot read a workstation's local MCP configuration, local file paths, or AutoCAD
+process by implication. An authorized workspace administrator must enable the required plugin or
+connector controls. A developer can then connect ChatGPT to either:
 
-The remote side should carry approved plan/job messages only. AutoCAD COM and the local named pipe
-remain workstation-local. Proprietary DWGs and plot resources should remain local unless company
-policy explicitly authorizes transfer.
+- a public HTTPS Streamable HTTP MCP endpoint; or
+- OpenAI's Secure MCP Tunnel for a temporary developer-mode bridge.
 
-OpenAI's current guidance for managed ChatGPT MCP apps, developer mode, write actions, and the
-Secure MCP Tunnel is documented at:
+The tunnel is a development aid, not public deployment evidence and not a substitute for the two
+licensed AutoCAD acceptance runs. Only plan/job messages should cross the bridge. Do not upload or
+copy proprietary DWGs, PC3/PMP, CTB/STB, DWT, or title-block assets unless company policy explicitly
+authorizes it.
 
-<https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt>
+## Managed company deployment
 
-## Public repository
+A production bridge must terminate authenticated HTTPS and forward only the explicit CadPlot MCP
+schemas. OpenAI's current enterprise guidance supports managed authorization patterns including
+OAuth and OpenAI-managed mutual TLS, subject to workspace policy. The organization owns device
+identity, user authorization, audit retention, revocation, availability, and workstation routing.
 
-The public repository contains code, examples, schemas, and documentation only. Never publish:
+The bridge must not:
+
+- expose AutoCAD COM, the local named pipe, or an arbitrary command endpoint;
+- accept unrestricted filesystem paths or a workspace root from remote requests;
+- bypass the exact `plan_id` and `manifest_sha256` approval gates;
+- claim success before `publish_verified=true` evidence exists.
+
+This repository does not yet implement that managed HTTPS proxy. The local `stdio` plugin wrapper
+must not be represented as a ChatGPT web connector.
+
+## Public ChatGPT plugin
+
+Public submission requires a stable publicly reachable HTTPS Streamable HTTP MCP server and the
+applicable domain verification and review process. Secure MCP Tunnel endpoints are not eligible as
+the production endpoint. CadPlot's workstation-bound AutoCAD executor therefore needs a separate,
+security-reviewed gateway/worker architecture before public ChatGPT distribution can be claimed.
+
+The public GitHub repository can still distribute the local MCP server and AutoCAD bundle source
+under MIT without being a public ChatGPT plugin.
+
+## Public repository boundary
+
+Never publish:
 
 - client/company DWGs or PDFs;
 - DWT/title-block libraries;
 - PC3, PMP, CTB, or STB files;
 - Autodesk SDK/product assemblies;
 - connector credentials, tokens, internal hostnames, or allowed-root paths.
+
+## Current OpenAI references
+
+- [Build an MCP server](https://developers.openai.com/plugins/build/mcp-server)
+- [Connect and test a plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+- [MCP for ChatGPT Enterprise](https://learn.chatgpt.com/docs/extend/mcp)
+- [Enterprise apps and connectors](https://learn.chatgpt.com/docs/enterprise/apps-and-connectors)
+- [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+
+See [ChatGPT connection architecture](chatgpt-connection.md) for the exact data path and acceptance
+boundary.

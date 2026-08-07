@@ -109,7 +109,8 @@ PC3/PMP, title blocks, and project drawings must not be committed to this reposi
 A generic local stdio client example is available at
 [examples/mcp.local.example.json](examples/mcp.local.example.json). Client configuration formats
 vary; see [deployment modes](docs/deployment-modes.md) before connecting a managed ChatGPT
-workspace.
+workspace. The [ChatGPT connection architecture](docs/chatgpt-connection.md) separates the
+implemented local worker from the still-unimplemented managed HTTPS bridge.
 An optional validated Codex plugin wrapper is available under
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md). It invokes an already
 installed `cadplot-mcp` CLI and intentionally packages no DWGs, credentials, Autodesk binaries, or

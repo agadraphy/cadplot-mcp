@@ -37,7 +37,14 @@ from cadplot_mcp.workspace import stage_publish_job as stage_job
 # MCP 1.29 ships a generic settings model whose forward reference is not rebuilt
 # before construction under current pydantic-settings releases.
 FastMCPSettings.model_rebuild()
-mcp = FastMCP("CadPlot MCP")
+SERVER_INSTRUCTIONS = (
+    "Start with validate_environment, then inspect and create a dry-run plan. "
+    "Never stage without the user's exact plan_id approval. Never queue publishing without "
+    "the exact approved plan_id and manifest_sha256. Source DWGs are immutable; only isolated "
+    "staged copies and job outputs may change. Treat a job as complete only when "
+    "audit_publish_outputs returns publish_verified=true; otherwise report its blockers."
+)
+mcp = FastMCP("CadPlot MCP", instructions=SERVER_INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(
     readOnlyHint=True,
     destructiveHint=False,
@@ -294,9 +301,7 @@ def create_publish_operations_report(
 ) -> dict[str, Any]:
     """Summarize staged jobs as a restartable page and suggest safe next actions; never writes."""
     try:
-        return build_publish_operations_report(
-            _config(), after_job_id=after_job_id, limit=limit
-        )
+        return build_publish_operations_report(_config(), after_job_id=after_job_id, limit=limit)
     except (OSError, ValueError) as exc:
         return {"processed": 0, "has_more": False, "error": str(exc)}
 

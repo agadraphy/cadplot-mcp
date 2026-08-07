@@ -52,8 +52,12 @@ def test_repository_contains_mit_license() -> None:
 
 def test_version_adapters_require_all_managed_autocad_references() -> None:
     for release in ("2016", "2025"):
-        project = REPOSITORY_ROOT / "src" / "dotnet" / f"CadPlotMcp.AutoCAD{release}" / (
-            f"CadPlotMcp.AutoCAD{release}.csproj"
+        project = (
+            REPOSITORY_ROOT
+            / "src"
+            / "dotnet"
+            / f"CadPlotMcp.AutoCAD{release}"
+            / (f"CadPlotMcp.AutoCAD{release}.csproj")
         )
         text = project.read_text(encoding="utf-8")
 
@@ -64,9 +68,7 @@ def test_version_adapters_require_all_managed_autocad_references() -> None:
 
 
 def test_api_probe_is_compile_only() -> None:
-    script = (REPOSITORY_ROOT / "scripts" / "probe-autocad-api.ps1").read_text(
-        encoding="utf-8"
-    )
+    script = (REPOSITORY_ROOT / "scripts" / "probe-autocad-api.ps1").read_text(encoding="utf-8")
 
     assert "dotnet" in script.casefold()
     assert "AutoCAD was not launched" in script
@@ -74,9 +76,7 @@ def test_api_probe_is_compile_only() -> None:
 
 
 def test_build_and_install_require_exact_bundle_verification() -> None:
-    verifier = (REPOSITORY_ROOT / "scripts" / "verify-bundle.ps1").read_text(
-        encoding="utf-8"
-    )
+    verifier = (REPOSITORY_ROOT / "scripts" / "verify-bundle.ps1").read_text(encoding="utf-8")
     for required in (
         "PackageContents.xml",
         "CadPlotMcp.AutoCAD2016.dll",
@@ -94,9 +94,7 @@ def test_build_and_install_require_exact_bundle_verification() -> None:
 
 
 def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
-    script = (REPOSITORY_ROOT / "scripts" / "uninstall-bundle.ps1").read_text(
-        encoding="utf-8"
-    )
+    script = (REPOSITORY_ROOT / "scripts" / "uninstall-bundle.ps1").read_text(encoding="utf-8")
 
     assert "SupportsShouldProcess = $true" in script
     assert "C2E79B66-6076-40D4-AE45-E725A644B288" in script
@@ -117,3 +115,18 @@ def test_codex_plugin_manifest_routes_installed_cadplot_cli() -> None:
     assert manifest["mcpServers"] == "./.mcp.json"
     assert "Write" in manifest["interface"]["capabilities"]
     assert mcp["mcpServers"]["cadplot"] == {"command": "cadplot-mcp", "args": []}
+
+
+def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
+    deployment = (REPOSITORY_ROOT / "docs" / "deployment-modes.md").read_text(encoding="utf-8")
+    architecture = (REPOSITORY_ROOT / "docs" / "chatgpt-connection.md").read_text(encoding="utf-8")
+
+    assert "Local workstation" in deployment
+    assert "ChatGPT web developer pilot" in deployment
+    assert "Managed company deployment" in deployment
+    assert "Public ChatGPT plugin" in deployment
+    assert "Bridge not implemented" in deployment
+    assert "named pipe" in deployment
+    assert "publish_verified=true" in deployment
+    assert "The DWG stays" in architecture
+    assert "Not implemented or claimed" in architecture
