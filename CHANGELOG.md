@@ -63,6 +63,8 @@ All notable changes to this project are documented in this file.
   approvals, immutable sources, and `publish_verified=true` as the completion gate.
 - Documented separation between the implemented local workstation worker, ChatGPT web developer
   tunnels, managed company HTTPS gateways, and public plugin submission requirements.
+- Read-only licensed-run collector and no-overwrite two-release evidence assembler that eliminate
+  manual hash copying while preserving explicit license, asset, restart, and visual attestations.
 
 ### Notes
 

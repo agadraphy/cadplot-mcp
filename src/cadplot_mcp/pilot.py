@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from cadplot_mcp.audit import audit_publish_outputs, load_staged_manifest
+from cadplot_mcp.config import CadPlotConfig
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 PLAN_ID = re.compile(r"sha256:[0-9a-f]{64}")
@@ -43,6 +47,90 @@ EXPECTED = {
     "2016": {"adapter": "autocad-2016-net45", "acadver": "R20.1"},
     "2025": {"adapter": "autocad-2025-net8", "acadver": "R25.0"},
 }
+
+
+def build_pilot_run_evidence(
+    manifest_value: str | Path,
+    config: CadPlotConfig,
+    *,
+    autocad_release: str,
+    plugin_status: dict[str, Any],
+    approved_by: str,
+    licensed: bool,
+    authorized_test_asset: bool,
+    restart_receipt_verified: bool,
+    visual_checks: dict[str, bool],
+    completed_utc: str | None = None,
+) -> dict[str, Any]:
+    """Build one read-only live-pilot record from cross-checked job evidence."""
+    if autocad_release not in EXPECTED:
+        raise ValueError("autocad_release must be 2016 or 2025.")
+    for field in ("ok", "readOnly", "workspaceConfigured", "publishEnabled"):
+        if plugin_status.get(field) is not True:
+            raise ValueError(f"Live AutoCAD status requires {field}=true.")
+    report = audit_publish_outputs(manifest_value, config)
+    if report.get("publish_verified") is not True:
+        raise ValueError("Pilot run requires publish_verified=true output evidence.")
+    if len(report.get("outputs", [])) != 1:
+        raise ValueError("Licensed pilot evidence must come from exactly one output sheet.")
+
+    manifest, _ = load_staged_manifest(manifest_value, config)
+    source = config.path_policy.require_allowed(manifest["source_drawing"], suffix=".dwg")
+    staged = Path(manifest["staged_drawing"]).resolve(strict=True)
+    source_before = manifest["source_fingerprint"]["sha256"]
+    receipt = report["execution_receipt"]["receipt"]
+    completed = completed_utc or datetime.now(UTC).isoformat()
+    run = {
+        "autocad_release": autocad_release,
+        "product": plugin_status.get("product"),
+        "adapter": plugin_status.get("adapter"),
+        "licensed": licensed,
+        "authorized_test_asset": authorized_test_asset,
+        "plan_id": manifest["plan_id"],
+        "manifest_sha256": _sha256(Path(manifest_value).expanduser().resolve(strict=True)),
+        "receipt_manifest_sha256": receipt["manifest_sha256"],
+        "receipt_state": receipt["state"],
+        "source_sha256_before": source_before,
+        "source_sha256_after": _sha256(source),
+        "staged_sha256_before": source_before,
+        "staged_sha256_after": _sha256(staged),
+        "pdf_sha256": report["outputs"][0]["sha256"],
+        "publish_verified": report["publish_verified"],
+        "restart_receipt_verified": restart_receipt_verified,
+        "visual_checks": visual_checks,
+        "approved_by": approved_by,
+        "completed_utc": completed,
+    }
+    return validate_pilot_run_evidence(run)
+
+
+def validate_pilot_run_evidence(raw: Any) -> dict[str, Any]:
+    """Validate one licensed-workstation run before it is assembled with the other release."""
+    return _validate_run(raw)
+
+
+def assemble_pilot_evidence(
+    run_2016: Any,
+    run_2025: Any,
+    *,
+    repository_commit: str,
+    bundle_sha256: str,
+) -> dict[str, Any]:
+    """Assemble and validate the immutable two-release pilot evidence document."""
+    validated_2016 = validate_pilot_run_evidence(run_2016)
+    validated_2025 = validate_pilot_run_evidence(run_2025)
+    if validated_2016["autocad_release"] != "2016":
+        raise ValueError("run_2016 must contain AutoCAD 2016 evidence.")
+    if validated_2025["autocad_release"] != "2025":
+        raise ValueError("run_2025 must contain AutoCAD 2025 evidence.")
+    raw = {
+        "schema_version": 1,
+        "repository_commit": repository_commit,
+        "bundle_sha256": bundle_sha256,
+        "runs": [validated_2016, validated_2025],
+    }
+    validate_pilot_evidence(raw)
+    return raw
 
 
 def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
@@ -153,3 +241,11 @@ def _validate_run(run: Any) -> dict[str, Any]:
 def _require_digest(value: Any, field: str) -> None:
     if not isinstance(value, str) or not SHA256.fullmatch(value):
         raise ValueError(f"{field} must be a lowercase SHA-256 digest.")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
