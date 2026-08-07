@@ -26,6 +26,9 @@ class CadPlotConfig:
     path_policy: PathPolicy
     paper_profiles: tuple[PaperProfile, ...]
     workspace_root: Path | None = None
+    drawing_unit_mm: float = 1.0
+    scale_denominators: tuple[float, ...] = (1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
+    scale_tolerance_ratio: float = 0.02
 
     def match_paper_profile(self, label: str) -> PaperProfile | None:
         normalized = normalize_label(label)
@@ -75,12 +78,29 @@ def load_config(path: str | Path) -> CadPlotConfig:
         if workspace_value is not None
         else None
     )
+    drawing_unit_mm = float(raw.get("drawing_unit_mm", 1.0))
+    default_scales = (1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
+    scale_denominators = tuple(
+        float(item) for item in raw.get("scale_denominators", default_scales)
+    )
+    scale_tolerance_ratio = float(raw.get("scale_tolerance_ratio", 0.02))
+    if drawing_unit_mm <= 0:
+        raise ValueError("drawing_unit_mm must be greater than zero")
+    if not scale_denominators or any(item <= 0 for item in scale_denominators):
+        raise ValueError("scale_denominators must contain positive values")
+    if len(scale_denominators) != len(set(scale_denominators)):
+        raise ValueError("scale_denominators must be unique")
+    if not 0 <= scale_tolerance_ratio <= 0.1:
+        raise ValueError("scale_tolerance_ratio must be between 0 and 0.1")
     _validate_profiles(profiles)
     return CadPlotConfig(
         source=source,
         path_policy=PathPolicy.from_roots(roots),
         paper_profiles=profiles,
         workspace_root=workspace_root,
+        drawing_unit_mm=drawing_unit_mm,
+        scale_denominators=scale_denominators,
+        scale_tolerance_ratio=scale_tolerance_ratio,
     )
 
 

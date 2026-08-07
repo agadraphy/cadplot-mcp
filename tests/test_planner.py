@@ -80,3 +80,59 @@ def test_publish_plan_rejects_tampering(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="hash mismatch"):
         validate_publish_plan(plan)
+
+
+def test_publish_plan_derives_rotated_one_to_one_geometry(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[_frame("70x100")])
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+    geometry = plan["sheets"][0]["plot_geometry"]
+
+    assert geometry["rotation_degrees"] == 90
+    assert geometry["scale_denominator"] == 1
+    assert geometry["window"] == {"min_x": 0.0, "min_y": 0.0, "max_x": 1000.0, "max_y": 700.0}
+
+
+def test_publish_plan_derives_one_to_fifty_geometry(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    frame = FrameCandidate(
+        handle="F50",
+        layer="SHEET",
+        min_point=(100.0, 200.0, 0.0),
+        max_point=(35_100.0, 50_200.0, 0.0),
+        label="70x100",
+        width_mm=700.0,
+        height_mm=1000.0,
+        confidence=1.0,
+    )
+    inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[frame])
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+    geometry = plan["sheets"][0]["plot_geometry"]
+
+    assert plan["ready"] is True
+    assert geometry["rotation_degrees"] == 0
+    assert geometry["scale_denominator"] == 50
+    assert geometry["derived_scale_denominator"] == 50
+
+
+def test_publish_plan_blocks_nonstandard_scale(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    frame = FrameCandidate(
+        handle="F37",
+        layer="SHEET",
+        min_point=(0.0, 0.0, 0.0),
+        max_point=(25_900.0, 37_000.0, 0.0),
+        label="70x100",
+        width_mm=700.0,
+        height_mm=1000.0,
+        confidence=1.0,
+    )
+    inspection = DrawingInspection(path="C:/project/sheet.dwg", frames=[frame])
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is False
+    assert plan["sheets"][0]["status"] == "unsupported_scale"
+    assert "allowed scale" in plan["warnings"][0]

@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
 - Per-job JSON manifests with collision-free expected PDF paths.
 - Read-only PDF output auditing with path-containment, header, size, and SHA-256 checks.
 - Bounded .NET publish-job queue with trusted-workspace validation and duplicate prevention.
+- Deterministic plot-window, rotation, and allowed-scale derivation from frame geometry.
+- ISO A0-A5 paper-label recognition in addition to dimension labels.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

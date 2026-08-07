@@ -8,6 +8,15 @@ PAPER_SIZE_PATTERN = re.compile(
     r"(?P<height>\d{2,4}(?:[.,]\d+)?)(?:\s*(?P<unit>mm|cm))?(?!\d)",
     re.IGNORECASE,
 )
+A_SERIES_PATTERN = re.compile(r"(?<![A-Z0-9])A(?P<size>[0-5])(?![A-Z0-9])", re.IGNORECASE)
+A_SERIES_MM = {
+    "0": (841.0, 1189.0),
+    "1": (594.0, 841.0),
+    "2": (420.0, 594.0),
+    "3": (297.0, 420.0),
+    "4": (210.0, 297.0),
+    "5": (148.0, 210.0),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +33,11 @@ class PaperSize:
 def parse_paper_size(text: str) -> PaperSize | None:
     match = PAPER_SIZE_PATTERN.search(text)
     if not match:
-        return None
+        series_match = A_SERIES_PATTERN.search(text)
+        if not series_match:
+            return None
+        width, height = A_SERIES_MM[series_match.group("size")]
+        return PaperSize(width_mm=width, height_mm=height, source=series_match.group(0))
 
     width = float(match.group("width").replace(",", "."))
     height = float(match.group("height").replace(",", "."))
@@ -37,4 +50,3 @@ def parse_paper_size(text: str) -> PaperSize | None:
 
 def normalize_label(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", value.casefold())
-

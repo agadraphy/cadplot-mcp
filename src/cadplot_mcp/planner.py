@@ -7,7 +7,8 @@ import re
 from typing import Any
 
 from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.models import DrawingInspection
+from cadplot_mcp.models import DrawingInspection, FrameCandidate
+from cadplot_mcp.paper import parse_paper_size
 
 PLAN_ID_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -38,6 +39,27 @@ def create_publish_plan(
             )
             continue
 
+        plot_geometry = _derive_plot_geometry(frame, config)
+        if plot_geometry is None:
+            warnings.append(
+                f"Frame {frame.handle or '<no handle>'} does not resolve to an allowed scale."
+            )
+            sheets.append(
+                {
+                    "frame_handle": frame.handle,
+                    "label": frame.label,
+                    "status": "unsupported_scale",
+                    "profile": {
+                        "id": profile.id,
+                        "page_setup": profile.page_setup,
+                        "plotter": profile.plotter,
+                        "plot_style": profile.plot_style,
+                    },
+                    "plot_geometry": None,
+                }
+            )
+            continue
+
         sheets.append(
             {
                 "frame_handle": frame.handle,
@@ -49,6 +71,7 @@ def create_publish_plan(
                     "plotter": profile.plotter,
                     "plot_style": profile.plot_style,
                 },
+                "plot_geometry": plot_geometry,
             }
         )
 
@@ -113,3 +136,46 @@ def validate_publish_plan(plan: dict[str, Any]) -> None:
     expected = "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     if not hmac.compare_digest(plan_id, expected):
         raise ValueError("Publish plan hash mismatch; recreate the plan before continuing.")
+
+
+def _derive_plot_geometry(frame: FrameCandidate, config: CadPlotConfig) -> dict[str, Any] | None:
+    paper = parse_paper_size(frame.label)
+    if paper is None:
+        return None
+    geometry_width = frame.max_point[0] - frame.min_point[0]
+    geometry_height = frame.max_point[1] - frame.min_point[1]
+    if min(geometry_width, geometry_height) <= 0:
+        return None
+
+    candidates = [
+        (0, paper.width_mm, paper.height_mm),
+        (90, paper.height_mm, paper.width_mm),
+    ]
+    best: tuple[float, float, int] | None = None
+    for rotation, paper_width, paper_height in candidates:
+        width_scale = geometry_width * config.drawing_unit_mm / paper_width
+        height_scale = geometry_height * config.drawing_unit_mm / paper_height
+        average = (width_scale + height_scale) / 2
+        mismatch = abs(width_scale - height_scale) / average
+        candidate = (mismatch, average, rotation)
+        if best is None or candidate < best:
+            best = candidate
+    if best is None or best[0] > config.scale_tolerance_ratio:
+        return None
+
+    derived = best[1]
+    denominator = min(config.scale_denominators, key=lambda item: abs(item - derived))
+    if abs(denominator - derived) / denominator > config.scale_tolerance_ratio:
+        return None
+    return {
+        "window": {
+            "min_x": frame.min_point[0],
+            "min_y": frame.min_point[1],
+            "max_x": frame.max_point[0],
+            "max_y": frame.max_point[1],
+        },
+        "rotation_degrees": best[2],
+        "scale_denominator": denominator,
+        "derived_scale_denominator": round(derived, 6),
+        "drawing_unit_mm": config.drawing_unit_mm,
+    }

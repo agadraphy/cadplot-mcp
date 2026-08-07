@@ -65,6 +65,11 @@ Copy [examples/config.example.yaml](examples/config.example.yaml). Set `workspac
 dedicated output folder that is not a symlink or junction. Company-owned DWT, CTB/STB,
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
 
+`drawing_unit_mm` declares how many millimetres one model-space unit represents. Frame geometry
+and the detected paper label are used to derive rotation and scale. Only values listed under
+`scale_denominators` within `scale_tolerance_ratio` are accepted; nonstandard or distorted frames
+remain blockers in the dry-run plan.
+
 ## Roadmap
 
 1. Read-only discovery and inspection.

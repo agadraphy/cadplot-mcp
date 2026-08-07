@@ -10,6 +10,7 @@ from cadplot_mcp.paper import parse_paper_size
         ("500 x 700 mm", (500.0, 700.0)),
         ("50 × 70 cm", (500.0, 700.0)),
         ("ÖZEL 84,1x118,9", (841.0, 1189.0)),
+        ("ISO A4 PAFTA", (210.0, 297.0)),
     ],
 )
 def test_parse_paper_size(label: str, expected: tuple[float, float]) -> None:
@@ -21,4 +22,3 @@ def test_parse_paper_size(label: str, expected: tuple[float, float]) -> None:
 
 def test_parse_paper_size_rejects_unrelated_text() -> None:
     assert parse_paper_size("DETAY 1/20") is None
-
