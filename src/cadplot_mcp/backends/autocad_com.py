@@ -7,7 +7,12 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from cadplot_mcp.models import DrawingInspection, FrameCandidate, LayoutSummary
+from cadplot_mcp.models import (
+    DrawingInspection,
+    FrameCandidate,
+    LayoutSummary,
+    PageSetupSummary,
+)
 from cadplot_mcp.paper import parse_paper_size
 from cadplot_mcp.security import PathPolicy
 
@@ -75,6 +80,7 @@ class AutoCADComInspector:
 
                 inspection = DrawingInspection(path=str(drawing_path))
                 inspection.layouts.extend(_read_layouts(document))
+                inspection.page_setups.extend(_read_page_setups(document))
                 frames, warnings = _read_labelled_frames(document)
                 inspection.frames.extend(frames)
                 inspection.warnings.extend(warnings)
@@ -118,6 +124,21 @@ def _read_layouts(document: Any) -> list[LayoutSummary]:
             )
         )
     return sorted(layouts, key=lambda item: (item.model_type, item.name.casefold()))
+
+
+def _read_page_setups(document: Any) -> list[PageSetupSummary]:
+    page_setups: list[PageSetupSummary] = []
+    for setup in document.PlotConfigurations:
+        page_setups.append(
+            PageSetupSummary(
+                name=str(_safe(setup, "Name", "")),
+                model_type=bool(_safe(setup, "ModelType", False)),
+                plotter=_safe(setup, "ConfigName"),
+                media_name=_safe(setup, "CanonicalMediaName"),
+                plot_style=_safe(setup, "StyleSheet"),
+            )
+        )
+    return sorted(page_setups, key=lambda item: (item.model_type, item.name.casefold()))
 
 
 def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str]]:

@@ -8,7 +8,7 @@ import pytest
 
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
-from cadplot_mcp.models import DrawingInspection, FrameCandidate
+from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
 from cadplot_mcp.pipe_client import get_plugin_status, preview_publish_plan
 from cadplot_mcp.planner import create_publish_plan
 
@@ -44,7 +44,18 @@ paper_profiles:
     drawing.write_bytes(b"synthetic dwg test payload")
     config = load_config(config_path)
     return create_publish_plan(
-        DrawingInspection(path=str(drawing), frames=[frame]),
+        DrawingInspection(
+            path=str(drawing),
+            frames=[frame],
+            page_setups=[
+                PageSetupSummary(
+                    name="OFFICE_A4",
+                    model_type=True,
+                    plotter="DWG To PDF.pc3",
+                    plot_style="monochrome.ctb",
+                )
+            ],
+        ),
         config,
         drawing_fingerprint=fingerprint_drawing(drawing, config.path_policy),
     )

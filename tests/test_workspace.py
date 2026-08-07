@@ -6,7 +6,7 @@ import pytest
 from cadplot_mcp.audit import audit_publish_outputs
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
-from cadplot_mcp.models import DrawingInspection, FrameCandidate
+from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
 from cadplot_mcp.planner import create_publish_plan
 from cadplot_mcp.workspace import stage_publish_job
 
@@ -42,7 +42,18 @@ paper_profiles:
         height_mm=210.0,
         confidence=1.0,
     )
-    inspection = DrawingInspection(path=str(drawing), frames=[frame])
+    inspection = DrawingInspection(
+        path=str(drawing),
+        frames=[frame],
+        page_setups=[
+            PageSetupSummary(
+                name="OFFICE_A4",
+                model_type=True,
+                plotter="DWG To PDF.pc3",
+                plot_style="monochrome.ctb",
+            )
+        ],
+    )
     plan = create_publish_plan(
         inspection,
         config,

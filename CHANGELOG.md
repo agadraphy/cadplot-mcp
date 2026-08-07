@@ -19,6 +19,8 @@ All notable changes to this project are documented in this file.
 - Deterministic plot-window, rotation, and allowed-scale derivation from frame geometry.
 - ISO A0-A5 paper-label recognition in addition to dimension labels.
 - Restartable, deterministic batch-plan pages with per-DWG failure isolation.
+- Named page-setup inspection and configured plotter/plot-style consistency checks.
+- Deterministic target-layout naming with existing-layout collision blockers.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

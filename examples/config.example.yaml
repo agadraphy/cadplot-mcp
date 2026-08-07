@@ -11,6 +11,8 @@ workspace_root: "C:/CadPlotWork"
 drawing_unit_mm: 1
 scale_denominators: [1, 2, 5, 10, 20, 25, 50, 100, 200, 500]
 scale_tolerance_ratio: 0.02
+require_page_setup_match: true
+layout_prefix: "CADPLOT"
 
 paper_profiles:
   - id: "sheet_70x100"

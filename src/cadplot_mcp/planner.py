@@ -6,8 +6,8 @@ import json
 import re
 from typing import Any
 
-from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.models import DrawingInspection, FrameCandidate
+from cadplot_mcp.config import CadPlotConfig, PaperProfile
+from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
 from cadplot_mcp.paper import parse_paper_size
 
 PLAN_ID_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -23,7 +23,9 @@ def create_publish_plan(
     sheets: list[dict[str, Any]] = []
     warnings = list(inspection.warnings)
 
-    for frame in inspection.frames:
+    existing_layouts = {layout.name.casefold() for layout in inspection.layouts}
+    for index, frame in enumerate(inspection.frames, start=1):
+        target_layout = _target_layout_name(index, frame, config)
         profile = config.match_paper_profile(frame.label)
         if profile is None:
             warnings.append(
@@ -35,6 +37,23 @@ def create_publish_plan(
                     "label": frame.label,
                     "status": "unmatched",
                     "profile": None,
+                    "target_layout": target_layout,
+                }
+            )
+            continue
+
+        profile_payload = _profile_payload(profile)
+        page_setup_error = _page_setup_error(profile, inspection.page_setups, config)
+        if page_setup_error is not None:
+            warnings.append(f"Frame {frame.handle or '<no handle>'}: {page_setup_error}")
+            sheets.append(
+                {
+                    "frame_handle": frame.handle,
+                    "label": frame.label,
+                    "status": "page_setup_mismatch",
+                    "profile": profile_payload,
+                    "target_layout": target_layout,
+                    "plot_geometry": None,
                 }
             )
             continue
@@ -49,13 +68,26 @@ def create_publish_plan(
                     "frame_handle": frame.handle,
                     "label": frame.label,
                     "status": "unsupported_scale",
-                    "profile": {
-                        "id": profile.id,
-                        "page_setup": profile.page_setup,
-                        "plotter": profile.plotter,
-                        "plot_style": profile.plot_style,
-                    },
+                    "profile": profile_payload,
+                    "target_layout": target_layout,
                     "plot_geometry": None,
+                }
+            )
+            continue
+
+        if target_layout.casefold() in existing_layouts:
+            warnings.append(
+                f"Frame {frame.handle or '<no handle>'} target layout {target_layout!r} "
+                "already exists."
+            )
+            sheets.append(
+                {
+                    "frame_handle": frame.handle,
+                    "label": frame.label,
+                    "status": "layout_conflict",
+                    "profile": profile_payload,
+                    "target_layout": target_layout,
+                    "plot_geometry": plot_geometry,
                 }
             )
             continue
@@ -65,12 +97,8 @@ def create_publish_plan(
                 "frame_handle": frame.handle,
                 "label": frame.label,
                 "status": "matched",
-                "profile": {
-                    "id": profile.id,
-                    "page_setup": profile.page_setup,
-                    "plotter": profile.plotter,
-                    "plot_style": profile.plot_style,
-                },
+                "profile": profile_payload,
+                "target_layout": target_layout,
                 "plot_geometry": plot_geometry,
             }
         )
@@ -179,3 +207,43 @@ def _derive_plot_geometry(frame: FrameCandidate, config: CadPlotConfig) -> dict[
         "derived_scale_denominator": round(derived, 6),
         "drawing_unit_mm": config.drawing_unit_mm,
     }
+
+
+def _profile_payload(profile: PaperProfile) -> dict[str, str]:
+    return {
+        "id": profile.id,
+        "page_setup": profile.page_setup,
+        "plotter": profile.plotter,
+        "plot_style": profile.plot_style,
+    }
+
+
+def _page_setup_error(
+    profile: PaperProfile,
+    page_setups: list[PageSetupSummary],
+    config: CadPlotConfig,
+) -> str | None:
+    if not config.require_page_setup_match:
+        return None
+    matches = [
+        setup for setup in page_setups if setup.name.casefold() == profile.page_setup.casefold()
+    ]
+    if not matches:
+        return f"required page setup {profile.page_setup!r} was not found."
+    setup = matches[0]
+    if (setup.plotter or "").casefold() != profile.plotter.casefold():
+        return (
+            f"page setup {profile.page_setup!r} uses plotter {setup.plotter!r}, "
+            f"expected {profile.plotter!r}."
+        )
+    if (setup.plot_style or "").casefold() != profile.plot_style.casefold():
+        return (
+            f"page setup {profile.page_setup!r} uses plot style {setup.plot_style!r}, "
+            f"expected {profile.plot_style!r}."
+        )
+    return None
+
+
+def _target_layout_name(index: int, frame: FrameCandidate, config: CadPlotConfig) -> str:
+    safe_handle = re.sub(r"[^A-Za-z0-9_-]+", "_", frame.handle or "NOHANDLE").strip("_")
+    return f"{config.layout_prefix}_{index:04d}_{safe_handle or 'NOHANDLE'}"[:255]

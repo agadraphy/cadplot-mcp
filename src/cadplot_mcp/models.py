@@ -30,6 +30,18 @@ class LayoutSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class PageSetupSummary:
+    name: str
+    model_type: bool
+    plotter: str | None = None
+    media_name: str | None = None
+    plot_style: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
 class FrameCandidate:
     handle: str
     layer: str
@@ -48,6 +60,7 @@ class FrameCandidate:
 class DrawingInspection:
     path: str
     layouts: list[LayoutSummary] = field(default_factory=list)
+    page_setups: list[PageSetupSummary] = field(default_factory=list)
     frames: list[FrameCandidate] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -55,7 +68,7 @@ class DrawingInspection:
         return {
             "path": self.path,
             "layouts": [layout.to_dict() for layout in self.layouts],
+            "page_setups": [page_setup.to_dict() for page_setup in self.page_setups],
             "frames": [frame.to_dict() for frame in self.frames],
             "warnings": list(self.warnings),
         }
-

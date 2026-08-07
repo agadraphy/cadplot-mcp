@@ -69,6 +69,8 @@ paper_profiles:
         ("scale_denominators: [1, 1]", "must be unique"),
         ("scale_denominators: [1, -50]", "positive values"),
         ("scale_tolerance_ratio: 0.5", "between 0 and 0.1"),
+        ("layout_prefix: ../bad", "layout_prefix"),
+        ("require_page_setup_match: maybe", "must be true or false"),
     ],
 )
 def test_config_rejects_unsafe_scale_settings(

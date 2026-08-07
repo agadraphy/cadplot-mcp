@@ -10,6 +10,7 @@ The first milestone intentionally cannot modify or plot a drawing. It provides:
 
 - recursive DWG discovery inside explicitly allowed folders;
 - read-only layout and plot-setting inspection through a running AutoCAD instance;
+- named page-setup inspection with expected PC3 and CTB/STB verification;
 - detection of paper-size labels such as `70x100`, `700x1000 mm`, or `50 × 70 cm`;
 - configuration-based paper profile matching;
 - structured warnings suitable for an approval-first publish plan.
@@ -24,6 +25,7 @@ Write and publish actions will only be added after the inspection and dry-run co
 - Every approved plan is bound to the source DWG's SHA-256 fingerprint.
 - Drawings opened by the inspector are opened read-only and closed without saving.
 - Existing open drawings are never closed by the server.
+- Existing layouts are never selected as write targets; target-name collisions block the plan.
 - Staging copies a DWG into a new isolated job folder and refuses symlink/junction workspaces.
 - Overwrite and original-file modification will remain disabled by default.
 
@@ -71,6 +73,11 @@ PC3/PMP, title blocks, and project drawings must not be committed to this reposi
 and the detected paper label are used to derive rotation and scale. Only values listed under
 `scale_denominators` within `scale_tolerance_ratio` are accepted; nonstandard or distorted frames
 remain blockers in the dry-run plan.
+
+With `require_page_setup_match: true` (the default), a sheet is ready only when the named page
+setup exists and its plotter and plot style match the configured profile. Planned layout names use
+`layout_prefix` plus a deterministic index and frame handle; any existing-name collision blocks
+the plan instead of overwriting a layout.
 
 For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
