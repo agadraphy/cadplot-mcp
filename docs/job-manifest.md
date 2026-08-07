@@ -19,6 +19,11 @@ On success it creates a unique `job-*` directory below `workspace_root` containi
 - `output/`: an initially empty directory with collision-free expected PDF names;
 - `manifest.json`: job identity, source fingerprint, plan identity, and output states.
 
+Each expected output also carries the immutable execution specification copied from the approved
+plan: target layout, named page setup, plotter, plot style, plot window, rotation, scale
+denominator, and drawing-unit conversion. The .NET queue rereads this manifest and cross-checks it
+against the queue request before accepting a job.
+
 The manifest starts in `staged` state. A future AutoCAD publisher may only operate on the
 `staged_drawing` named in this manifest and must write PDFs under its `output_directory`.
 

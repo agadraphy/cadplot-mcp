@@ -127,6 +127,8 @@ namespace CadPlotMcp.Core
         {
             error = PublishJobValidator.Validate(request, _trustedWorkspaceRoot);
             if (error != null) return false;
+            error = PublishManifestReader.Validate(request);
+            if (error != null) return false;
             lock (_gate)
             {
                 if (_pending.Count >= _capacity)

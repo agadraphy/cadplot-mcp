@@ -55,6 +55,11 @@ def stage_publish_job(
             "sheet_index": index,
             "frame_handle": sheet["frame_handle"],
             "pdf": str(output_dir / _pdf_name(source.stem, index, sheet["profile"]["id"])),
+            "target_layout": sheet["target_layout"],
+            "page_setup": sheet["profile"]["page_setup"],
+            "plotter": sheet["profile"]["plotter"],
+            "plot_style": sheet["profile"]["plot_style"],
+            "plot_geometry": sheet["plot_geometry"],
             "status": "pending",
         }
         for index, sheet in enumerate(plan["sheets"], start=1)

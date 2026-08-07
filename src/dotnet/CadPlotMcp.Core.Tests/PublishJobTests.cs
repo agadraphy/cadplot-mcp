@@ -1,4 +1,5 @@
 using CadPlotMcp.Core;
+using System.Text.Json;
 using Xunit;
 
 namespace CadPlotMcp.Core.Tests;
@@ -17,7 +18,6 @@ public sealed class PublishJobTests : IDisposable
         Directory.CreateDirectory(output);
         var manifest = Path.Combine(_jobRoot, "manifest.json");
         var drawing = Path.Combine(source, "sheet.dwg");
-        File.WriteAllText(manifest, "{}");
         File.WriteAllText(drawing, "synthetic");
         _request = new PublishJobRequest
         {
@@ -27,6 +27,7 @@ public sealed class PublishJobTests : IDisposable
             OutputDirectory = output,
             SheetCount = 2,
         };
+        WriteManifest();
     }
 
     [Fact]
@@ -61,9 +62,8 @@ public sealed class PublishJobTests : IDisposable
     {
         var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 1);
         Assert.True(queue.TryEnqueue(_request, out _));
-        var second = CloneWithPlan("sha256:" + new string('b', 64));
 
-        Assert.False(queue.TryEnqueue(second, out var error));
+        Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("queue_full", error);
     }
 
@@ -111,15 +111,60 @@ public sealed class PublishJobTests : IDisposable
         }
     }
 
-    private PublishJobRequest CloneWithPlan(string planId) =>
-        new()
+    [Fact]
+    public void ManifestPlanMismatchIsRejected()
+    {
+        _request.PlanId = "sha256:" + new string('b', 64);
+        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("manifest_plan_mismatch", error);
+    }
+
+    [Fact]
+    public void ManifestPdfEscapeIsRejected()
+    {
+        WriteManifest(firstPdf: Path.Combine(Path.GetTempPath(), "outside.pdf"));
+        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("pdf_outside_job", error);
+    }
+
+    private void WriteManifest(string? firstPdf = null)
+    {
+        var outputs = Enumerable.Range(1, 2).Select(index => new
         {
-            PlanId = planId,
-            ManifestPath = _request.ManifestPath,
-            StagedDrawing = _request.StagedDrawing,
-            OutputDirectory = _request.OutputDirectory,
-            SheetCount = _request.SheetCount,
+            sheet_index = index,
+            frame_handle = "A" + index,
+            pdf = index == 1 && firstPdf is not null
+                ? firstPdf
+                : Path.Combine(_request.OutputDirectory, $"{index:0000}-sheet.pdf"),
+            target_layout = $"CADPLOT_{index:0000}_A{index}",
+            page_setup = "OFFICE_A4",
+            plotter = "DWG To PDF.pc3",
+            plot_style = "monochrome.ctb",
+            plot_geometry = new
+            {
+                window = new { min_x = 0.0, min_y = 0.0, max_x = 297.0, max_y = 210.0 },
+                rotation_degrees = 90,
+                scale_denominator = 1.0,
+                drawing_unit_mm = 1.0,
+            },
+            status = "pending",
+        });
+        var manifest = new
+        {
+            schema_version = 1,
+            job_id = Path.GetFileName(_jobRoot),
+            state = "staged",
+            plan_id = "sha256:" + new string('a', 64),
+            staged_drawing = _request.StagedDrawing,
+            output_directory = _request.OutputDirectory,
+            outputs,
         };
+        File.WriteAllText(_request.ManifestPath, JsonSerializer.Serialize(manifest));
+    }
 
     public void Dispose()
     {

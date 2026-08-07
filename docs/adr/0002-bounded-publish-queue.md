@@ -19,6 +19,9 @@ The shared .NET core owns a bounded FIFO queue. A request is accepted only when:
 - its staged DWG is under that job's `source` folder;
 - its output directory is exactly that job's `output` folder;
 - the manifest, DWG, and output directory exist;
+- manifest plan/job/path identities match the queue request;
+- PDF and layout targets are unique and remain inside the job boundary;
+- every plot window, rotation, scale, page setup, plotter, and style value is structurally valid;
 - the sheet count is between 1 and 5000;
 - the plan has not previously been queued in the current plug-in process.
 

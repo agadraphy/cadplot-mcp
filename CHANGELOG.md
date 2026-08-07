@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
 - Restartable, deterministic batch-plan pages with per-DWG failure isolation.
 - Named page-setup inspection and configured plotter/plot-style consistency checks.
 - Deterministic target-layout naming with existing-layout collision blockers.
+- Execution-complete staged manifests and strict .NET manifest/request consistency validation.
 - Python-to-Windows-pipe and .NET protocol integration tests.
 
 ### Notes

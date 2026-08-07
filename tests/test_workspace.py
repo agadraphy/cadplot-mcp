@@ -73,6 +73,9 @@ def test_stage_publish_job_copies_source_and_writes_manifest(tmp_path: Path) -> 
     assert manifest.is_file()
     assert job["state"] == "staged"
     assert job["outputs"][0]["pdf"].endswith("0001-Sheet_01-office_a4.pdf")
+    assert job["outputs"][0]["target_layout"] == "CADPLOT_0001_A1"
+    assert job["outputs"][0]["page_setup"] == "OFFICE_A4"
+    assert job["outputs"][0]["plot_geometry"]["scale_denominator"] == 1
     assert not Path(job["outputs"][0]["pdf"]).exists()
 
 
