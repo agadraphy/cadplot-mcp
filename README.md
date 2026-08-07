@@ -185,7 +185,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\probe-autocad-api.ps1 `
 
 This is only an API-signature probe. It does not validate plotting or version compatibility.
 See [publish executor](docs/publish-executor.md) and the
-[licensed-workstation pilot](docs/monday-pilot.md).
+[licensed-workstation pilot](docs/monday-pilot.md). A concise Turkish presentation flow is in the
+[Monday demo runbook](docs/pazartesi-demo-tr.md).
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration

@@ -78,6 +78,8 @@ Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
 
 ## Önerilen pilot akışı
 
+Sunumda doğrudan kullanmak için [Pazartesi demo runbook](docs/pazartesi-demo-tr.md) dosyasına bakın.
+
 1. Lisanslı AutoCAD'i açın ve modal pencere bırakmayın.
 2. Yalnızca izinli, anonimleştirilmiş bir DWG kopyasını `allowed_roots` altına koyun.
 3. `validate_environment` ve `get_autocad_plugin_status` çalıştırın.
