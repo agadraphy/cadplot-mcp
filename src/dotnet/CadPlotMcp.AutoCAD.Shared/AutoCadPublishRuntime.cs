@@ -226,6 +226,23 @@ namespace CadPlotMcp.AutoCAD
                         throw new CadPlotPublishException("target_layout_exists");
                     if (!pageSetups.Contains(output.PageSetup))
                         throw new CadPlotPublishException("page_setup_missing");
+                    if (output.TemplateLayout != null)
+                    {
+                        if (!layouts.Contains(output.TemplateLayout))
+                            throw new CadPlotPublishException("template_layout_missing");
+                        var template = (Layout)transaction.GetObject(
+                            layouts.GetAt(output.TemplateLayout),
+                            OpenMode.ForRead
+                        );
+                        if (template.ModelType)
+                            throw new CadPlotPublishException("template_layout_is_model");
+                        var templateSpace = (BlockTableRecord)transaction.GetObject(
+                            template.BlockTableRecordId,
+                            OpenMode.ForRead
+                        );
+                        if (CountFloatingViewports(transaction, templateSpace) != 1)
+                            throw new CadPlotPublishException("template_viewport_count");
+                    }
                     var pageSetup = (PlotSettings)transaction.GetObject(
                         pageSetups.GetAt(output.PageSetup),
                         OpenMode.ForRead
@@ -241,7 +258,20 @@ namespace CadPlotMcp.AutoCAD
         private static void ConfigureLayout(Database database, PublishManifestOutput output)
         {
             var layoutManager = LayoutManager.Current;
-            var layoutId = layoutManager.CreateLayout(output.TargetLayout);
+            ObjectId layoutId;
+            if (output.TemplateLayout == null)
+            {
+                layoutId = layoutManager.CreateLayout(output.TargetLayout);
+            }
+            else
+            {
+                layoutManager.CloneLayout(
+                    output.TemplateLayout,
+                    output.TargetLayout,
+                    LayoutCount(database)
+                );
+                layoutId = layoutManager.GetLayoutId(output.TargetLayout);
+            }
             using (var transaction = database.TransactionManager.StartTransaction())
             {
                 var layout = (Layout)transaction.GetObject(layoutId, OpenMode.ForWrite);
@@ -258,45 +288,115 @@ namespace CadPlotMcp.AutoCAD
 
                 var paper = EffectivePaper(layout);
                 var paperUnitMillimetres = PaperUnitMillimetres(layout.PlotPaperUnits);
-                var viewportGeometry = ViewportGeometryCalculator.Calculate(
-                    output.PlotGeometry,
-                    paper.Item1,
-                    paper.Item2,
-                    paperUnitMillimetres
-                );
                 var paperSpace = (BlockTableRecord)transaction.GetObject(
                     layout.BlockTableRecordId,
                     OpenMode.ForWrite
                 );
-                RemoveFloatingViewports(transaction, paperSpace);
-                using (var viewport = new Viewport())
+                if (output.TemplateLayout == null)
                 {
-                    viewport.SetDatabaseDefaults(database);
-                    viewport.CenterPoint = new Point3d(
-                        viewportGeometry.PaperWidthUnits / 2.0,
-                        viewportGeometry.PaperHeightUnits / 2.0,
-                        0.0
+                    var viewportGeometry = ViewportGeometryCalculator.Calculate(
+                        output.PlotGeometry,
+                        paper.Item1,
+                        paper.Item2,
+                        paperUnitMillimetres
                     );
-                    viewport.Width = viewportGeometry.PaperWidthUnits;
-                    viewport.Height = viewportGeometry.PaperHeightUnits;
-                    viewport.ViewDirection = Vector3d.ZAxis;
-                    viewport.ViewTarget = new Point3d(
-                        viewportGeometry.ModelCenterX,
-                        viewportGeometry.ModelCenterY,
-                        0.0
+                    RemoveFloatingViewports(transaction, paperSpace);
+                    using (var viewport = new Viewport())
+                    {
+                        viewport.SetDatabaseDefaults(database);
+                        viewport.CenterPoint = new Point3d(
+                            viewportGeometry.PaperWidthUnits / 2.0,
+                            viewportGeometry.PaperHeightUnits / 2.0,
+                            0.0
+                        );
+                        viewport.Width = viewportGeometry.PaperWidthUnits;
+                        viewport.Height = viewportGeometry.PaperHeightUnits;
+                        ConfigureViewport(viewport, viewportGeometry);
+                        paperSpace.AppendEntity(viewport);
+                        transaction.AddNewlyCreatedDBObject(viewport, true);
+                    }
+                }
+                else
+                {
+                    var viewport = SingleFloatingViewport(transaction, paperSpace);
+                    viewport.UpgradeOpen();
+                    var viewportGeometry = ViewportGeometryCalculator.Calculate(
+                        output.PlotGeometry,
+                        viewport.Width * paperUnitMillimetres,
+                        viewport.Height * paperUnitMillimetres,
+                        paperUnitMillimetres
                     );
-                    // ViewTarget is WCS while ViewCenter is DCS. Target the model
-                    // window centre and keep the DCS offset at the origin.
-                    viewport.ViewCenter = Point2d.Origin;
-                    viewport.TwistAngle = viewportGeometry.QuarterTurn ? Math.PI / 2.0 : 0.0;
-                    viewport.CustomScale = viewportGeometry.CustomScale;
-                    viewport.On = true;
-                    viewport.Locked = true;
-                    paperSpace.AppendEntity(viewport);
-                    transaction.AddNewlyCreatedDBObject(viewport, true);
+                    ConfigureViewport(viewport, viewportGeometry);
                 }
                 transaction.Commit();
             }
+        }
+
+        private static void ConfigureViewport(
+            Viewport viewport,
+            ViewportGeometryResult viewportGeometry
+        )
+        {
+            viewport.ViewDirection = Vector3d.ZAxis;
+            viewport.ViewTarget = new Point3d(
+                viewportGeometry.ModelCenterX,
+                viewportGeometry.ModelCenterY,
+                0.0
+            );
+            // ViewTarget is WCS while ViewCenter is DCS. Target the model
+            // window centre and keep the DCS offset at the origin.
+            viewport.ViewCenter = Point2d.Origin;
+            viewport.TwistAngle = viewportGeometry.QuarterTurn ? Math.PI / 2.0 : 0.0;
+            viewport.CustomScale = viewportGeometry.CustomScale;
+            viewport.On = true;
+            viewport.Locked = true;
+        }
+
+        private static int LayoutCount(Database database)
+        {
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var layouts = (DBDictionary)transaction.GetObject(
+                    database.LayoutDictionaryId,
+                    OpenMode.ForRead
+                );
+                var count = layouts.Count;
+                transaction.Abort();
+                return count;
+            }
+        }
+
+        private static int CountFloatingViewports(
+            Transaction transaction,
+            BlockTableRecord paperSpace
+        )
+        {
+            var count = 0;
+            foreach (ObjectId objectId in paperSpace)
+            {
+                var viewport = transaction.GetObject(objectId, OpenMode.ForRead) as Viewport;
+                if (viewport != null && viewport.Number > 1) count++;
+            }
+            return count;
+        }
+
+        private static Viewport SingleFloatingViewport(
+            Transaction transaction,
+            BlockTableRecord paperSpace
+        )
+        {
+            Viewport found = null;
+            foreach (ObjectId objectId in paperSpace)
+            {
+                var viewport = transaction.GetObject(objectId, OpenMode.ForRead) as Viewport;
+                if (viewport == null || viewport.Number <= 1) continue;
+                if (found != null)
+                    throw new CadPlotPublishException("template_viewport_count");
+                found = viewport;
+            }
+            if (found == null)
+                throw new CadPlotPublishException("template_viewport_count");
+            return found;
         }
 
         private static void PlotLayout(Document document, PublishManifestOutput output)

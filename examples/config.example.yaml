@@ -26,6 +26,8 @@ paper_profiles:
     plot_style: "monochrome.ctb"
     # Optional but recommended: exact case-sensitive value reported by AutoCAD.
     # canonical_media: "UserDefinedMetric (700.00 x 1000.00MM)"
+    # Optional: clone this existing paper-space layout and reuse its single floating viewport.
+    # template_layout: "TEMPLATE_70X100"
     tolerance_mm: 3
 
   - id: "sheet_50x70"

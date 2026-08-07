@@ -53,6 +53,8 @@ All notable changes to this project are documented in this file.
   ranges, resource names, and non-overlapping source/workspace directory trees.
 - Guarded `-WhatIf`-capable bundle uninstall/upgrade path with exact package identity and
   reparse-point checks.
+- Optional approved in-drawing paper-space layout cloning that preserves title-block geometry and
+  deterministically retargets exactly one existing floating viewport.
 
 ### Notes
 

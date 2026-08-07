@@ -129,6 +129,12 @@ setup is the accepted source of media configuration and the office has approved 
 below that threshold. See [frame detection](docs/frame-detection.md).
 Set optional `frame_layers` when the office has a reliable frame-layer allowlist.
 
+Set optional profile `template_layout` when each source DWG already contains an approved
+paper-space title-block layout with exactly one floating viewport. The executor clones that layout,
+preserves its paper-space geometry, and retargets the cloned viewport to the approved model window
+and scale. Missing/model-space templates or zero/multiple floating viewports block execution.
+External DWT/DWG template import is deliberately not inferred from a path or filename.
+
 For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
 `has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
 MCP request.

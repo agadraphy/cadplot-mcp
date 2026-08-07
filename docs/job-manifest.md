@@ -31,7 +31,8 @@ before execution, closing the staging-to-execution time-of-check/time-of-use gap
 
 Each expected output also carries the immutable execution specification copied from the approved
 plan: target layout, named page setup, plotter, plot style, plot window, rotation, scale
-denominator, and drawing-unit conversion. The .NET queue rereads this manifest and cross-checks it
+denominator, drawing-unit conversion, and optional in-drawing template layout. The .NET queue
+rereads this manifest and cross-checks it
 against the queue request before accepting a job.
 The plot geometry includes the expected physical paper width and height. PDF auditing compares
 those values to the parsed PDF MediaBox independent of orientation, using configured

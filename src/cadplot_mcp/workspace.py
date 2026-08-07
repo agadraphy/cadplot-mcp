@@ -61,6 +61,7 @@ def stage_publish_job(
             "plotter": sheet["profile"]["plotter"],
             "plot_style": sheet["profile"]["plot_style"],
             "canonical_media": sheet["profile"]["canonical_media"],
+            "template_layout": sheet["profile"]["template_layout"],
             "plot_geometry": sheet["plot_geometry"],
             "status": "pending",
         }

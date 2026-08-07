@@ -36,6 +36,27 @@ paper_profiles:
     assert 50 in config.scale_denominators
 
 
+def test_config_accepts_optional_template_layout(tmp_path: Path) -> None:
+    (tmp_path / "project").mkdir()
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        """
+version: 1
+allowed_roots: [project]
+paper_profiles:
+  - id: sheet
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    template_layout: TEMPLATE_70X100
+""".strip(),
+        encoding="utf-8",
+    )
+
+    assert load_config(path).paper_profiles[0].template_layout == "TEMPLATE_70X100"
+
+
 def test_config_rejects_overlapping_profile_dimensions(tmp_path: Path) -> None:
     (tmp_path / "project").mkdir()
     config_path = tmp_path / "config.yaml"

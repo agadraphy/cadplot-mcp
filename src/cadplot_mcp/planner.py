@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from cadplot_mcp.config import CadPlotConfig, PaperProfile
-from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
+from cadplot_mcp.models import DrawingInspection, FrameCandidate, LayoutSummary, PageSetupSummary
 from cadplot_mcp.paper import parse_paper_size
 
 PLAN_ID_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -83,6 +83,20 @@ def create_publish_plan(
                     "frame_handle": frame.handle,
                     "label": frame.label,
                     "status": "page_setup_mismatch",
+                    "profile": profile_payload,
+                    "target_layout": target_layout,
+                    "plot_geometry": None,
+                }
+            )
+            continue
+        template_layout_error = _template_layout_error(profile, inspection.layouts)
+        if template_layout_error is not None:
+            warnings.append(f"Frame {frame.handle or '<no handle>'}: {template_layout_error}")
+            sheets.append(
+                {
+                    "frame_handle": frame.handle,
+                    "label": frame.label,
+                    "status": "template_layout_mismatch",
                     "profile": profile_payload,
                     "target_layout": target_layout,
                     "plot_geometry": None,
@@ -250,6 +264,7 @@ def _profile_payload(profile: PaperProfile) -> dict[str, str | None]:
         "plotter": profile.plotter,
         "plot_style": profile.plot_style,
         "canonical_media": profile.canonical_media,
+        "template_layout": profile.template_layout,
     }
 
 
@@ -266,6 +281,8 @@ def _page_setup_error(
     if not matches:
         return f"required page setup {profile.page_setup!r} was not found."
     setup = matches[0]
+    if setup.model_type:
+        return f"page setup {profile.page_setup!r} is a model-space setup."
     if (setup.plotter or "").casefold() != profile.plotter.casefold():
         return (
             f"page setup {profile.page_setup!r} uses plotter {setup.plotter!r}, "
@@ -281,6 +298,22 @@ def _page_setup_error(
             f"page setup {profile.page_setup!r} uses canonical media {setup.media_name!r}, "
             f"expected exact case-sensitive value {profile.canonical_media!r}."
         )
+    return None
+
+
+def _template_layout_error(
+    profile: PaperProfile,
+    layouts: list[LayoutSummary],
+) -> str | None:
+    if profile.template_layout is None:
+        return None
+    matches = [
+        layout for layout in layouts if layout.name.casefold() == profile.template_layout.casefold()
+    ]
+    if not matches:
+        return f"required template layout {profile.template_layout!r} was not found."
+    if matches[0].model_type:
+        return f"template layout {profile.template_layout!r} is model space."
     return None
 
 

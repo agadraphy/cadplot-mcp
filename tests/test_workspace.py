@@ -52,7 +52,7 @@ paper_profiles:
         page_setups=[
             PageSetupSummary(
                 name="OFFICE_A4",
-                model_type=True,
+                model_type=False,
                 plotter="DWG To PDF.pc3",
                 media_name="ISO_A4",
                 plot_style="monochrome.ctb",

@@ -14,8 +14,9 @@ For every job the plug-in:
 3. refuses existing output PDFs, existing target layouts, unsupported paper units, missing page
    setups, plotter/style/media mismatches, and a busy PlotEngine;
 4. opens only the staged DWG copy and makes it the current locked document;
-5. creates a unique paper-space layout, copies the approved named page setup, and creates a locked
-   viewport centered on the approved model window at the approved physical scale;
+5. creates a unique paper-space layout or clones the explicitly approved in-drawing template,
+   copies the approved named page setup, and configures a locked viewport centered on the approved
+   model window at the approved physical scale;
 6. temporarily forces foreground plotting (`BACKGROUNDPLOT=0`), plots each current layout through
    the nested PlotEngine lifecycle to its explicit job PDF, and restores the user's prior value;
 7. closes the DWG without saving, so the staged file remains byte-identical;
@@ -59,8 +60,9 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
   the job, diagnose the bounded failure code, and stage a new job for a clean retry.
 - The first live gate is intentionally one sheet. Large batches are enabled only after both
   supported-version pilots accept scale, orientation, crop, fonts, and plot style.
-- The generic executor creates an empty layout with one full-sheet viewport. Offices that require
-  paper-space title-block geometry need a separately approved template-import extension.
+- Without `template_layout`, the generic executor creates an empty layout with one full-sheet
+  viewport. With it, the executor preserves an existing in-drawing title block and requires exactly
+  one floating viewport. External DWT/DWG import still needs a separately approved extension.
 
 ## Autodesk references
 
@@ -69,3 +71,4 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 - [Create paper-space viewports (.NET)](https://help.autodesk.com/cloudhelp/2016/ENU/AutoCAD-NET/files/GUID-61C22902-F63B-4204-86EC-FA37312D1B6E.htm)
 - [Viewport custom scale](https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_Viewport_CustomScale.html)
 - [PlotEngine lifecycle](https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_PlottingServices_PlotEngine.html)
+- [LayoutManager.CloneLayout](https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_LayoutManager_CloneLayout_string_string_int.html)

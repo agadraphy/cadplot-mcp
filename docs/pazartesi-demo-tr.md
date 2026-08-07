@@ -39,8 +39,9 @@ taşınmaz.
 - 2016 sonucu 2025'i; 2025 sonucu 2016'yı kanıtlamaz. İki pilot ayrı kaydedilir.
 - Geçerli PDF dosyasının tek başına varlığı AutoCAD yürütme kanıtı değildir; başarılı receipt de
   gerekir.
-- Genel executor boş layout + tam sayfa viewport kurar. Ofis title block'u paper-space geometri
-  olarak ayrıca import edilecekse, yetkili örnek incelenmeden bu destek tamamlandı denmez.
+- Profilde `template_layout` yoksa executor boş layout + tam sayfa viewport kurar. Kaynak DWG
+  içinde tek floating viewport'lu onaylı template varsa onu klonlayabilir. Harici DWT/DWG importu
+  gerekiyorsa yetkili örnek incelenmeden bu destek tamamlandı denmez.
 - Normal ChatGPT web oturumu yerel AutoCAD'e kendiliğinden erişmez. İlk demo yerel MCP istemcisiyle
   yapılır; merkezi şirket ChatGPT bağlantısı IT onaylı güvenli connector/tunnel işidir.
 

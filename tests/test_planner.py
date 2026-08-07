@@ -56,7 +56,7 @@ def _inspection(
         page_setups=[
             PageSetupSummary(
                 name="OFFICE_70x100",
-                model_type=True,
+                model_type=False,
                 plotter="DWG To PDF.pc3",
                 media_name="OFFICE_700X1000",
                 plot_style="monochrome.ctb",
@@ -178,7 +178,7 @@ def test_publish_plan_blocks_page_setup_plotter_mismatch(tmp_path: Path) -> None
     inspection = _inspection([_frame("70x100")])
     inspection.page_setups[0] = PageSetupSummary(
         name="OFFICE_70x100",
-        model_type=True,
+        model_type=False,
         plotter="Wrong Printer.pc3",
         media_name="OFFICE_700X1000",
         plot_style="monochrome.ctb",
@@ -191,12 +191,24 @@ def test_publish_plan_blocks_page_setup_plotter_mismatch(tmp_path: Path) -> None
     assert "Wrong Printer.pc3" in plan["warnings"][0]
 
 
+def test_publish_plan_blocks_model_space_page_setup(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = _inspection([_frame("70x100")])
+    inspection.page_setups[0] = replace(inspection.page_setups[0], model_type=True)
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is False
+    assert plan["sheets"][0]["status"] == "page_setup_mismatch"
+    assert "model-space" in plan["warnings"][0]
+
+
 def test_publish_plan_requires_exact_canonical_media_case(tmp_path: Path) -> None:
     config = _config(tmp_path)
     inspection = _inspection([_frame("70x100")])
     inspection.page_setups[0] = PageSetupSummary(
         name="OFFICE_70x100",
-        model_type=True,
+        model_type=False,
         plotter="DWG To PDF.pc3",
         media_name="office_700x1000",
         plot_style="monochrome.ctb",
@@ -219,6 +231,29 @@ def test_publish_plan_refuses_existing_target_layout(tmp_path: Path) -> None:
     assert plan["ready"] is False
     assert plan["sheets"][0]["status"] == "layout_conflict"
     assert plan["sheets"][0]["target_layout"] == "CADPLOT_0001_AB12"
+
+
+def test_publish_plan_requires_configured_paper_space_template_layout(tmp_path: Path) -> None:
+    base = _config(tmp_path)
+    profile = replace(base.paper_profiles[0], template_layout="OFFICE_TEMPLATE")
+    config = replace(base, paper_profiles=(profile,))
+
+    missing = create_publish_plan(
+        _inspection([_frame("70x100")]), config, drawing_fingerprint=_fingerprint()
+    )
+    present = create_publish_plan(
+        _inspection(
+            [_frame("70x100")],
+            layouts=[LayoutSummary(name="office_template", model_type=False)],
+        ),
+        config,
+        drawing_fingerprint=_fingerprint(),
+    )
+
+    assert missing["ready"] is False
+    assert missing["sheets"][0]["status"] == "template_layout_mismatch"
+    assert present["ready"] is True
+    assert present["sheets"][0]["profile"]["template_layout"] == "OFFICE_TEMPLATE"
 
 
 def test_publish_plan_blocks_low_confidence_frame(tmp_path: Path) -> None:

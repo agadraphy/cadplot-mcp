@@ -32,6 +32,7 @@ PROFILE_KEYS = {
     "plotter",
     "plot_style",
     "canonical_media",
+    "template_layout",
     "tolerance_mm",
 }
 
@@ -44,6 +45,7 @@ class PaperProfile:
     plotter: str
     plot_style: str
     canonical_media: str | None = None
+    template_layout: str | None = None
     tolerance_mm: float = 3.0
 
 
@@ -235,6 +237,11 @@ def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
         if raw.get("canonical_media") is not None
         else None
     )
+    template_layout = (
+        _profile_text(raw, "template_layout", 255)
+        if raw.get("template_layout") is not None
+        else None
+    )
     return PaperProfile(
         id=profile_id,
         labels=labels,
@@ -242,6 +249,7 @@ def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
         plotter=plotter,
         plot_style=plot_style,
         canonical_media=canonical_media,
+        template_layout=template_layout,
         tolerance_mm=float(raw.get("tolerance_mm", 3.0)),
     )
 

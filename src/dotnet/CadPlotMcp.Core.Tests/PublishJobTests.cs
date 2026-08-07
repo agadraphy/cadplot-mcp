@@ -141,6 +141,26 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void ManifestRejectsTemplateLayoutThatOverwritesItsSource()
+    {
+        WriteManifest(templateLayout: "CADPLOT_0001_A1");
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("invalid_template_layout", error);
+    }
+
+    [Fact]
+    public void ManifestAcceptsBoundedUnicodeTemplateLayoutName()
+    {
+        WriteManifest(templateLayout: "Şirket Paftası 70x100");
+        var queue = NewQueue();
+
+        Assert.True(queue.TryEnqueue(_request, out var error));
+        Assert.Null(error);
+    }
+
+    [Fact]
     public void StagedDrawingChangedAfterManifestIsRejected()
     {
         File.AppendAllText(_request.StagedDrawing, "changed");
@@ -466,7 +486,7 @@ public sealed class PublishJobTests : IDisposable
             write(request, execution);
     }
 
-    private void WriteManifest(string? firstPdf = null)
+    private void WriteManifest(string? firstPdf = null, string? templateLayout = null)
     {
         var outputs = Enumerable.Range(1, 2).Select(index => new
         {
@@ -480,6 +500,7 @@ public sealed class PublishJobTests : IDisposable
             plotter = "DWG To PDF.pc3",
             plot_style = "monochrome.ctb",
             canonical_media = "ISO_A4",
+            template_layout = templateLayout,
             plot_geometry = new
             {
                 window = new { min_x = 0.0, min_y = 0.0, max_x = 297.0, max_y = 210.0 },

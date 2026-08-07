@@ -67,6 +67,10 @@ nedeniyle 10 mm'yi geçemez.
 bu eşiğin altında otomatik yayına alınmaz.
 Ofisin güvenilir bir çerçeve layer standardı varsa `frame_layers` listesi doldurulabilir; diğer
 layer'lardaki adaylar blocker olur.
+Her kaynak DWG içinde onaylı bir paper-space title-block layout'u ve tam bir floating viewport
+varsa profile `template_layout` eklenebilir. Eklenti layout'u staged kopya içinde klonlar, pafta
+geometrisini korur ve klon viewport'unu onaylı pencere/ölçeğe taşır. Eksik veya çok viewport'lu
+template işi durdurur; harici DWT yolu kendiliğinden kabul edilmez.
 
 AutoCAD kullanmadan plan→onay→kopya staging→PDF audit zincirini denemek için:
 

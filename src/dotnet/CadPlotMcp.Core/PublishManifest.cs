@@ -38,6 +38,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "plotter")] public string Plotter { get; set; }
         [DataMember(Name = "plot_style")] public string PlotStyle { get; set; }
         [DataMember(Name = "canonical_media", EmitDefaultValue = false)] public string CanonicalMedia { get; set; }
+        [DataMember(Name = "template_layout", EmitDefaultValue = false)] public string TemplateLayout { get; set; }
         [DataMember(Name = "plot_geometry")] public PublishPlotGeometry PlotGeometry { get; set; }
         [DataMember(Name = "status")] public string Status { get; set; }
     }
@@ -186,6 +187,10 @@ namespace CadPlotMcp.Core
                 return "invalid_sheet_metadata";
             if (output.CanonicalMedia != null && String.IsNullOrWhiteSpace(output.CanonicalMedia))
                 return "invalid_canonical_media";
+            if (output.TemplateLayout != null
+                && (!SafeResourceName(output.TemplateLayout)
+                    || String.Equals(output.TemplateLayout, output.TargetLayout, StringComparison.OrdinalIgnoreCase)))
+                return "invalid_template_layout";
             if (!seenLayouts.Add(output.TargetLayout)) return "duplicate_layout_target";
             return ValidateGeometry(output.PlotGeometry);
         }
@@ -209,6 +214,14 @@ namespace CadPlotMcp.Core
 
         private static bool PositiveFinite(double value) { return value > 0 && Finite(value); }
         private static bool Finite(double value) { return !Double.IsNaN(value) && !Double.IsInfinity(value); }
+
+        private static bool SafeResourceName(string value)
+        {
+            if (String.IsNullOrWhiteSpace(value) || value.Length > 255) return false;
+            foreach (var character in value)
+                if (Char.IsControl(character)) return false;
+            return true;
+        }
 
         private static bool SamePath(string left, string right)
         {
