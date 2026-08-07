@@ -23,6 +23,11 @@ Default workflows must remain copy-only and dry-run first. Do not overwrite,
 move, delete, batch-modify, or submit drawings without an explicit operator
 decision and a verified output location.
 
+The local named pipe is restricted to the creating Windows user. .NET 8 uses
+`PipeOptions.CurrentUserOnly`; the AutoCAD 2016/.NET Framework 4.5 build uses
+a protected ACL granting full control only to the current user SID. Do not
+relay the pipe over TCP or expose it through a generic command bridge.
+
 ## Supported versions
 
 Security fixes are considered for the latest released version and the current

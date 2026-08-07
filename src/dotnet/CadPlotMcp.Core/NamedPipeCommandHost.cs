@@ -1,6 +1,10 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+#if !NET8_0_OR_GREATER
+using System.Security.AccessControl;
+using System.Security.Principal;
+#endif
 using System.Threading;
 
 namespace CadPlotMcp.Core
@@ -32,7 +36,7 @@ namespace CadPlotMcp.Core
             {
                 try
                 {
-                    using (var pipe = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.None))
+                    using (var pipe = CreatePipe())
                     {
                         pipe.WaitForConnection();
                         using (var reader = new StreamReader(pipe))
@@ -48,6 +52,42 @@ namespace CadPlotMcp.Core
                 catch (IOException) { if (_stop.IsCancellationRequested) return; }
                 catch (ObjectDisposedException) { return; }
             }
+        }
+
+        private NamedPipeServerStream CreatePipe()
+        {
+#if NET8_0_OR_GREATER
+            return new NamedPipeServerStream(
+                _pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.CurrentUserOnly
+            );
+#else
+            using (var identity = WindowsIdentity.GetCurrent())
+            {
+                var user = identity.User;
+                if (user == null)
+                    throw new InvalidOperationException("Current Windows user SID is unavailable.");
+                var security = new PipeSecurity();
+                security.SetOwner(user);
+                security.SetAccessRuleProtection(true, false);
+                security.AddAccessRule(
+                    new PipeAccessRule(user, PipeAccessRights.FullControl, AccessControlType.Allow)
+                );
+                return new NamedPipeServerStream(
+                    _pipeName,
+                    PipeDirection.InOut,
+                    1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.None,
+                    0,
+                    0,
+                    security
+                );
+            }
+#endif
         }
 
         public void Dispose()
