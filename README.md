@@ -101,7 +101,9 @@ uv run python scripts/run-synthetic-demo.py
 ## Configuration
 
 Copy [examples/config.example.yaml](examples/config.example.yaml). Set `workspace_root` to a local,
-dedicated output folder that is not a symlink or junction. Company-owned DWT, CTB/STB,
+dedicated output folder that is not a symlink or junction and does not overlap any `allowed_roots`
+source tree. Unknown fields, malformed profile types, empty resource names, non-finite numeric
+values, and unsafe tolerance ranges are rejected at startup. Company-owned DWT, CTB/STB,
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
 
 A generic local stdio client example is available at

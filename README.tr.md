@@ -119,6 +119,10 @@ MCP isteğinden kabul etmez.
 pilot için AutoCAD başlatılmadan önce `CADPLOT_ENABLE_PUBLISH=1` ayarlanır; değişiklikten sonra
 AutoCAD yeniden başlatılır.
 
+`workspace_root`, kaynak `allowed_roots` klasörlerinden tamamen ayrı olmalıdır; iç içe klasörler
+reddedilir. Yanlış yazılmış config alanları, boş AutoCAD kaynak adları ve `NaN/Infinity` değerleri
+iş başlamadan hata verir.
+
 Merkezi ChatGPT Business/Enterprise/Edu ortamında ise şirket yöneticisinin MCP bağlantısını
 onaylaması ve merkezi servis ile AutoCAD iş istasyonu arasında yönetilen güvenli bağlantı kurması
 gerekir. İnternete named pipe, AutoCAD COM veya korumasız yerel port açılmaz. İlk pilot için yerel

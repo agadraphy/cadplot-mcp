@@ -74,6 +74,9 @@ paper_profiles:
         ("pdf_page_tolerance_mm: 20", "between 0 and 10"),
         ("minimum_frame_confidence: 2", "between 0 and 1"),
         ("frame_layers: [SHEET, sheet]", "unique ignoring case"),
+        ("drawing_unit_mm: .nan", "finite value"),
+        ("scale_denominators: [1, .inf]", "positive values"),
+        ("frame_layers: SHEET", "must be a list"),
     ],
 )
 def test_config_rejects_unsafe_scale_settings(
@@ -97,4 +100,114 @@ paper_profiles:
     )
 
     with pytest.raises(ValueError, match=message):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        (
+            """id: bad/profile
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb""",
+            "profile id",
+        ),
+        (
+            """id: sheet
+    labels: 70x100
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb""",
+            "labels must be a list",
+        ),
+        (
+            """id: sheet
+    labels: [70x100]
+    page_setup: ""
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb""",
+            "page_setup",
+        ),
+        (
+            """id: sheet
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    tolerance_mm: .nan""",
+            "tolerance must be finite",
+        ),
+        (
+            """id: sheet
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    page_setpu: TYPO""",
+            "unknown fields",
+        ),
+    ],
+)
+def test_config_rejects_malformed_paper_profiles(
+    tmp_path: Path, profile: str, message: str
+) -> None:
+    (tmp_path / "project").mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+allowed_roots: [project]
+paper_profiles:
+  - {profile}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_config(config_path)
+
+
+def test_config_rejects_unknown_top_level_field_and_empty_profiles(tmp_path: Path) -> None:
+    (tmp_path / "project").mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "version: 1\nallowed_roots: [project]\nworkspace_rooot: typo\npaper_profiles: []",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        load_config(config_path)
+
+    config_path.write_text(
+        "version: 1\nallowed_roots: [project]\npaper_profiles: []",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="between 1 and 100"):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize("workspace", ["project/work", "."])
+def test_config_requires_workspace_separate_from_source_trees(
+    tmp_path: Path, workspace: str
+) -> None:
+    (tmp_path / "project").mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+allowed_roots: [project]
+workspace_root: {workspace}
+paper_profiles:
+  - id: sheet
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must be separate"):
         load_config(config_path)

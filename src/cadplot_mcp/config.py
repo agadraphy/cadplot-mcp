@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,30 @@ import yaml
 
 from cadplot_mcp.paper import normalize_label, parse_paper_size
 from cadplot_mcp.security import PathPolicy
+
+TOP_LEVEL_KEYS = {
+    "version",
+    "allowed_roots",
+    "workspace_root",
+    "drawing_unit_mm",
+    "scale_denominators",
+    "scale_tolerance_ratio",
+    "require_page_setup_match",
+    "layout_prefix",
+    "pdf_page_tolerance_mm",
+    "minimum_frame_confidence",
+    "frame_layers",
+    "paper_profiles",
+}
+PROFILE_KEYS = {
+    "id",
+    "labels",
+    "page_setup",
+    "plotter",
+    "plot_style",
+    "canonical_media",
+    "tolerance_mm",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,31 +99,59 @@ class CadPlotConfig:
 def load_config(path: str | Path) -> CadPlotConfig:
     source = Path(path).expanduser().resolve(strict=True)
     raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError("Config root must be a YAML mapping.")
+    unknown_keys = sorted(set(raw) - TOP_LEVEL_KEYS)
+    if unknown_keys:
+        raise ValueError(f"Config contains unknown fields: {', '.join(unknown_keys)}")
     if raw.get("version") != 1:
         raise ValueError("Unsupported or missing config version; expected version: 1")
 
-    roots = [_resolve_relative(source.parent, item) for item in raw.get("allowed_roots", [])]
-    profiles = tuple(_parse_profile(item) for item in raw.get("paper_profiles", []))
+    roots_value = raw.get("allowed_roots", [])
+    if not isinstance(roots_value, list) or any(
+        not isinstance(item, str) or not item.strip() for item in roots_value
+    ):
+        raise ValueError("allowed_roots must be a list of non-empty paths.")
+    profiles_value = raw.get("paper_profiles", [])
+    if not isinstance(profiles_value, list):
+        raise ValueError("paper_profiles must be a list of profile mappings.")
+    roots = [_resolve_relative(source.parent, item) for item in roots_value]
+    profiles = tuple(_parse_profile(item) for item in profiles_value)
     workspace_value = raw.get("workspace_root")
+    if workspace_value is not None and (
+        not isinstance(workspace_value, str) or not workspace_value.strip()
+    ):
+        raise ValueError("workspace_root must be a non-empty path when configured.")
     workspace_root = (
-        _resolve_relative(source.parent, str(workspace_value)).absolute()
+        _resolve_relative(source.parent, workspace_value).absolute()
         if workspace_value is not None
         else None
     )
     drawing_unit_mm = float(raw.get("drawing_unit_mm", 1.0))
     default_scales = (1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
+    scale_values = raw.get("scale_denominators", default_scales)
+    if not isinstance(scale_values, (list, tuple)):
+        raise ValueError("scale_denominators must be a list of numbers.")
     scale_denominators = tuple(
-        float(item) for item in raw.get("scale_denominators", default_scales)
+        float(item) for item in scale_values
     )
     scale_tolerance_ratio = float(raw.get("scale_tolerance_ratio", 0.02))
     require_page_setup_match = raw.get("require_page_setup_match", True)
     layout_prefix = str(raw.get("layout_prefix", "CADPLOT"))
     pdf_page_tolerance_mm = float(raw.get("pdf_page_tolerance_mm", 2.0))
     minimum_frame_confidence = float(raw.get("minimum_frame_confidence", 0.85))
-    frame_layers = tuple(str(item).strip() for item in raw.get("frame_layers", ()))
-    if drawing_unit_mm <= 0:
-        raise ValueError("drawing_unit_mm must be greater than zero")
-    if not scale_denominators or any(item <= 0 for item in scale_denominators):
+    frame_layer_values = raw.get("frame_layers", [])
+    if not isinstance(frame_layer_values, list) or any(
+        not isinstance(item, str) for item in frame_layer_values
+    ):
+        raise ValueError("frame_layers must be a list of layer names.")
+    frame_layers = tuple(item.strip() for item in frame_layer_values)
+    if not math.isfinite(drawing_unit_mm) or drawing_unit_mm <= 0:
+        raise ValueError("drawing_unit_mm must be a finite value greater than zero")
+    if (
+        not 1 <= len(scale_denominators) <= 100
+        or any(not math.isfinite(item) or item <= 0 for item in scale_denominators)
+    ):
         raise ValueError("scale_denominators must contain positive values")
     if len(scale_denominators) != len(set(scale_denominators)):
         raise ValueError("scale_denominators must be unique")
@@ -112,15 +165,27 @@ def load_config(path: str | Path) -> CadPlotConfig:
         raise ValueError("pdf_page_tolerance_mm must be between 0 and 10")
     if not 0 <= minimum_frame_confidence <= 1:
         raise ValueError("minimum_frame_confidence must be between 0 and 1")
-    if any(not item for item in frame_layers):
-        raise ValueError("frame_layers must not contain empty names")
+    if len(frame_layers) > 256 or any(
+        not item or len(item) > 255 or _has_control_character(item) for item in frame_layers
+    ):
+        raise ValueError("frame_layers must contain at most 256 valid, non-empty names")
     normalized_layers = [item.casefold() for item in frame_layers]
     if len(normalized_layers) != len(set(normalized_layers)):
         raise ValueError("frame_layers must be unique ignoring case")
     _validate_profiles(profiles)
+    path_policy = PathPolicy.from_roots(roots)
+    if workspace_root is not None:
+        resolved_workspace = workspace_root.resolve(strict=False)
+        if any(
+            resolved_workspace == root
+            or root in resolved_workspace.parents
+            or resolved_workspace in root.parents
+            for root in path_policy.allowed_roots
+        ):
+            raise ValueError("workspace_root must be separate from every allowed_roots tree")
     return CadPlotConfig(
         source=source,
-        path_policy=PathPolicy.from_roots(roots),
+        path_policy=path_policy,
         paper_profiles=profiles,
         workspace_root=workspace_root,
         drawing_unit_mm=drawing_unit_mm,
@@ -140,35 +205,60 @@ def _resolve_relative(base: Path, value: str) -> Path:
 
 
 def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
+    if not isinstance(raw, dict):
+        raise ValueError("Each paper profile must be a mapping.")
+    unknown_keys = sorted(set(raw) - PROFILE_KEYS)
+    if unknown_keys:
+        raise ValueError(f"Paper profile contains unknown fields: {', '.join(unknown_keys)}")
     required = ("id", "labels", "page_setup", "plotter", "plot_style")
     missing = [key for key in required if key not in raw]
     if missing:
         raise ValueError(f"Paper profile is missing fields: {', '.join(missing)}")
-    labels = tuple(str(item) for item in raw["labels"])
-    if not labels:
+    labels_value = raw["labels"]
+    if not isinstance(labels_value, list) or any(
+        not isinstance(item, str) for item in labels_value
+    ):
+        raise ValueError(f"Paper profile {raw['id']} labels must be a list of strings")
+    labels = tuple(item.strip() for item in labels_value)
+    if not labels or any(
+        not item or len(item) > 128 or _has_control_character(item) for item in labels
+    ):
         raise ValueError(f"Paper profile {raw['id']} must define at least one label")
+    profile_id = str(raw["id"])
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", profile_id):
+        raise ValueError("Paper profile id must contain 1-64 safe ASCII characters")
+    page_setup = _profile_text(raw, "page_setup", 255)
+    plotter = _profile_text(raw, "plotter", 255)
+    plot_style = _profile_text(raw, "plot_style", 255)
+    canonical_media = (
+        _profile_text(raw, "canonical_media", 512)
+        if raw.get("canonical_media") is not None
+        else None
+    )
     return PaperProfile(
-        id=str(raw["id"]),
+        id=profile_id,
         labels=labels,
-        page_setup=str(raw["page_setup"]),
-        plotter=str(raw["plotter"]),
-        plot_style=str(raw["plot_style"]),
-        canonical_media=(
-            str(raw["canonical_media"]) if raw.get("canonical_media") is not None else None
-        ),
+        page_setup=page_setup,
+        plotter=plotter,
+        plot_style=plot_style,
+        canonical_media=canonical_media,
         tolerance_mm=float(raw.get("tolerance_mm", 3.0)),
     )
 
 
 def _validate_profiles(profiles: tuple[PaperProfile, ...]) -> None:
+    if not 1 <= len(profiles) <= 100:
+        raise ValueError("paper_profiles must contain between 1 and 100 profiles")
     ids = [profile.id for profile in profiles]
     if len(ids) != len(set(ids)):
         raise ValueError("Paper profile ids must be unique")
 
     aliases: dict[str, str] = {}
     for profile in profiles:
-        if profile.tolerance_mm < 0:
-            raise ValueError(f"Paper profile {profile.id} has a negative tolerance")
+        if not math.isfinite(profile.tolerance_mm) or not 0 <= profile.tolerance_mm <= 50:
+            raise ValueError(
+                f"Paper profile {profile.id} tolerance must be finite and between 0 and 50"
+            )
         if profile.canonical_media is not None and not profile.canonical_media.strip():
             raise ValueError(f"Paper profile {profile.id} has an empty canonical_media")
         for label in profile.labels:
@@ -201,3 +291,17 @@ def _profiles_overlap(left: PaperProfile, right: PaperProfile) -> bool:
             ):
                 return True
     return False
+
+
+def _profile_text(raw: dict[str, Any], key: str, max_length: int) -> str:
+    value = raw[key]
+    if not isinstance(value, str):
+        raise ValueError(f"Paper profile {key} must be a string")
+    value = value.strip()
+    if not value or len(value) > max_length or _has_control_character(value):
+        raise ValueError(f"Paper profile {key} must be a valid non-empty value")
+    return value
+
+
+def _has_control_character(value: str) -> bool:
+    return any(ord(character) < 32 or ord(character) == 127 for character in value)

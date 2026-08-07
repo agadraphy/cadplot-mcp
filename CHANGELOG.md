@@ -49,6 +49,8 @@ All notable changes to this project are documented in this file.
   requeue approvals for untouched jobs.
 - Exact-file AutoCAD bundle verification with module-route, managed-assembly, reparse-point, and
   SHA-256 checks before archive creation or installation.
+- Strict office-profile configuration validation for unknown fields, YAML types, finite numeric
+  ranges, resource names, and non-overlapping source/workspace directory trees.
 
 ### Notes
 
