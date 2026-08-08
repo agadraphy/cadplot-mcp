@@ -186,3 +186,13 @@ def test_github_templates_warn_against_proprietary_assets_and_false_evidence() -
     assert "does not bypass plan or manifest approval gates" in feature
     assert "Source DWGs remain immutable" in pull_request
     assert "compile-only or synthetic checks as live AutoCAD evidence" in normalized_pull_request
+
+
+def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+
+    assert "permissions:\n  contents: read" in workflow
+    assert "timeout-minutes: 20" in workflow
+    assert "cancel-in-progress: true" in workflow
+    assert "scripts/smoke-mcp-stdio.py" in workflow
+    assert "scripts/run-synthetic-demo.py" in workflow

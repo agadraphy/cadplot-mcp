@@ -77,6 +77,8 @@ All notable changes to this project are documented in this file.
   empty separated input/workspace directories without copying company assets or enabling publish.
 - Real subprocess MCP `stdio` smoke test covering initialization, the exact 18-tool surface, server
   safety instructions, and read/write/destructive/open-world annotations.
+- Bounded, cancelable, read-only GitHub Actions permissions with separately visible MCP protocol
+  and synthetic workflow smoke steps.
 
 ### Notes
 
