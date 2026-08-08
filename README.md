@@ -39,8 +39,8 @@ licensed-workstation acceptance test. Compile-only evidence is not presented as 
 - Existing PDFs, layouts, or busy plot engines cause refusal; overwrite remains disabled.
 - Publish commands are disabled unless the AutoCAD process starts with
   `CADPLOT_ENABLE_PUBLISH=1` and a trusted workspace.
-- Approval-critical MCP tools expose closed structured-output schemas for plans, staging, queueing,
-  audits, receipts, and paper-profile matches; the real STDIO smoke test exercises this contract.
+- All MCP tools expose closed top-level structured-output schemas; plan and receipt identities also
+  carry exact digest patterns. The real STDIO smoke test exercises this contract with `call_tool`.
 - MCP tool annotations distinguish local write actions from read-only tools; clients must still
   enforce their own approval policy because annotations are hints, not authorization.
 

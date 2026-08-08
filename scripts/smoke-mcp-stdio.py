@@ -35,14 +35,6 @@ WRITE_TOOLS = {
     "stage_publish_batch",
     "stage_publish_job",
 }
-STRICT_OUTPUT_TOOLS = {
-    "audit_publish_outputs",
-    "create_publish_plan",
-    "match_paper_profile",
-    "queue_publish_job",
-    "read_publish_receipt",
-    "stage_publish_job",
-}
 
 
 async def smoke() -> dict[str, object]:
@@ -84,6 +76,9 @@ async def smoke() -> dict[str, object]:
                     listed = await session.list_tools()
                     match_result = await session.call_tool(
                         "match_paper_profile", {"label": "1000 x 700 mm"}
+                    )
+                    scan_result = await session.call_tool(
+                        "scan_drawings", {"root": input_root, "recursive": True}
                     )
             error_log.seek(0)
             server_stderr = error_log.read().strip()
@@ -128,9 +123,9 @@ async def smoke() -> dict[str, object]:
         raise RuntimeError("Stage approval MCP schema is not bounded to 20 items")
     if queue_approval["properties"]["manifest_sha256"].get("pattern") != r"^[0-9a-f]{64}$":
         raise RuntimeError("Queue manifest digest MCP schema is not exact")
-    for name in STRICT_OUTPUT_TOOLS:
+    for name in EXPECTED_TOOLS:
         if tools[name].outputSchema.get("additionalProperties") is not False:
-            raise RuntimeError(f"Critical MCP output schema allows unexpected fields: {name}")
+            raise RuntimeError(f"MCP output schema allows unexpected fields: {name}")
     if match_result.isError:
         raise RuntimeError("Structured MCP output smoke call returned an error")
     structured_match = match_result.structuredContent
@@ -145,6 +140,17 @@ async def smoke() -> dict[str, object]:
     profile = structured_match["profile"]
     if not isinstance(profile, dict) or profile.get("id") != "smoke_70x100":
         raise RuntimeError("Structured MCP output smoke call returned the wrong profile")
+    if scan_result.isError:
+        raise RuntimeError("Structured MCP scan smoke call returned an error")
+    structured_scan = scan_result.structuredContent
+    if not isinstance(structured_scan, dict) or set(structured_scan) != {
+        "root",
+        "count",
+        "drawings",
+    }:
+        raise RuntimeError("Structured MCP scan smoke call has an unexpected shape")
+    if structured_scan["count"] != 0 or structured_scan["drawings"] != []:
+        raise RuntimeError("Structured MCP scan smoke call did not preserve the empty inventory")
 
     return {
         "passed": True,
@@ -154,8 +160,8 @@ async def smoke() -> dict[str, object]:
         "all_tools_titled": True,
         "write_tools": sorted(WRITE_TOOLS),
         "closed_approval_schemas": True,
-        "closed_critical_output_schemas": True,
-        "structured_output_call": True,
+        "closed_output_schemas": True,
+        "structured_output_calls": 2,
         "server_stderr": server_stderr,
     }
 

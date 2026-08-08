@@ -84,7 +84,7 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     assert limit["maximum"] == 50
 
 
-def test_critical_outputs_have_closed_mcp_schemas() -> None:
+def test_all_outputs_have_closed_mcp_schemas() -> None:
     tools = {tool.name: tool for tool in mcp._tool_manager.list_tools()}
     expected_properties = {
         "create_publish_plan": {"plan_id", "ready", "sheets", "warnings"},
@@ -99,6 +99,9 @@ def test_critical_outputs_have_closed_mcp_schemas() -> None:
         schema = tools[name].output_schema
         assert schema["additionalProperties"] is False
         assert properties <= schema["properties"].keys()
+
+    for tool in tools.values():
+        assert tool.output_schema["additionalProperties"] is False
 
     plan_schema = tools["create_publish_plan"].output_schema
     assert plan_schema["properties"]["plan_id"]["pattern"] == r"^sha256:[0-9a-f]{64}$"

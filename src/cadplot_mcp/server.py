@@ -35,11 +35,23 @@ from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
 from cadplot_mcp.tool_outputs import (
     AuditPublishOutputsOutput,
+    AutoCADPluginStatusOutput,
+    BatchPublishPlansOutput,
+    EnvironmentValidationOutput,
+    InspectDrawingOutput,
     MatchPaperProfileOutput,
+    OfficeInventoryOutput,
+    PreviewPublishPlanOutput,
+    PublishJobStatusOutput,
+    PublishOperationsReportOutput,
     PublishPlanOutput,
     PublishReceiptOutput,
+    QueuePublishBatchOutput,
     QueuePublishJobOutput,
+    ScanDrawingsOutput,
+    StagePublishBatchOutput,
     StagePublishJobOutput,
+    ValidateStagedJobOutput,
 )
 from cadplot_mcp.tool_types import (
     BatchOffset,
@@ -93,13 +105,15 @@ def _config() -> CadPlotConfig:
 
 
 @mcp.tool(title="Validate CadPlot environment", annotations=READ_ONLY)
-def validate_environment() -> dict[str, Any]:
+def validate_environment() -> EnvironmentValidationOutput:
     """Validate configuration, allowed roots, and the read-only AutoCAD COM connection."""
     return diagnose_environment(os.environ.get("CADPLOT_CONFIG"), mode="inspection")
 
 
 @mcp.tool(title="Check AutoCAD plug-in", annotations=READ_ONLY)
-def get_autocad_plugin_status(timeout_ms: TimeoutMilliseconds = 2_000) -> dict[str, Any]:
+def get_autocad_plugin_status(
+    timeout_ms: TimeoutMilliseconds = 2_000,
+) -> AutoCADPluginStatusOutput:
     """Check the installed AutoCAD plug-in through its read-only local named-pipe command."""
     try:
         response = get_plugin_status(timeout_ms=timeout_ms)
@@ -113,7 +127,7 @@ def scan_drawings(
     root: PathString,
     recursive: bool = True,
     max_files: MaximumFiles = 5_000,
-) -> dict[str, Any]:
+) -> ScanDrawingsOutput:
     """List DWG files under an explicitly allowed project root without opening them."""
     config = _config()
     drawings = discover_drawings(
@@ -130,14 +144,14 @@ def scan_drawings(
 
 
 @mcp.tool(title="Inspect one DWG", annotations=READ_ONLY)
-def inspect_drawing(path: PathString) -> dict[str, Any]:
+def inspect_drawing(path: PathString) -> InspectDrawingOutput:
     """Inspect one explicit DWG read-only: layouts, plot settings, and labelled frames."""
     config = _config()
     return AutoCADComInspector(config.path_policy).inspect_drawing(path).to_dict()
 
 
 @mcp.tool(title="Inventory office plot resources", annotations=READ_ONLY)
-def inventory_office_resources(path: PathString) -> dict[str, Any]:
+def inventory_office_resources(path: PathString) -> OfficeInventoryOutput:
     """Inventory exact frame/layout/page-setup/plot resource names; never approves or writes."""
     config = _config()
     inspection = AutoCADComInspector(config.path_policy).inspect_drawing(path)
@@ -158,7 +172,7 @@ def create_batch_publish_plans(
     offset: BatchOffset = 0,
     limit: BatchPageLimit = 20,
     max_files: MaximumFiles = 5_000,
-) -> dict[str, Any]:
+) -> BatchPublishPlansOutput:
     """Inspect a restartable page of DWGs; one drawing failure does not stop the batch."""
     config = _config()
     drawings = discover_drawings(
@@ -179,7 +193,7 @@ def create_batch_publish_plans(
 def preview_publish_plan(
     path: PathString,
     timeout_ms: TimeoutMilliseconds = 2_000,
-) -> dict[str, Any]:
+) -> PreviewPublishPlanOutput:
     """Validate a ready dry-run plan with AutoCAD; never edits, saves, or plots the DWG."""
     config = _config()
     plan = _build_current_plan(path, config)
@@ -217,7 +231,7 @@ def stage_publish_job(
 
 
 @mcp.tool(title="Stage approved publish batch", annotations=LOCAL_WRITE)
-def stage_publish_batch(approvals: StageApprovals) -> dict[str, Any]:
+def stage_publish_batch(approvals: StageApprovals) -> StagePublishBatchOutput:
     """Stage up to 20 explicit DWG/plan-ID approvals; never plots or edits originals."""
     config = _config()
     return stage_approved_batch(
@@ -246,7 +260,7 @@ def audit_publish_outputs(manifest_path: PathString) -> AuditPublishOutputsOutpu
 def validate_staged_job(
     manifest_path: PathString,
     timeout_ms: TimeoutMilliseconds = 2_000,
-) -> dict[str, Any]:
+) -> ValidateStagedJobOutput:
     """Cross-check a staged manifest with the local plug-in; never queues or plots the job."""
     config = _config()
     try:
@@ -297,7 +311,7 @@ def queue_publish_job(
 def get_publish_job_status(
     plan_id: PlanIdString,
     timeout_ms: TimeoutMilliseconds = 2_000,
-) -> dict[str, Any]:
+) -> PublishJobStatusOutput:
     """Read a queued publish job state; never edits drawings or output files."""
     try:
         response = request_publish_job_status(plan_id, timeout_ms=timeout_ms)
@@ -319,7 +333,7 @@ def read_publish_receipt(manifest_path: PathString) -> PublishReceiptOutput:
 def create_publish_operations_report(
     after_job_id: JobIdString | None = None,
     limit: BatchPageLimit = 20,
-) -> dict[str, Any]:
+) -> PublishOperationsReportOutput:
     """Summarize staged jobs as a restartable page and suggest safe next actions; never writes."""
     try:
         return build_publish_operations_report(_config(), after_job_id=after_job_id, limit=limit)
@@ -331,7 +345,7 @@ def create_publish_operations_report(
 def queue_publish_batch(
     approvals: QueueApprovals,
     timeout_ms: TimeoutMilliseconds = 2_000,
-) -> dict[str, Any]:
+) -> QueuePublishBatchOutput:
     """Queue up to 20 exact manifest/plan/hash approvals; isolates per-job failures."""
     return queue_approved_batch(
         approvals,
