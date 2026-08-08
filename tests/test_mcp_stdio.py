@@ -20,6 +20,7 @@ def test_real_stdio_mcp_initialize_and_tool_contract() -> None:
     assert report["passed"] is True
     assert report["server_name"] == "CadPlot MCP"
     assert report["tool_count"] == 18
+    assert report["closed_approval_schemas"] is True
     assert report["write_tools"] == [
         "queue_publish_batch",
         "queue_publish_job",

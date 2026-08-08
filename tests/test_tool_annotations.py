@@ -46,3 +46,25 @@ def test_remaining_tools_are_declared_local_read_only() -> None:
         assert annotations.destructiveHint is False
         assert annotations.idempotentHint is True
         assert annotations.openWorldHint is False
+
+
+def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
+    tools = {tool.name: tool for tool in mcp._tool_manager.list_tools()}
+    stage_schema = tools["stage_publish_batch"].parameters
+    queue_schema = tools["queue_publish_batch"].parameters
+    stage_items = stage_schema["$defs"]["StageApproval"]
+    queue_items = queue_schema["$defs"]["QueueApproval"]
+
+    assert stage_items["additionalProperties"] is False
+    assert stage_items["required"] == ["path", "plan_id"]
+    assert stage_items["properties"]["plan_id"]["pattern"] == r"^sha256:[0-9a-f]{64}$"
+    assert queue_items["additionalProperties"] is False
+    assert queue_items["required"] == ["manifest_path", "plan_id", "manifest_sha256"]
+    assert queue_items["properties"]["manifest_sha256"]["pattern"] == r"^[0-9a-f]{64}$"
+    assert tools["queue_publish_batch"].parameters["properties"]["approvals"]["maxItems"] == 20
+    timeout = tools["queue_publish_job"].parameters["properties"]["timeout_ms"]
+    assert timeout["minimum"] == 1
+    assert timeout["maximum"] == 60_000
+    limit = tools["create_batch_publish_plans"].parameters["properties"]["limit"]
+    assert limit["minimum"] == 1
+    assert limit["maximum"] == 50

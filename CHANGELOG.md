@@ -81,6 +81,8 @@ All notable changes to this project are documented in this file.
   and synthetic workflow smoke steps.
 - One-MiB configuration size limit and normalized fail-closed errors for malformed YAML or invalid
   UTF-8 before any AutoCAD connection is attempted.
+- Strict MCP input schemas for exact plan/manifest identifiers, closed batch approval objects,
+  1-20 approval counts, bounded pagination/file limits, non-empty paths, and bounded timeouts.
 
 ### Notes
 

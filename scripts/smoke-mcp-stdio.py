@@ -79,12 +79,26 @@ async def smoke() -> dict[str, object]:
         if annotations.destructiveHint is not False or annotations.openWorldHint is not False:
             raise RuntimeError(f"MCP safety annotation mismatch: {name}")
 
+    stage_schema = tools["stage_publish_batch"].inputSchema
+    queue_schema = tools["queue_publish_batch"].inputSchema
+    stage_approval = stage_schema["$defs"]["StageApproval"]
+    queue_approval = queue_schema["$defs"]["QueueApproval"]
+    if stage_approval.get("additionalProperties") is not False:
+        raise RuntimeError("Stage approval MCP schema allows unexpected fields")
+    if queue_approval.get("additionalProperties") is not False:
+        raise RuntimeError("Queue approval MCP schema allows unexpected fields")
+    if stage_schema["properties"]["approvals"].get("maxItems") != 20:
+        raise RuntimeError("Stage approval MCP schema is not bounded to 20 items")
+    if queue_approval["properties"]["manifest_sha256"].get("pattern") != r"^[0-9a-f]{64}$":
+        raise RuntimeError("Queue manifest digest MCP schema is not exact")
+
     return {
         "passed": True,
         "protocol_version": initialized.protocolVersion,
         "server_name": initialized.serverInfo.name,
         "tool_count": len(tools),
         "write_tools": sorted(WRITE_TOOLS),
+        "closed_approval_schemas": True,
         "server_stderr": server_stderr,
     }
 
