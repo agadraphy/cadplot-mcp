@@ -71,6 +71,8 @@ All notable changes to this project are documented in this file.
   exact authorized office page setup, plotter, style, media, frame, and template-layout names.
 - Read-only `inventory_office_resources` MCP tool that deduplicates those observed names while
   marking every paper-space template as an unapproved candidate requiring viewport validation.
+- Read-only `cadplot-doctor` CLI with config-only, inspection, and full local plug-in diagnostic
+  modes plus machine-readable readiness and failure output.
 
 ### Notes
 

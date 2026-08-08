@@ -56,6 +56,17 @@ $env:CADPLOT_CONFIG = "$PWD\config.yaml"
 uv run cadplot-mcp
 ```
 
+MCP istemcisini bağlamadan önce salt-okunur kurulum teşhisini çalıştırabilirsiniz:
+
+```powershell
+uv run cadplot-doctor --mode config
+uv run cadplot-doctor --mode inspection
+uv run cadplot-doctor --mode full
+```
+
+`config` yalnız config/yol güvenliğini, `inspection` çalışan AutoCAD COM bağlantısını, `full` ise
+yerel named-pipe eklentisini ve güvenilir workspace ayarını da denetler. Komut AutoCAD'i başlatmaz.
+
 `config.yaml` içindeki `allowed_roots`, `workspace_root`, page setup, plotter, plot style, çizim
 birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 Bu adlar henüz bilinmiyorsa gerçek değerleri tahmin etmek yerine

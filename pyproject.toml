@@ -23,6 +23,7 @@ dev = ["pytest>=8.0,<9.0", "ruff>=0.9,<1.0"]
 
 [project.scripts]
 cadplot-mcp = "cadplot_mcp.server:main"
+cadplot-doctor = "cadplot_mcp.doctor:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cadplot_mcp"]

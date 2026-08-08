@@ -16,6 +16,7 @@ from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_approved_batch
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
+from cadplot_mcp.environment import diagnose_environment
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.onboarding import build_office_inventory_report
 from cadplot_mcp.pipe_client import (
@@ -32,7 +33,6 @@ from cadplot_mcp.pipe_client import (
 from cadplot_mcp.pipe_client import validate_staged_job as request_staged_job_validation
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
-from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
 from cadplot_mcp.workspace import stage_publish_job as stage_job
 
 # MCP 1.29 ships a generic settings model whose forward reference is not rebuilt
@@ -74,33 +74,7 @@ def _config() -> CadPlotConfig:
 @mcp.tool(annotations=READ_ONLY)
 def validate_environment() -> dict[str, Any]:
     """Validate configuration, allowed roots, and the read-only AutoCAD COM connection."""
-    try:
-        config = _config()
-    except Exception as exc:
-        return {"ready": False, "config": None, "autocad": None, "errors": [str(exc)]}
-
-    missing_roots = [str(root) for root in config.path_policy.allowed_roots if not root.is_dir()]
-    autocad = AutoCADComInspector(config.path_policy).status()
-    errors = [f"Allowed root does not exist: {root}" for root in missing_roots]
-    if not autocad["available"]:
-        errors.append(str(autocad["reason"]))
-    workspace = str(config.workspace_root) if config.workspace_root else None
-    if config.workspace_root is None:
-        errors.append("workspace_root is not configured.")
-    else:
-        try:
-            require_plain_directory_path(config.workspace_root)
-        except PathPolicyError as exc:
-            errors.append(str(exc))
-    return {
-        "ready": not errors,
-        "config": str(config.source),
-        "allowed_roots": [str(root) for root in config.path_policy.allowed_roots],
-        "paper_profiles": len(config.paper_profiles),
-        "workspace_root": workspace,
-        "autocad": autocad,
-        "errors": errors,
-    }
+    return diagnose_environment(os.environ.get("CADPLOT_CONFIG"), mode="inspection")
 
 
 @mcp.tool(annotations=READ_ONLY)

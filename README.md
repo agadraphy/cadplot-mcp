@@ -54,6 +54,18 @@ $env:CADPLOT_CONFIG = "$PWD\config.yaml"
 uv run cadplot-mcp
 ```
 
+Before connecting an MCP client, diagnose the local installation without launching AutoCAD:
+
+```powershell
+uv run cadplot-doctor --mode config
+uv run cadplot-doctor --mode inspection
+uv run cadplot-doctor --mode full
+```
+
+`config` checks paths and policy only; `inspection` additionally requires a running AutoCAD COM
+session; `full` also requires the installed local named-pipe plug-in and its trusted workspace.
+Every mode is read-only and returns machine-readable JSON plus a nonzero exit code when not ready.
+
 AutoCAD must already be running for `inspect_drawing`. The server will not launch it silently.
 Close modal AutoCAD dialogs before inspection; COM-level timeouts will be added with the isolated
 worker used by the write-capable milestone.
