@@ -6,10 +6,19 @@ available to the authorized AutoCAD user; it does not export or copy those resou
 
 ## 1. Start with a non-matching inventory profile
 
-Copy `examples/config.inventory.example.yaml` to a local location outside the Git repository. Set
-`allowed_roots` to a folder containing only an authorized, non-production DWG copy and keep
-`workspace_root` separate. The placeholder profile intentionally cannot match a normal paper label,
-so `create_publish_plan` remains blocked.
+Create a new empty pilot root, previewing the exact target first:
+
+```powershell
+.\scripts\new-local-pilot.ps1 -DestinationRoot C:\CadPlotPilot -WhatIf
+.\scripts\new-local-pilot.ps1 -DestinationRoot C:\CadPlotPilot
+```
+
+The setup refuses an existing target and a reparse-point parent. It copies no company asset and
+keeps publishing disabled. It places the inventory template at `C:\CadPlotPilot\config.yaml` with
+relative, separated `pilot-input` and `pilot-work` roots. If preparing manually, copy
+`examples/config.inventory.example.yaml` outside the Git repository and preserve the same
+separation. The placeholder profile intentionally cannot match a normal paper label, so
+`create_publish_plan` remains blocked.
 
 Keep `CADPLOT_ENABLE_PUBLISH` unset. Start licensed AutoCAD manually, set `CADPLOT_CONFIG` to the
 local inventory config, then call:

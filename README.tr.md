@@ -67,6 +67,16 @@ uv run cadplot-doctor --mode full
 `config` yalnız config/yol güvenliğini, `inspection` çalışan AutoCAD COM bağlantısını, `full` ise
 yerel named-pipe eklentisini ve güvenilir workspace ayarını da denetler. Komut AutoCAD'i başlatmaz.
 
+İlk ofis envanteri için hiçbir mevcut hedefin üstüne yazmadan boş pilot klasörü oluşturabilirsiniz:
+
+```powershell
+.\scripts\new-local-pilot.ps1 -DestinationRoot C:\CadPlotPilot -WhatIf
+.\scripts\new-local-pilot.ps1 -DestinationRoot C:\CadPlotPilot
+```
+
+Betik yalnız açık kaynak envanter config'ini ve boş `pilot-input`/`pilot-work` klasörlerini oluşturur;
+şirket varlığı kopyalamaz ve publish'i açmaz.
+
 `config.yaml` içindeki `allowed_roots`, `workspace_root`, page setup, plotter, plot style, çizim
 birimi ve izinli ölçekler ofisin gerçek standardına göre düzenlenmelidir.
 Bu adlar henüz bilinmiyorsa gerçek değerleri tahmin etmek yerine

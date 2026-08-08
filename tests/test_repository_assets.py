@@ -101,6 +101,17 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
     assert "Start-Process" not in script
 
 
+def test_local_pilot_initializer_is_no_overwrite_and_reparse_gated() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "new-local-pilot.ps1").read_text(encoding="utf-8")
+
+    assert "SupportsShouldProcess = $true" in script
+    assert "Destination already exists; setup never overwrites" in script
+    assert "FileAttributes]::ReparsePoint" in script
+    assert "company_assets_copied = $false" in script
+    assert "publish_enabled = $false" in script
+    assert "Remove-Item" not in script
+
+
 def test_build_and_install_require_exact_bundle_verification() -> None:
     verifier = (REPOSITORY_ROOT / "scripts" / "verify-bundle.ps1").read_text(encoding="utf-8")
     for required in (

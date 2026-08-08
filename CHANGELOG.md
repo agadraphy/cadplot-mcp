@@ -73,6 +73,8 @@ All notable changes to this project are documented in this file.
   marking every paper-space template as an unapproved candidate requiring viewport validation.
 - Read-only `cadplot-doctor` CLI with config-only, inspection, and full local plug-in diagnostic
   modes plus machine-readable readiness and failure output.
+- `-WhatIf`-capable, no-overwrite local pilot initializer that creates only an inventory config and
+  empty separated input/workspace directories without copying company assets or enabling publish.
 
 ### Notes
 

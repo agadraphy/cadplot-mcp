@@ -66,6 +66,16 @@ uv run cadplot-doctor --mode full
 session; `full` also requires the installed local named-pipe plug-in and its trusted workspace.
 Every mode is read-only and returns machine-readable JSON plus a nonzero exit code when not ready.
 
+For a first office inventory, create a new empty local pilot folder without overwriting anything:
+
+```powershell
+.\scripts\new-local-pilot.ps1 -DestinationRoot C:\CadPlotPilot -WhatIf
+.\scripts\new-local-pilot.ps1 -DestinationRoot C:\CadPlotPilot
+```
+
+The script copies only the public non-matching inventory config and creates empty `pilot-input` and
+`pilot-work` folders. It never copies company assets or enables publishing.
+
 AutoCAD must already be running for `inspect_drawing`. The server will not launch it silently.
 Close modal AutoCAD dialogs before inspection; COM-level timeouts will be added with the isolated
 worker used by the write-capable milestone.
