@@ -70,6 +70,7 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     assert stage_items["additionalProperties"] is False
     assert stage_items["required"] == ["path", "plan_id"]
     assert stage_items["properties"]["plan_id"]["pattern"] == r"^sha256:[0-9a-f]{64}$"
+    assert "explicit approval" in stage_items["properties"]["plan_id"]["description"]
     assert queue_items["additionalProperties"] is False
     assert queue_items["required"] == ["manifest_path", "plan_id", "manifest_sha256"]
     assert queue_items["properties"]["manifest_sha256"]["pattern"] == r"^[0-9a-f]{64}$"
@@ -77,6 +78,7 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     timeout = tools["queue_publish_job"].parameters["properties"]["timeout_ms"]
     assert timeout["minimum"] == 1
     assert timeout["maximum"] == 60_000
+    assert "milliseconds" in timeout["description"]
     limit = tools["create_batch_publish_plans"].parameters["properties"]["limit"]
     assert limit["minimum"] == 1
     assert limit["maximum"] == 50

@@ -85,6 +85,8 @@ All notable changes to this project are documented in this file.
   1-20 approval counts, bounded pagination/file limits, non-empty paths, and bounded timeouts.
 - Concise human-facing titles for all 18 MCP tools, preserving visible dry-run and explicit approval
   distinctions in ChatGPT/Codex tool interfaces.
+- Model-facing parameter descriptions that identify local path policy, pagination cursors, bounded
+  timeouts, and exact plan/hash values that must be copied from preceding trusted steps.
 
 ### Notes
 
