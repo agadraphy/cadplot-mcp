@@ -79,6 +79,8 @@ All notable changes to this project are documented in this file.
   safety instructions, and read/write/destructive/open-world annotations.
 - Bounded, cancelable, read-only GitHub Actions permissions with separately visible MCP protocol
   and synthetic workflow smoke steps.
+- One-MiB configuration size limit and normalized fail-closed errors for malformed YAML or invalid
+  UTF-8 before any AutoCAD connection is attempted.
 
 ### Notes
 

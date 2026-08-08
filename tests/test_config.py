@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from cadplot_mcp.config import load_config
+from cadplot_mcp.config import MAX_CONFIG_BYTES, load_config
 
 
 def test_config_matches_reversed_paper_dimensions(tmp_path: Path) -> None:
@@ -241,3 +241,18 @@ def test_inventory_example_cannot_match_normal_paper_labels() -> None:
     assert config.match_paper_profile("A4") is None
     assert config.match_paper_profile("70x100") is None
     assert config.match_paper_profile("700x1000 mm") is None
+
+
+def test_config_rejects_invalid_utf8_yaml_and_oversized_input(tmp_path: Path) -> None:
+    malformed = tmp_path / "malformed.yaml"
+    malformed.write_text("version: [1", encoding="utf-8")
+    invalid_utf8 = tmp_path / "invalid-utf8.yaml"
+    invalid_utf8.write_bytes(b"version: 1\nname: \xff")
+    oversized = tmp_path / "oversized.yaml"
+    oversized.write_bytes(b" " * (MAX_CONFIG_BYTES + 1))
+
+    for path in (malformed, invalid_utf8):
+        with pytest.raises(ValueError, match="valid UTF-8 YAML"):
+            load_config(path)
+    with pytest.raises(ValueError, match="1 MiB"):
+        load_config(oversized)

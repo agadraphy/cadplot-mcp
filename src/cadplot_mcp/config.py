@@ -11,6 +11,8 @@ import yaml
 from cadplot_mcp.paper import normalize_label, parse_paper_size
 from cadplot_mcp.security import PathPolicy
 
+MAX_CONFIG_BYTES = 1024 * 1024
+
 TOP_LEVEL_KEYS = {
     "version",
     "allowed_roots",
@@ -100,7 +102,14 @@ class CadPlotConfig:
 
 def load_config(path: str | Path) -> CadPlotConfig:
     source = Path(path).expanduser().resolve(strict=True)
-    raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    if not source.is_file():
+        raise ValueError("Config path must be a file.")
+    if source.stat().st_size > MAX_CONFIG_BYTES:
+        raise ValueError("Config exceeds the 1 MiB safety limit.")
+    try:
+        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    except (UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise ValueError("Config must be valid UTF-8 YAML.") from exc
     if not isinstance(raw, dict):
         raise ValueError("Config root must be a YAML mapping.")
     unknown_keys = sorted(set(raw) - TOP_LEVEL_KEYS)
@@ -134,9 +143,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
     scale_values = raw.get("scale_denominators", default_scales)
     if not isinstance(scale_values, (list, tuple)):
         raise ValueError("scale_denominators must be a list of numbers.")
-    scale_denominators = tuple(
-        float(item) for item in scale_values
-    )
+    scale_denominators = tuple(float(item) for item in scale_values)
     scale_tolerance_ratio = float(raw.get("scale_tolerance_ratio", 0.02))
     require_page_setup_match = raw.get("require_page_setup_match", True)
     layout_prefix = str(raw.get("layout_prefix", "CADPLOT"))
@@ -150,9 +157,8 @@ def load_config(path: str | Path) -> CadPlotConfig:
     frame_layers = tuple(item.strip() for item in frame_layer_values)
     if not math.isfinite(drawing_unit_mm) or drawing_unit_mm <= 0:
         raise ValueError("drawing_unit_mm must be a finite value greater than zero")
-    if (
-        not 1 <= len(scale_denominators) <= 100
-        or any(not math.isfinite(item) or item <= 0 for item in scale_denominators)
+    if not 1 <= len(scale_denominators) <= 100 or any(
+        not math.isfinite(item) or item <= 0 for item in scale_denominators
     ):
         raise ValueError("scale_denominators must contain positive values")
     if len(scale_denominators) != len(set(scale_denominators)):
@@ -281,9 +287,7 @@ def _validate_profiles(profiles: tuple[PaperProfile, ...]) -> None:
     for index, left in enumerate(profiles):
         for right in profiles[index + 1 :]:
             if _profiles_overlap(left, right):
-                raise ValueError(
-                    f"Paper profile dimensions overlap: {left.id!r} and {right.id!r}"
-                )
+                raise ValueError(f"Paper profile dimensions overlap: {left.id!r} and {right.id!r}")
 
 
 def _profiles_overlap(left: PaperProfile, right: PaperProfile) -> bool:
