@@ -33,6 +33,18 @@ PlanIdString = Annotated[
         ),
     ),
 ]
+InventoryIdString = Annotated[
+    str,
+    Field(
+        min_length=71,
+        max_length=71,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+        description=(
+            "Exact inventory identifier returned by the first batch page; subsequent pages must "
+            "repeat it so file-list changes fail closed."
+        ),
+    ),
+]
 Sha256String = Annotated[
     str,
     Field(

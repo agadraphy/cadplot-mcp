@@ -82,6 +82,11 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     limit = tools["create_batch_publish_plans"].parameters["properties"]["limit"]
     assert limit["minimum"] == 1
     assert limit["maximum"] == 50
+    inventory = tools["create_batch_publish_plans"].parameters["properties"][
+        "expected_inventory_id"
+    ]["anyOf"][0]
+    assert inventory["pattern"] == r"^sha256:[0-9a-f]{64}$"
+    assert "subsequent pages" in inventory["description"]
 
 
 def test_all_outputs_have_closed_mcp_schemas() -> None:
@@ -93,6 +98,11 @@ def test_all_outputs_have_closed_mcp_schemas() -> None:
         "audit_publish_outputs": {"complete", "publish_verified", "outputs", "error"},
         "read_publish_receipt": {"found", "receipt", "error"},
         "match_paper_profile": {"matched", "label", "profile"},
+    }
+    expected_properties["create_batch_publish_plans"] = {
+        "batch_page_id",
+        "inventory_id",
+        "next_offset",
     }
 
     for name, properties in expected_properties.items():

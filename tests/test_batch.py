@@ -1,6 +1,11 @@
 import pytest
 
-from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_approved_batch
+from cadplot_mcp.batch import (
+    build_batch_page,
+    build_drawing_inventory_id,
+    queue_approved_batch,
+    stage_approved_batch,
+)
 
 
 def _plan(path: str) -> dict:
@@ -18,8 +23,20 @@ def test_batch_page_is_paginated_and_restartable() -> None:
     paths = [f"C:/project/{index:03d}.dwg" for index in range(45)]
 
     first = build_batch_page(paths, _plan, offset=0, limit=20)
-    second = build_batch_page(paths, _plan, offset=first["next_offset"], limit=20)
-    last = build_batch_page(paths, _plan, offset=second["next_offset"], limit=20)
+    second = build_batch_page(
+        paths,
+        _plan,
+        offset=first["next_offset"],
+        limit=20,
+        expected_inventory_id=first["inventory_id"],
+    )
+    last = build_batch_page(
+        paths,
+        _plan,
+        offset=second["next_offset"],
+        limit=20,
+        expected_inventory_id=first["inventory_id"],
+    )
 
     assert first["processed"] == 20
     assert first["has_more"] is True
@@ -55,7 +72,14 @@ def test_batch_page_id_is_deterministic() -> None:
 
 
 def test_batch_page_beyond_end_is_empty() -> None:
-    page = build_batch_page(["one.dwg"], _plan, offset=10, limit=5)
+    first = build_batch_page(["one.dwg"], _plan, limit=5)
+    page = build_batch_page(
+        ["one.dwg"],
+        _plan,
+        offset=10,
+        limit=5,
+        expected_inventory_id=first["inventory_id"],
+    )
 
     assert page["processed"] == 0
     assert page["has_more"] is False
@@ -70,6 +94,43 @@ def test_batch_page_rejects_unbounded_requests() -> None:
             assert "between 1 and 50" in str(exc)
         else:
             raise AssertionError("unsafe limit was accepted")
+
+
+def test_batch_page_requires_matching_inventory_after_first_page() -> None:
+    paths = ["one.dwg", "two.dwg"]
+    first = build_batch_page(paths, _plan, limit=1)
+
+    with pytest.raises(ValueError, match="required after the first"):
+        build_batch_page(paths, _plan, offset=1, limit=1)
+    with pytest.raises(ValueError, match="inventory changed"):
+        build_batch_page(
+            paths,
+            _plan,
+            offset=1,
+            limit=1,
+            expected_inventory_id="sha256:" + "0" * 64,
+        )
+
+    second = build_batch_page(
+        paths,
+        _plan,
+        offset=1,
+        limit=1,
+        expected_inventory_id=first["inventory_id"],
+    )
+    assert second["inventory_id"] == first["inventory_id"]
+
+
+def test_drawing_inventory_id_changes_with_metadata_not_order() -> None:
+    first = [
+        {"path": "B.dwg", "size_bytes": 20, "modified_utc": "2026-08-08T10:00:00Z"},
+        {"path": "a.dwg", "size_bytes": 10, "modified_utc": "2026-08-08T09:00:00Z"},
+    ]
+    reordered = list(reversed(first))
+    changed = [*first[:1], {**first[1], "size_bytes": 11}]
+
+    assert build_drawing_inventory_id(first) == build_drawing_inventory_id(reordered)
+    assert build_drawing_inventory_id(first) != build_drawing_inventory_id(changed)
 
 
 def test_stage_approved_batch_stages_only_exact_current_plans() -> None:

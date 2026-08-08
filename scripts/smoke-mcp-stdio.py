@@ -80,6 +80,10 @@ async def smoke() -> dict[str, object]:
                     scan_result = await session.call_tool(
                         "scan_drawings", {"root": input_root, "recursive": True}
                     )
+                    batch_result = await session.call_tool(
+                        "create_batch_publish_plans",
+                        {"root": input_root, "recursive": True, "offset": 0, "limit": 20},
+                    )
             error_log.seek(0)
             server_stderr = error_log.read().strip()
 
@@ -123,6 +127,11 @@ async def smoke() -> dict[str, object]:
         raise RuntimeError("Stage approval MCP schema is not bounded to 20 items")
     if queue_approval["properties"]["manifest_sha256"].get("pattern") != r"^[0-9a-f]{64}$":
         raise RuntimeError("Queue manifest digest MCP schema is not exact")
+    inventory_schema = tools["create_batch_publish_plans"].inputSchema["properties"][
+        "expected_inventory_id"
+    ]["anyOf"][0]
+    if inventory_schema.get("pattern") != r"^sha256:[0-9a-f]{64}$":
+        raise RuntimeError("Batch inventory identity MCP schema is not exact")
     for name in EXPECTED_TOOLS:
         if tools[name].outputSchema.get("additionalProperties") is not False:
             raise RuntimeError(f"MCP output schema allows unexpected fields: {name}")
@@ -151,6 +160,16 @@ async def smoke() -> dict[str, object]:
         raise RuntimeError("Structured MCP scan smoke call has an unexpected shape")
     if structured_scan["count"] != 0 or structured_scan["drawings"] != []:
         raise RuntimeError("Structured MCP scan smoke call did not preserve the empty inventory")
+    if batch_result.isError:
+        raise RuntimeError("Structured MCP batch-plan smoke call returned an error")
+    structured_batch = batch_result.structuredContent
+    if not isinstance(structured_batch, dict):
+        raise RuntimeError("Structured MCP batch-plan smoke call has no object result")
+    if structured_batch.get("processed") != 0 or structured_batch.get("items") != []:
+        raise RuntimeError("Structured MCP batch-plan smoke call did not preserve the empty page")
+    inventory_id = structured_batch.get("inventory_id")
+    if not isinstance(inventory_id, str) or not inventory_id.startswith("sha256:"):
+        raise RuntimeError("Structured MCP batch-plan smoke call has no inventory identity")
 
     return {
         "passed": True,
@@ -161,7 +180,7 @@ async def smoke() -> dict[str, object]:
         "write_tools": sorted(WRITE_TOOLS),
         "closed_approval_schemas": True,
         "closed_output_schemas": True,
-        "structured_output_calls": 2,
+        "structured_output_calls": 3,
         "server_stderr": server_stderr,
     }
 

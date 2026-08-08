@@ -91,6 +91,8 @@ All notable changes to this project are documented in this file.
   patterns and real STDIO `call_tool` checks for profile matching and bounded DWG discovery.
 - Isolated-venv wheel installation smoke with frozen, hash-checked lock dependencies that proves
   the built distribution imports outside the source tree and serves the real MCP STDIO contract.
+- Metadata-bound batch inventory IDs that make later planning pages fail closed when a large DWG
+  folder changes between offsets, preventing silent skips or duplicates in 300-drawing runs.
 
 ### Notes
 

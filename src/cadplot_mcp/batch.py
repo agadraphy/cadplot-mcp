@@ -12,18 +12,46 @@ StageBuilder = Callable[[dict[str, Any], str], dict[str, Any]]
 QueueBuilder = Callable[[dict[str, str]], dict[str, Any]]
 
 
+def build_drawing_inventory_id(items: Sequence[dict[str, Any]]) -> str:
+    """Bind paginated planning to one deterministic drawing inventory snapshot."""
+    normalized = sorted(
+        (
+            {
+                "path": str(item["path"]),
+                "size_bytes": item.get("size_bytes"),
+                "modified_utc": item.get("modified_utc"),
+            }
+            for item in items
+        ),
+        key=lambda item: item["path"].casefold(),
+    )
+    canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def build_batch_page(
     drawing_paths: Sequence[str],
     plan_builder: PlanBuilder,
     *,
     offset: int = 0,
     limit: int = 20,
+    inventory_id: str | None = None,
+    expected_inventory_id: str | None = None,
 ) -> dict[str, Any]:
     """Build one deterministic batch page while isolating per-drawing failures."""
     if offset < 0:
         raise ValueError("offset must be zero or greater.")
     if not 1 <= limit <= 50:
         raise ValueError("limit must be between 1 and 50.")
+    current_inventory_id = inventory_id or build_drawing_inventory_id(
+        [{"path": path} for path in drawing_paths]
+    )
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", current_inventory_id):
+        raise ValueError("inventory_id must be a SHA-256 identifier.")
+    if offset > 0 and expected_inventory_id is None:
+        raise ValueError("expected_inventory_id is required after the first batch page.")
+    if expected_inventory_id is not None and expected_inventory_id != current_inventory_id:
+        raise ValueError("Drawing inventory changed; restart batch planning at offset 0.")
 
     total = len(drawing_paths)
     selected = drawing_paths[offset : offset + limit]
@@ -48,6 +76,7 @@ def build_batch_page(
     next_offset = offset + len(selected)
     payload = {
         "schema_version": 1,
+        "inventory_id": current_inventory_id,
         "offset": offset,
         "limit": limit,
         "total_drawings": total,

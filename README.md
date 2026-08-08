@@ -100,7 +100,8 @@ uv run python scripts/run-synthetic-demo.py
   approving any mapping.
 - `create_publish_plan`: generate a deterministic, hashed dry-run plan with blockers.
 - `create_batch_publish_plans`: inspect up to 50 drawings per restartable page while isolating
-  per-file blockers and AutoCAD errors.
+  per-file blockers and AutoCAD errors; subsequent pages require the first page's exact
+  metadata-bound inventory ID.
 - `preview_publish_plan`: send only ready, hash-verified plan metadata to the local plug-in;
   it never edits, saves, or plots the drawing.
 - `stage_publish_job`: require the exact approved plan ID, re-inspect and re-hash the DWG,
@@ -169,9 +170,10 @@ preserves its paper-space geometry, and retargets the cloned viewport to the app
 and scale. Missing/model-space templates or zero/multiple floating viewports block execution.
 External DWT/DWG template import is deliberately not inferred from a path or filename.
 
-For large folders, call `create_batch_publish_plans` with the returned `next_offset` until
-`has_more=false`. The hard page limit prevents a 300-file run from becoming one fragile, opaque
-MCP request.
+For large folders, retain the first `create_batch_publish_plans` result's `inventory_id`, then pass
+it as `expected_inventory_id` with each returned `next_offset` until `has_more=false`. Pagination
+fails closed if the DWG inventory changes. The hard page limit prevents a 300-file run from becoming
+one fragile, opaque MCP request.
 After staging and approving the returned manifest digests, use `queue_publish_batch` in bounded
 pages; do not submit all 300 jobs as one call.
 Process-local queue status disappears when AutoCAD exits, but every terminal job writes an

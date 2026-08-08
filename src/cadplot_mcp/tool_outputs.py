@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from cadplot_mcp.tool_types import JobIdString, PlanIdString, Sha256String
+from cadplot_mcp.tool_types import InventoryIdString, JobIdString, PlanIdString, Sha256String
 
 
 class _ClosedOutput(BaseModel):
@@ -187,6 +187,7 @@ class OfficeInventoryOutput(_ClosedOutput):
 class BatchPublishPlansOutput(_ClosedOutput):
     batch_page_id: str
     schema_version: Literal[1]
+    inventory_id: InventoryIdString
     offset: int
     limit: int
     total_drawings: int

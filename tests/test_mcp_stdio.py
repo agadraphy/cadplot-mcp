@@ -23,7 +23,7 @@ def test_real_stdio_mcp_initialize_and_tool_contract() -> None:
     assert report["all_tools_titled"] is True
     assert report["closed_approval_schemas"] is True
     assert report["closed_output_schemas"] is True
-    assert report["structured_output_calls"] == 2
+    assert report["structured_output_calls"] == 3
     assert report["write_tools"] == [
         "queue_publish_batch",
         "queue_publish_job",

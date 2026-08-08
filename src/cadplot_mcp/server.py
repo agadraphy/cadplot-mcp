@@ -13,7 +13,12 @@ from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.audit import load_staged_manifest
 from cadplot_mcp.audit import read_publish_receipt as load_publish_receipt
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
-from cadplot_mcp.batch import build_batch_page, queue_approved_batch, stage_approved_batch
+from cadplot_mcp.batch import (
+    build_batch_page,
+    build_drawing_inventory_id,
+    queue_approved_batch,
+    stage_approved_batch,
+)
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
 from cadplot_mcp.environment import diagnose_environment
@@ -56,6 +61,7 @@ from cadplot_mcp.tool_outputs import (
 from cadplot_mcp.tool_types import (
     BatchOffset,
     BatchPageLimit,
+    InventoryIdString,
     JobIdString,
     LabelString,
     MaximumFiles,
@@ -169,6 +175,7 @@ def create_publish_plan(path: PathString) -> PublishPlanOutput:
 def create_batch_publish_plans(
     root: PathString,
     recursive: bool = True,
+    expected_inventory_id: InventoryIdString | None = None,
     offset: BatchOffset = 0,
     limit: BatchPageLimit = 20,
     max_files: MaximumFiles = 5_000,
@@ -181,11 +188,14 @@ def create_batch_publish_plans(
         recursive=recursive,
         max_files=max_files,
     )
+    inventory_id = build_drawing_inventory_id([drawing.to_dict() for drawing in drawings])
     return build_batch_page(
         [drawing.path for drawing in drawings],
         lambda path: _build_current_plan(path, config),
         offset=offset,
         limit=limit,
+        inventory_id=inventory_id,
+        expected_inventory_id=expected_inventory_id,
     )
 
 
