@@ -46,6 +46,9 @@ try {
             uv sync --frozen --extra dev --extra autocad
         }
     }
+    Invoke-CheckedStep "source tree proprietary asset and secret audit" {
+        uv run python scripts\audit-source-tree.py
+    }
     Invoke-CheckedStep "Python lint" { uv run ruff check . }
     Invoke-CheckedStep "Python tests" { uv run pytest -q }
     Invoke-CheckedStep "real MCP stdio protocol smoke" {

@@ -93,6 +93,8 @@ All notable changes to this project are documented in this file.
   the built distribution imports outside the source tree and serves the real MCP STDIO contract.
 - Metadata-bound batch inventory IDs that make later planning pages fail closed when a large DWG
   folder changes between offsets, preventing silent skips or duplicates in 300-drawing runs.
+- Early source-tree audit for tracked or stageable proprietary CAD/plot assets, archives, local
+  configuration, Autodesk assemblies, oversized files, and high-confidence credential patterns.
 
 ### Notes
 

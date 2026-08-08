@@ -14,5 +14,17 @@ artifacts/
 **/obj/
 *.dwg
 *.dxf
+*.dwt
+*.ctb
+*.stb
+*.pc3
+*.pmp
+*.pdf
+*.max
+*.3ds
+*.3dm
+*.rvt
+*.rfa
+*.skp
 *.bak
 *.sv$

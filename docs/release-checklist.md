@@ -10,6 +10,8 @@ Use this checklist for every alpha release.
 - [ ] Manual AutoCAD verification used a non-production copy of a drawing.
 - [ ] No proprietary drawings, credentials, Autodesk binaries, or company assets
       are included in the source distribution or wheel.
+- [ ] `uv run python scripts/audit-source-tree.py` passes against tracked and non-ignored source
+      files before commit or publication.
 
 ## Quality
 

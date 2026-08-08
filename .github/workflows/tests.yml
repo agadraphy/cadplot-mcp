@@ -25,6 +25,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - run: uv sync --frozen --extra dev --extra autocad
+      - run: uv run python scripts/audit-source-tree.py
       - run: uv run ruff check .
       - run: uv run pytest
       - run: uv run python scripts/smoke-mcp-stdio.py

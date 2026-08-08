@@ -45,6 +45,8 @@ geçmesidir. Bu doğrulama yapılmadan proje üretim-hazır olarak sunulmaz.
 - 18 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
   kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.
 - Şirket DWT, PC3, PMP, CTB/STB veya DWG dosyaları repoya eklenmez.
+- `uv run python scripts/audit-source-tree.py`; tracked veya stage edilebilir CAD/plot dosyalarını,
+  arşivleri, yerel config'i, Autodesk DLL'lerini ve yüksek güvenli sır kalıplarını erken reddeder.
 
 ## Yerel kurulum
 

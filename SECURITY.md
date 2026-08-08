@@ -23,6 +23,11 @@ Default workflows must remain copy-only and dry-run first. Do not overwrite,
 move, delete, batch-modify, or submit drawings without an explicit operator
 decision and a verified output location.
 
+Run `uv run python scripts/audit-source-tree.py` before committing or publishing.
+The same check runs in CI and local preflight to reject tracked or stageable CAD/plot
+assets, archives, local configuration, Autodesk assemblies, oversized files, and
+high-confidence credential patterns. This is a guardrail, not a substitute for review.
+
 The local named pipe is restricted to the creating Windows user. .NET 8 uses
 `PipeOptions.CurrentUserOnly`; the AutoCAD 2016/.NET Framework 4.5 build uses
 a protected ACL granting full control only to the current user SID. Do not

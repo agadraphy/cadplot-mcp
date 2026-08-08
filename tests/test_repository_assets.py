@@ -86,6 +86,7 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
 
     for required in (
         "uv sync --frozen",
+        "audit-source-tree.py",
         "uv run ruff check .",
         "uv run pytest -q",
         "run-synthetic-demo.py",
@@ -216,4 +217,5 @@ def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> Non
     assert "scripts/smoke-mcp-stdio.py" in workflow
     assert "scripts/run-synthetic-demo.py" in workflow
     assert "uv sync --frozen" in workflow
+    assert "scripts/audit-source-tree.py" in workflow
     assert "scripts/smoke-wheel-install.py" in workflow

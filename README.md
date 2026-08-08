@@ -132,6 +132,8 @@ dedicated output folder that is not a symlink or junction and does not overlap a
 source tree. Unknown fields, malformed profile types, empty resource names, non-finite numeric
 values, and unsafe tolerance ranges are rejected at startup. Company-owned DWT, CTB/STB,
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
+Run `uv run python scripts/audit-source-tree.py` before publication; CI and local preflight reject
+tracked/non-ignored CAD assets, plot resources, archives, local config, and high-confidence secrets.
 If the exact office resource names are not yet known, follow the
 [read-only office profile onboarding](docs/office-profile-onboarding.md) with the deliberately
 non-matching inventory config; do not guess production profile values.
