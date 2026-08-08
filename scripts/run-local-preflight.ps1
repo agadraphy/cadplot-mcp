@@ -48,6 +48,9 @@ try {
     }
     Invoke-CheckedStep "Python lint" { uv run ruff check . }
     Invoke-CheckedStep "Python tests" { uv run pytest -q }
+    Invoke-CheckedStep "real MCP stdio protocol smoke" {
+        uv run python scripts\smoke-mcp-stdio.py
+    }
     Invoke-CheckedStep "synthetic non-AutoCAD workflow" {
         uv run python scripts\run-synthetic-demo.py
     }

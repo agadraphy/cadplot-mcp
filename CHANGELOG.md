@@ -75,6 +75,8 @@ All notable changes to this project are documented in this file.
   modes plus machine-readable readiness and failure output.
 - `-WhatIf`-capable, no-overwrite local pilot initializer that creates only an inventory config and
   empty separated input/workspace directories without copying company assets or enabling publish.
+- Real subprocess MCP `stdio` smoke test covering initialization, the exact 18-tool surface, server
+  safety instructions, and read/write/destructive/open-world annotations.
 
 ### Notes
 

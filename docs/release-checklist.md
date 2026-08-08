@@ -17,6 +17,8 @@ Use this checklist for every alpha release.
       `autocad_launched=false`, `live_publish_proven=false` before the licensed pilot.
 - [ ] `uv run ruff check .` passes.
 - [ ] `uv run pytest` passes.
+- [ ] `uv run python scripts/smoke-mcp-stdio.py` passes real subprocess initialize/list-tools and
+      verifies the exact tool/annotation/instruction contract.
 - [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
       `audit_complete=true`, while truthfully retaining `publish_verified=false`.
 - [ ] `uv build` and `uv run python scripts/audit-release-artifacts.py dist` pass.
