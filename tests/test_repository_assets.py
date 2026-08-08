@@ -102,6 +102,24 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
     assert "Start-Process" not in script
 
 
+def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "smoke-wheel-install.py").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        '"export"',
+        '"--frozen"',
+        '"--no-emit-project"',
+        '"--require-hashes"',
+        '"--no-deps"',
+        'environment.pop("PYTHONPATH", None)',
+        'environment["PYTHONNOUSERSITE"] = "1"',
+        '"source_tree_imported": False',
+    ):
+        assert required in script
+
+
 def test_local_pilot_initializer_is_no_overwrite_and_reparse_gated() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "new-local-pilot.ps1").read_text(encoding="utf-8")
 

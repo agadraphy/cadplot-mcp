@@ -52,6 +52,7 @@ def _sha256(path: Path) -> str:
 
 def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
     wheel = _select_wheel(wheel_value)
+    repository_root = Path(__file__).resolve().parents[1]
     uv = shutil.which("uv")
     if uv is None:
         raise RuntimeError("uv is required for the isolated wheel smoke test.")
@@ -67,6 +68,21 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="cadplot-wheel-smoke-") as temporary:
         temporary_root = Path(temporary).resolve(strict=True)
         venv_root = temporary_root / "venv"
+        requirements = temporary_root / "requirements.locked.txt"
+        _run(
+            [
+                uv,
+                "export",
+                "--frozen",
+                "--no-dev",
+                "--no-emit-project",
+                "--no-header",
+                "--output-file",
+                str(requirements),
+            ],
+            cwd=repository_root,
+            environment=environment,
+        )
         _run(
             [uv, "venv", "--python", sys.executable, str(venv_root)],
             cwd=temporary_root,
@@ -78,6 +94,21 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
                 uv,
                 "pip",
                 "install",
+                "--require-hashes",
+                "--python",
+                str(interpreter),
+                "--requirements",
+                str(requirements),
+            ],
+            cwd=temporary_root,
+            environment=environment,
+        )
+        _run(
+            [
+                uv,
+                "pip",
+                "install",
+                "--no-deps",
                 "--python",
                 str(interpreter),
                 str(wheel),
@@ -123,6 +154,8 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "closed_output_schemas": protocol["closed_output_schemas"],
         "structured_output_calls": protocol["structured_output_calls"],
         "isolated_install": True,
+        "locked_dependencies": True,
+        "dependency_hashes_required": True,
     }
 
 
