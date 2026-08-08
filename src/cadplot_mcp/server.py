@@ -33,6 +33,14 @@ from cadplot_mcp.pipe_client import (
 from cadplot_mcp.pipe_client import validate_staged_job as request_staged_job_validation
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
+from cadplot_mcp.tool_outputs import (
+    AuditPublishOutputsOutput,
+    MatchPaperProfileOutput,
+    PublishPlanOutput,
+    PublishReceiptOutput,
+    QueuePublishJobOutput,
+    StagePublishJobOutput,
+)
 from cadplot_mcp.tool_types import (
     BatchOffset,
     BatchPageLimit,
@@ -137,7 +145,7 @@ def inventory_office_resources(path: PathString) -> dict[str, Any]:
 
 
 @mcp.tool(title="Create dry-run publish plan", annotations=READ_ONLY)
-def create_publish_plan(path: PathString) -> dict[str, Any]:
+def create_publish_plan(path: PathString) -> PublishPlanOutput:
     """Inspect one DWG and return a deterministic dry-run plan; never modifies or plots it."""
     config = _config()
     return _build_current_plan(path, config)
@@ -189,7 +197,9 @@ def preview_publish_plan(
 
 
 @mcp.tool(title="Stage approved publish job", annotations=LOCAL_WRITE)
-def stage_publish_job(path: PathString, approved_plan_id: PlanIdString) -> dict[str, Any]:
+def stage_publish_job(
+    path: PathString, approved_plan_id: PlanIdString
+) -> StagePublishJobOutput:
     """Revalidate an approved plan and copy its DWG into an isolated workspace; never plots."""
     config = _config()
     plan = _build_current_plan(path, config)
@@ -222,7 +232,7 @@ def stage_publish_batch(approvals: StageApprovals) -> dict[str, Any]:
 
 
 @mcp.tool(title="Audit publish outputs", annotations=READ_ONLY)
-def audit_publish_outputs(manifest_path: PathString) -> dict[str, Any]:
+def audit_publish_outputs(manifest_path: PathString) -> AuditPublishOutputsOutput:
     """Inspect expected PDFs and return hashes/statuses; never modifies the job or outputs."""
     config = _config()
     try:
@@ -258,7 +268,7 @@ def queue_publish_job(
     approved_plan_id: PlanIdString,
     approved_manifest_sha256: Sha256String,
     timeout_ms: TimeoutMilliseconds = 2_000,
-) -> dict[str, Any]:
+) -> QueuePublishJobOutput:
     """Queue an exact approved staged plan for PDF publishing; may create output PDFs."""
     config = _config()
     try:
@@ -297,7 +307,7 @@ def get_publish_job_status(
 
 
 @mcp.tool(title="Read publish receipt", annotations=READ_ONLY)
-def read_publish_receipt(manifest_path: PathString) -> dict[str, Any]:
+def read_publish_receipt(manifest_path: PathString) -> PublishReceiptOutput:
     """Read persistent terminal publish evidence after AutoCAD restarts; never writes files."""
     try:
         return load_publish_receipt(manifest_path, _config())
@@ -335,7 +345,7 @@ def queue_publish_batch(
 
 
 @mcp.tool(title="Match paper profile", annotations=READ_ONLY)
-def match_paper_profile(label: LabelString) -> dict[str, Any]:
+def match_paper_profile(label: LabelString) -> MatchPaperProfileOutput:
     """Match a frame's paper-size label to a configured office paper profile."""
     config = _config()
     profile = config.match_paper_profile(label)

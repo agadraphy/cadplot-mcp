@@ -22,6 +22,8 @@ def test_real_stdio_mcp_initialize_and_tool_contract() -> None:
     assert report["tool_count"] == 18
     assert report["all_tools_titled"] is True
     assert report["closed_approval_schemas"] is True
+    assert report["closed_critical_output_schemas"] is True
+    assert report["structured_output_call"] is True
     assert report["write_tools"] == [
         "queue_publish_batch",
         "queue_publish_job",

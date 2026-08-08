@@ -82,3 +82,31 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     limit = tools["create_batch_publish_plans"].parameters["properties"]["limit"]
     assert limit["minimum"] == 1
     assert limit["maximum"] == 50
+
+
+def test_critical_outputs_have_closed_mcp_schemas() -> None:
+    tools = {tool.name: tool for tool in mcp._tool_manager.list_tools()}
+    expected_properties = {
+        "create_publish_plan": {"plan_id", "ready", "sheets", "warnings"},
+        "stage_publish_job": {"staged", "plan", "job", "error"},
+        "queue_publish_job": {"queued", "plan_id", "plugin", "error"},
+        "audit_publish_outputs": {"complete", "publish_verified", "outputs", "error"},
+        "read_publish_receipt": {"found", "receipt", "error"},
+        "match_paper_profile": {"matched", "label", "profile"},
+    }
+
+    for name, properties in expected_properties.items():
+        schema = tools[name].output_schema
+        assert schema["additionalProperties"] is False
+        assert properties <= schema["properties"].keys()
+
+    plan_schema = tools["create_publish_plan"].output_schema
+    assert plan_schema["properties"]["plan_id"]["pattern"] == r"^sha256:[0-9a-f]{64}$"
+    assert plan_schema["properties"]["ready"]["type"] == "boolean"
+    assert plan_schema["properties"]["mode"]["const"] == "dry-run"
+    receipt_schema = tools["read_publish_receipt"].output_schema
+    receipt_ref = receipt_schema["properties"]["receipt"]["anyOf"][0]["$ref"]
+    receipt_name = receipt_ref.rsplit("/", 1)[-1]
+    receipt_payload = receipt_schema["$defs"][receipt_name]
+    assert receipt_payload["additionalProperties"] is False
+    assert receipt_payload["properties"]["manifest_sha256"]["pattern"] == r"^[0-9a-f]{64}$"

@@ -35,23 +35,58 @@ WRITE_TOOLS = {
     "stage_publish_batch",
     "stage_publish_job",
 }
+STRICT_OUTPUT_TOOLS = {
+    "audit_publish_outputs",
+    "create_publish_plan",
+    "match_paper_profile",
+    "queue_publish_job",
+    "read_publish_receipt",
+    "stage_publish_job",
+}
 
 
 async def smoke() -> dict[str, object]:
-    environment = os.environ.copy()
-    environment.pop("CADPLOT_CONFIG", None)
-    parameters = StdioServerParameters(
-        command=sys.executable,
-        args=["-m", "cadplot_mcp"],
-        env=environment,
-    )
-    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as error_log:
-        async with stdio_client(parameters, errlog=error_log) as (reader, writer):
-            async with ClientSession(reader, writer) as session:
-                initialized = await session.initialize()
-                listed = await session.list_tools()
-        error_log.seek(0)
-        server_stderr = error_log.read().strip()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        input_root = os.path.join(temp_dir, "input")
+        workspace_root = os.path.join(temp_dir, "work")
+        os.mkdir(input_root)
+        os.mkdir(workspace_root)
+        config_path = os.path.join(temp_dir, "config.yaml")
+        config_payload = {
+            "version": 1,
+            "allowed_roots": [input_root],
+            "workspace_root": workspace_root,
+            "paper_profiles": [
+                {
+                    "id": "smoke_70x100",
+                    "labels": ["1000 x 700 mm"],
+                    "page_setup": "SMOKE_70X100",
+                    "plotter": "Smoke PDF.pc3",
+                    "plot_style": "smoke.ctb",
+                    "tolerance_mm": 2,
+                }
+            ],
+        }
+        with open(config_path, "w", encoding="utf-8") as config_file:
+            json.dump(config_payload, config_file)
+
+        environment = os.environ.copy()
+        environment["CADPLOT_CONFIG"] = config_path
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "cadplot_mcp"],
+            env=environment,
+        )
+        with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as error_log:
+            async with stdio_client(parameters, errlog=error_log) as (reader, writer):
+                async with ClientSession(reader, writer) as session:
+                    initialized = await session.initialize()
+                    listed = await session.list_tools()
+                    match_result = await session.call_tool(
+                        "match_paper_profile", {"label": "1000 x 700 mm"}
+                    )
+            error_log.seek(0)
+            server_stderr = error_log.read().strip()
 
     tools = {tool.name: tool for tool in listed.tools}
     if set(tools) != EXPECTED_TOOLS:
@@ -93,6 +128,23 @@ async def smoke() -> dict[str, object]:
         raise RuntimeError("Stage approval MCP schema is not bounded to 20 items")
     if queue_approval["properties"]["manifest_sha256"].get("pattern") != r"^[0-9a-f]{64}$":
         raise RuntimeError("Queue manifest digest MCP schema is not exact")
+    for name in STRICT_OUTPUT_TOOLS:
+        if tools[name].outputSchema.get("additionalProperties") is not False:
+            raise RuntimeError(f"Critical MCP output schema allows unexpected fields: {name}")
+    if match_result.isError:
+        raise RuntimeError("Structured MCP output smoke call returned an error")
+    structured_match = match_result.structuredContent
+    if not isinstance(structured_match, dict) or set(structured_match) != {
+        "matched",
+        "label",
+        "profile",
+    }:
+        raise RuntimeError("Structured MCP output smoke call has an unexpected shape")
+    if structured_match["matched"] is not True:
+        raise RuntimeError("Structured MCP output smoke call did not match the test profile")
+    profile = structured_match["profile"]
+    if not isinstance(profile, dict) or profile.get("id") != "smoke_70x100":
+        raise RuntimeError("Structured MCP output smoke call returned the wrong profile")
 
     return {
         "passed": True,
@@ -102,6 +154,8 @@ async def smoke() -> dict[str, object]:
         "all_tools_titled": True,
         "write_tools": sorted(WRITE_TOOLS),
         "closed_approval_schemas": True,
+        "closed_critical_output_schemas": True,
+        "structured_output_call": True,
         "server_stderr": server_stderr,
     }
 
