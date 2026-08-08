@@ -58,6 +58,9 @@ try {
     Invoke-CheckedStep "release artifact audit" {
         uv run python scripts\audit-release-artifacts.py dist
     }
+    Invoke-CheckedStep "isolated wheel install and MCP smoke" {
+        uv run python scripts\smoke-wheel-install.py dist
+    }
     Invoke-CheckedStep ".NET protocol build" {
         & $resolvedDotNet build src\dotnet\CadPlotMcp.sln --configuration Release --nologo
     }

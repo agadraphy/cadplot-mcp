@@ -26,7 +26,8 @@ publishing:
 
 If the installed SDK is outside `PATH`, pass `-DotNet` explicitly. The script runs the locked
 environment sync, lint, Python tests, synthetic demo, Python package/audit, .NET build/tests, and
-the optional compile-only API probe. Its final JSON must show `passed=true`,
+an isolated wheel-install MCP smoke plus the optional compile-only API probe. Its final JSON
+must show `passed=true`,
 `autocad_launched=false`, and `live_publish_proven=false`.
 
 Equivalent individual commands are:

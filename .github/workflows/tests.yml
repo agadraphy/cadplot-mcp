@@ -24,12 +24,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - run: uv sync --extra dev --extra autocad
+      - run: uv sync --frozen --extra dev --extra autocad
       - run: uv run ruff check .
       - run: uv run pytest
       - run: uv run python scripts/smoke-mcp-stdio.py
       - run: uv run python scripts/run-synthetic-demo.py
       - run: uv build
       - run: uv run python scripts/audit-release-artifacts.py dist
+      - run: uv run python scripts/smoke-wheel-install.py dist
       - run: dotnet build src/dotnet/CadPlotMcp.sln --configuration Release
       - run: dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release --no-build
