@@ -83,6 +83,8 @@ All notable changes to this project are documented in this file.
   UTF-8 before any AutoCAD connection is attempted.
 - Strict MCP input schemas for exact plan/manifest identifiers, closed batch approval objects,
   1-20 approval counts, bounded pagination/file limits, non-empty paths, and bounded timeouts.
+- Concise human-facing titles for all 18 MCP tools, preserving visible dry-run and explicit approval
+  distinctions in ChatGPT/Codex tool interfaces.
 
 ### Notes
 

@@ -70,6 +70,8 @@ async def smoke() -> dict[str, object]:
         if required not in instructions:
             raise RuntimeError(f"MCP initialize instructions are missing: {required}")
     for name, tool in tools.items():
+        if not tool.title or len(tool.title) > 80:
+            raise RuntimeError(f"MCP tool has no concise human title: {name}")
         annotations = tool.annotations
         if annotations is None:
             raise RuntimeError(f"MCP tool has no annotations: {name}")
@@ -97,6 +99,7 @@ async def smoke() -> dict[str, object]:
         "protocol_version": initialized.protocolVersion,
         "server_name": initialized.serverInfo.name,
         "tool_count": len(tools),
+        "all_tools_titled": True,
         "write_tools": sorted(WRITE_TOOLS),
         "closed_approval_schemas": True,
         "server_stderr": server_stderr,

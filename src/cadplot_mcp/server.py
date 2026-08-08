@@ -84,13 +84,13 @@ def _config() -> CadPlotConfig:
     return load_config(value)
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Validate CadPlot environment", annotations=READ_ONLY)
 def validate_environment() -> dict[str, Any]:
     """Validate configuration, allowed roots, and the read-only AutoCAD COM connection."""
     return diagnose_environment(os.environ.get("CADPLOT_CONFIG"), mode="inspection")
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Check AutoCAD plug-in", annotations=READ_ONLY)
 def get_autocad_plugin_status(timeout_ms: TimeoutMilliseconds = 2_000) -> dict[str, Any]:
     """Check the installed AutoCAD plug-in through its read-only local named-pipe command."""
     try:
@@ -100,7 +100,7 @@ def get_autocad_plugin_status(timeout_ms: TimeoutMilliseconds = 2_000) -> dict[s
     return {"connected": True, "status": response}
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Scan DWG files", annotations=READ_ONLY)
 def scan_drawings(
     root: PathString,
     recursive: bool = True,
@@ -121,14 +121,14 @@ def scan_drawings(
     }
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Inspect one DWG", annotations=READ_ONLY)
 def inspect_drawing(path: PathString) -> dict[str, Any]:
     """Inspect one explicit DWG read-only: layouts, plot settings, and labelled frames."""
     config = _config()
     return AutoCADComInspector(config.path_policy).inspect_drawing(path).to_dict()
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Inventory office plot resources", annotations=READ_ONLY)
 def inventory_office_resources(path: PathString) -> dict[str, Any]:
     """Inventory exact frame/layout/page-setup/plot resource names; never approves or writes."""
     config = _config()
@@ -136,14 +136,14 @@ def inventory_office_resources(path: PathString) -> dict[str, Any]:
     return build_office_inventory_report(inspection)
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Create dry-run publish plan", annotations=READ_ONLY)
 def create_publish_plan(path: PathString) -> dict[str, Any]:
     """Inspect one DWG and return a deterministic dry-run plan; never modifies or plots it."""
     config = _config()
     return _build_current_plan(path, config)
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Create batch publish plans", annotations=READ_ONLY)
 def create_batch_publish_plans(
     root: PathString,
     recursive: bool = True,
@@ -167,7 +167,7 @@ def create_batch_publish_plans(
     )
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Preview plan in AutoCAD", annotations=READ_ONLY)
 def preview_publish_plan(
     path: PathString,
     timeout_ms: TimeoutMilliseconds = 2_000,
@@ -188,7 +188,7 @@ def preview_publish_plan(
     return {"accepted": bool(response.get("ok")), "plan": plan, "plugin": response}
 
 
-@mcp.tool(annotations=LOCAL_WRITE)
+@mcp.tool(title="Stage approved publish job", annotations=LOCAL_WRITE)
 def stage_publish_job(path: PathString, approved_plan_id: PlanIdString) -> dict[str, Any]:
     """Revalidate an approved plan and copy its DWG into an isolated workspace; never plots."""
     config = _config()
@@ -206,7 +206,7 @@ def stage_publish_job(path: PathString, approved_plan_id: PlanIdString) -> dict[
     return {"staged": True, "plan": plan, "job": job}
 
 
-@mcp.tool(annotations=LOCAL_WRITE)
+@mcp.tool(title="Stage approved publish batch", annotations=LOCAL_WRITE)
 def stage_publish_batch(approvals: StageApprovals) -> dict[str, Any]:
     """Stage up to 20 explicit DWG/plan-ID approvals; never plots or edits originals."""
     config = _config()
@@ -221,7 +221,7 @@ def stage_publish_batch(approvals: StageApprovals) -> dict[str, Any]:
     )
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Audit publish outputs", annotations=READ_ONLY)
 def audit_publish_outputs(manifest_path: PathString) -> dict[str, Any]:
     """Inspect expected PDFs and return hashes/statuses; never modifies the job or outputs."""
     config = _config()
@@ -232,7 +232,7 @@ def audit_publish_outputs(manifest_path: PathString) -> dict[str, Any]:
     return report
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Validate staged job", annotations=READ_ONLY)
 def validate_staged_job(
     manifest_path: PathString,
     timeout_ms: TimeoutMilliseconds = 2_000,
@@ -252,7 +252,7 @@ def validate_staged_job(
     return {"accepted": bool(response.get("ok")), "plugin": response}
 
 
-@mcp.tool(annotations=LOCAL_WRITE)
+@mcp.tool(title="Queue approved publish job", annotations=LOCAL_WRITE)
 def queue_publish_job(
     manifest_path: PathString,
     approved_plan_id: PlanIdString,
@@ -283,7 +283,7 @@ def queue_publish_job(
     }
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Get publish job status", annotations=READ_ONLY)
 def get_publish_job_status(
     plan_id: PlanIdString,
     timeout_ms: TimeoutMilliseconds = 2_000,
@@ -296,7 +296,7 @@ def get_publish_job_status(
     return {"found": bool(response.get("ok")), "plugin": response}
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Read publish receipt", annotations=READ_ONLY)
 def read_publish_receipt(manifest_path: PathString) -> dict[str, Any]:
     """Read persistent terminal publish evidence after AutoCAD restarts; never writes files."""
     try:
@@ -305,7 +305,7 @@ def read_publish_receipt(manifest_path: PathString) -> dict[str, Any]:
         return {"found": False, "error": str(exc)}
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Create publish operations report", annotations=READ_ONLY)
 def create_publish_operations_report(
     after_job_id: JobIdString | None = None,
     limit: BatchPageLimit = 20,
@@ -317,7 +317,7 @@ def create_publish_operations_report(
         return {"processed": 0, "has_more": False, "error": str(exc)}
 
 
-@mcp.tool(annotations=LOCAL_WRITE)
+@mcp.tool(title="Queue approved publish batch", annotations=LOCAL_WRITE)
 def queue_publish_batch(
     approvals: QueueApprovals,
     timeout_ms: TimeoutMilliseconds = 2_000,
@@ -334,7 +334,7 @@ def queue_publish_batch(
     )
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(title="Match paper profile", annotations=READ_ONLY)
 def match_paper_profile(label: LabelString) -> dict[str, Any]:
     """Match a frame's paper-size label to a configured office paper profile."""
     config = _config()

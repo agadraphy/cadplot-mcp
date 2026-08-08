@@ -28,6 +28,18 @@ def test_write_capable_tools_are_declared_non_read_only() -> None:
         assert annotations.openWorldHint is False
 
 
+def test_all_tools_have_concise_human_titles() -> None:
+    tools = mcp._tool_manager.list_tools()
+
+    assert all(tool.title and len(tool.title) <= 80 for tool in tools)
+    assert {tool.name: tool.title for tool in tools}["create_publish_plan"] == (
+        "Create dry-run publish plan"
+    )
+    assert {tool.name: tool.title for tool in tools}["queue_publish_job"] == (
+        "Queue approved publish job"
+    )
+
+
 def test_remaining_tools_are_declared_local_read_only() -> None:
     tools = {tool.name: tool for tool in mcp._tool_manager.list_tools()}
     write_tools = {
