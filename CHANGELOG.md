@@ -87,6 +87,8 @@ All notable changes to this project are documented in this file.
   distinctions in ChatGPT/Codex tool interfaces.
 - Model-facing parameter descriptions that identify local path policy, pagination cursors, bounded
   timeouts, and exact plan/hash values that must be copied from preceding trusted steps.
+- Closed top-level structured-output schemas for all 18 MCP tools, with exact plan/receipt digest
+  patterns and real STDIO `call_tool` checks for profile matching and bounded DWG discovery.
 
 ### Notes
 

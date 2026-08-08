@@ -42,6 +42,8 @@ geçmesidir. Bu doğrulama yapılmadan proje üretim-hazır olarak sunulmaz.
 - Var olan PDF'nin üstüne yazılmaz; meşgul PlotEngine veya hatalı sayfa ölçüsü işi durdurur.
 - `CADPLOT_ENABLE_PUBLISH=1` açıkça verilmedikçe gerçek yayın komutu kapalıdır.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.
+- 18 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
+  kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.
 - Şirket DWT, PC3, PMP, CTB/STB veya DWG dosyaları repoya eklenmez.
 
 ## Yerel kurulum
