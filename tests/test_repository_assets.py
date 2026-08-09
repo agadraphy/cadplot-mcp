@@ -340,9 +340,12 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"cadplot-collect-pilot"',
         '"cadplot-assemble-pilot"',
         '"cadplot-validate-pilot"',
+        '"cadplot-tunnel-preflight"',
         '"pilot_cli_commands": len(pilot_commands)',
         '"cadplot-acceptance"',
         '"acceptance_cli_commands": len(acceptance_commands)',
+        '"tunnel_preflight_redacted": True',
+        'or "runtime-secret-sentinel" in tunnel_output',
         '"inspector_worker_protocol": True',
     ):
         assert required in script
@@ -772,6 +775,7 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "cadplot-assemble-pilot.cmd\" --help" in guide
     assert "cadplot-validate-pilot.cmd\" --help" in guide
     assert "cadplot-acceptance.cmd\" --help" in guide
+    assert "cadplot-tunnel-preflight.cmd\" --help" in guide
     assert "new-local-pilot.ps1" in guide
     assert "publisher authenticity" in guide
     assert "--from" not in guide
@@ -887,7 +891,7 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "ChatGPT web developer pilot" in deployment
     assert "Managed company deployment" in deployment
     assert "Public ChatGPT plugin" in deployment
-    assert "Local endpoint implemented" in deployment
+    assert "Local targets/preflight implemented" in deployment
     assert "cadplot-mcp-http --port 8765" in deployment
     assert "does not yet implement that managed HTTPS proxy" in deployment
     assert "named pipe" in deployment
@@ -895,6 +899,37 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "The DWG stays" in architecture
     assert "Not implemented or claimed" in architecture
     assert "loopback-only Streamable HTTP" in architecture
+    assert "cadplot-tunnel-preflight" in architecture
+
+
+def test_secure_tunnel_handoff_is_secret_free_and_keeps_live_gates_external() -> None:
+    guide = (REPOSITORY_ROOT / "docs" / "secure-tunnel-handoff.md").read_text(
+        encoding="utf-8"
+    )
+    preflight = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "tunnel_preflight.py").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "cadplot-tunnel-preflight --transport stdio",
+        "tunnel-client doctor --profile cadplot-local --explain",
+        "--mcp-command \"cadplot-mcp\"",
+        "Platform tunnel creation",
+        "licensed AutoCAD 2016 and 2025 pilot evidence",
+        "publish_verified=true",
+        "OpenAI Secure MCP Tunnel",
+    ):
+        assert required in guide
+    for required in (
+        '"secrets_included": False',
+        '"machine_paths_included": False',
+        '"network_check_performed": False',
+        '"admin_permission_check_performed": False',
+        '"autocad_launched": False',
+        '"live_tunnel_proven": False',
+        '"live_publish_proven": False',
+    ):
+        assert required in preflight
 
 
 def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
@@ -945,6 +980,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "Installed package inventory no longer matches",
         "cadplot-doctor.cmd",
         "cadplot-mcp-http.cmd",
+        "cadplot-tunnel-preflight.cmd",
         "PYTHONDONTWRITEBYTECODE",
         "[System.IO.File]::Delete($inventoryScript)",
         "[Environment]::SetEnvironmentVariable",
@@ -969,6 +1005,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "verify-release-install.ps1",
         "uninstall-release-kit.ps1",
         "loopback-http.md",
+        "secure-tunnel-handoff.md",
     ):
         assert name in kit_builder
         assert name in kit_verifier

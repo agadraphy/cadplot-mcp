@@ -206,6 +206,7 @@ $fixedFiles = @(
     "docs/monday-pilot.md", "docs/pazartesi-demo-tr.md", "docs/release-checklist.md",
     "docs/release-kit-install.md", "docs/pilot-evidence.md", "docs/deployment-modes.md",
     "docs/release-acceptance.md", "docs/chatgpt-connection.md", "docs/loopback-http.md",
+    "docs/secure-tunnel-handoff.md",
     "docs/autodesk-sdk-prerequisites.md",
     "config/config.inventory.example.yaml", "release-kit.json"
 )

@@ -61,7 +61,7 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
 - Var olan PDF'nin üstüne yazılmaz; meşgul PlotEngine veya hatalı sayfa ölçüsü işi durdurur.
 - `CADPLOT_ENABLE_PUBLISH=1` açıkça verilmedikçe gerçek yayın komutu kapalıdır.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.
-- 18 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
+- 19 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
   kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.
 - Şirket DWT, PC3, PMP, CTB/STB veya DWG dosyaları repoya eklenmez.
 - `uv run python scripts/audit-source-tree.py`; tracked veya stage edilebilir CAD/plot dosyalarını,
@@ -83,7 +83,7 @@ $env:CADPLOT_CONFIG = "$PWD\config.yaml"
 uv run cadplot-mcp
 ```
 
-Şirket yöneticisinin onayladığı Secure MCP Tunnel geliştirici pilotu için aynı 18 araç yüzeyi yalnız
+Şirket yöneticisinin onayladığı Secure MCP Tunnel geliştirici pilotu için aynı 19 araç yüzeyi yalnız
 loopback üzerinde Streamable HTTP olarak çalıştırılabilir:
 
 ```powershell
@@ -93,6 +93,16 @@ uv run cadplot-mcp-http --port 8765
 Adres `http://127.0.0.1:8765/mcp` olur; Host/Origin koruması ve 1 MiB istek sınırı vardır. Bu komut
 kimlik doğrulamalı bir public sunucu değildir; genel amaçlı tünel/reverse proxy ile internete
 açılmamalıdır. Ayrıntılar: [loopback Streamable HTTP](docs/loopback-http.md).
+
+Önerilen STDIO tabanlı özel tünel hedefi için, OpenAI'ye bağlanmadan ve AutoCAD'i açmadan gizli
+bilgi içermeyen yönetici devir raporu üretilebilir:
+
+```powershell
+uv run cadplot-tunnel-preflight --transport stdio
+```
+
+Ayrıntılar: [Secure MCP Tunnel yönetici devri](docs/secure-tunnel-handoff.md). Platform tüneli,
+runtime anahtarı, workspace yetkileri ve canlı uygulama taraması şirket yöneticisinin kapılarıdır.
 
 MCP istemcisini bağlamadan önce salt-okunur kurulum teşhisini çalıştırabilirsiniz:
 

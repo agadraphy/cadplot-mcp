@@ -30,6 +30,7 @@ cadplot-collect-pilot = "cadplot_mcp.pilot_cli:collect_main"
 cadplot-assemble-pilot = "cadplot_mcp.pilot_cli:assemble_main"
 cadplot-validate-pilot = "cadplot_mcp.pilot_cli:validate_main"
 cadplot-acceptance = "cadplot_mcp.acceptance_cli:main"
+cadplot-tunnel-preflight = "cadplot_mcp.tunnel_preflight:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cadplot_mcp"]

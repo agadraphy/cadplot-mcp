@@ -89,7 +89,7 @@ if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
 $expectedCommands = @(
     "cadplot-acceptance.cmd", "cadplot-assemble-pilot.cmd", "cadplot-collect-pilot.cmd",
     "cadplot-doctor.cmd", "cadplot-mcp-http.cmd", "cadplot-mcp.cmd",
-    "cadplot-validate-pilot.cmd"
+    "cadplot-tunnel-preflight.cmd", "cadplot-validate-pilot.cmd"
 )
 $commandRoot = Join-Path $root "bin"
 foreach ($command in $expectedCommands) {
@@ -163,6 +163,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Installed doctor launcher smoke failed." }
     & (Join-Path $commandRoot "cadplot-mcp-http.cmd") --help 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Installed HTTP launcher smoke failed." }
+    & (Join-Path $commandRoot "cadplot-tunnel-preflight.cmd") --help 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Installed tunnel preflight launcher smoke failed." }
 }
 finally {
     [Environment]::SetEnvironmentVariable(

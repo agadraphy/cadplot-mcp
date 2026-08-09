@@ -7,7 +7,7 @@ $env:CADPLOT_CONFIG = "C:\CadPlotPilot\config.yaml"
 cadplot-mcp-http --port 8765
 ```
 
-The endpoint is `http://127.0.0.1:8765/mcp`. It exposes the same 18 typed tools and approval
+The endpoint is `http://127.0.0.1:8765/mcp`. It exposes the same 19 typed tools and approval
 contract as `cadplot-mcp` over STDIO. It does not launch AutoCAD.
 
 ## Fixed security boundary
@@ -30,8 +30,11 @@ launches AutoCAD.
 
 ChatGPT web connects to remote MCP servers, not directly to a workstation-local port. For a
 developer pilot, an authorized workspace administrator can provision OpenAI Secure MCP Tunnel and
-target this loopback endpoint. The tunnel is responsible for the remote encrypted/authenticated
-edge; this local process deliberately does not implement OAuth or expose a public listener.
+target this loopback endpoint. The official client can also launch `cadplot-mcp` directly over
+STDIO, which is the recommended single-workstation handoff because no listening MCP socket is
+needed. Run `cadplot-tunnel-preflight` first; see [Secure MCP Tunnel handoff](secure-tunnel-handoff.md).
+The tunnel is responsible for the remote encrypted/authenticated edge; this local process
+deliberately does not implement OAuth or expose a public listener.
 
 Do not forward this port with a generic reverse proxy, router rule, public tunnel, or TCP relay.
 Do not change the bind address in a local fork and call it production-ready. A managed company
@@ -44,4 +47,5 @@ or 2025 plotting; each licensed version still needs its own retained pilot evide
 ## References
 
 - [OpenAI developer mode and MCP apps](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt)
+- [OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 - [Official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)

@@ -72,6 +72,17 @@ This binds only `127.0.0.1` at `/mcp`, enforces exact Host/Origin guards, and ca
 1 MiB. It is not an authenticated public server and must not be forwarded with a generic tunnel or
 reverse proxy. See [loopback Streamable HTTP transport](docs/loopback-http.md).
 
+For the recommended private ChatGPT pilot target over STDIO, generate a secret-free administrator
+handoff report without contacting OpenAI or launching AutoCAD:
+
+```powershell
+uv run cadplot-tunnel-preflight --transport stdio
+```
+
+See [Secure MCP Tunnel administrator handoff](docs/secure-tunnel-handoff.md). Platform tunnel
+creation, runtime credentials, workspace permissions, and the live app scan remain administrator
+gates.
+
 Before connecting an MCP client, diagnose the local installation without launching AutoCAD:
 
 ```powershell

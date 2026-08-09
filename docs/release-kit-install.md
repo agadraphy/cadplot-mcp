@@ -127,6 +127,15 @@ $commandRoot = $pythonInstall.CommandRoot
 & "$commandRoot\cadplot-assemble-pilot.cmd" --help
 & "$commandRoot\cadplot-validate-pilot.cmd" --help
 & "$commandRoot\cadplot-acceptance.cmd" --help
+& "$commandRoot\cadplot-tunnel-preflight.cmd" --help
+```
+
+For a Secure MCP Tunnel operator session, prefix only the current process PATH so the official
+tunnel client resolves this exact verified installation; do not mutate the machine-wide PATH:
+
+```powershell
+$env:PATH = "$commandRoot;$env:PATH"
+cadplot-tunnel-preflight --transport stdio
 ```
 
 The installer first re-runs the embedded release-kit verifier, exports dependencies from the exact

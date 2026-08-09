@@ -119,6 +119,7 @@ try {
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
         "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md",
+        "secure-tunnel-handoff.md",
         "autodesk-sdk-prerequisites.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `

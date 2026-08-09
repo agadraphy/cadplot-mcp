@@ -49,6 +49,7 @@ Implemented in this repository:
 
 - local `stdio` MCP server;
 - loopback-only Streamable HTTP `/mcp` endpoint for an authorized local tunnel;
+- secret-free `cadplot-tunnel-preflight` report and administrator command handoff;
 - optional validated Codex plugin wrapper;
 - local Python/AutoCAD named-pipe protocol;
 - approval-bound staging and publishing;
@@ -65,6 +66,8 @@ Not implemented or claimed:
 Those are separate delivery gates. A successful local synthetic test or compile probe must never be
 presented as proof of any of them.
 
-The loopback endpoint is started with `cadplot-mcp-http --port 8765`. It is not a hosted gateway:
+The recommended tunnel target is installed `cadplot-mcp` over STDIO. The alternative loopback
+endpoint is started with `cadplot-mcp-http --port 8765`. It is not a hosted gateway:
 there is no public bind option, browser Origin requests are rejected, and the request body is capped
-at 1 MiB. See [loopback Streamable HTTP transport](loopback-http.md).
+at 1 MiB. See [Secure MCP Tunnel handoff](secure-tunnel-handoff.md) and
+[loopback Streamable HTTP transport](loopback-http.md).

@@ -190,6 +190,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             "cadplot-collect-pilot",
             "cadplot-assemble-pilot",
             "cadplot-validate-pilot",
+            "cadplot-tunnel-preflight",
         )
         acceptance_commands = ("cadplot-acceptance",)
         for command_name in pilot_commands + acceptance_commands:
@@ -201,6 +202,59 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
                 cwd=temporary_root,
                 environment=environment,
             )
+
+        tunnel_input = temporary_root / "tunnel-input"
+        tunnel_input.mkdir()
+        tunnel_config = temporary_root / "tunnel-config.yaml"
+        tunnel_config.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "allowed_roots": [str(tunnel_input)],
+                    "workspace_root": str(temporary_root / "tunnel-work"),
+                    "paper_profiles": [
+                        {
+                            "id": "smoke_a4",
+                            "labels": ["A4"],
+                            "page_setup": "SMOKE_A4",
+                            "plotter": "Smoke PDF.pc3",
+                            "plot_style": "smoke.ctb",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        tunnel_environment = environment.copy()
+        tunnel_environment["CADPLOT_CONFIG"] = str(tunnel_config)
+        tunnel_environment["CADPLOT_TUNNEL_ID"] = (
+            "tunnel_0123456789abcdef0123456789abcdef"
+        )
+        tunnel_environment["CONTROL_PLANE_API_KEY"] = "runtime-secret-sentinel"
+        tunnel_environment["PATH"] = (
+            str(command_root) + os.pathsep + tunnel_environment.get("PATH", "")
+        )
+        tunnel_output = _run(
+            [
+                str(command_root / f"cadplot-tunnel-preflight{command_suffix}"),
+                "--transport",
+                "stdio",
+            ],
+            cwd=temporary_root,
+            environment=tunnel_environment,
+        )
+        tunnel_report = json.loads(tunnel_output)
+        if (
+            tunnel_report.get("local_handoff_ready") is not True
+            or tunnel_report.get("secrets_included") is not False
+            or tunnel_report.get("machine_paths_included") is not False
+            or tunnel_report.get("live_tunnel_proven") is not False
+            or tunnel_report.get("autocad_launched") is not False
+            or tunnel_report.get("live_publish_proven") is not False
+            or "runtime-secret-sentinel" in tunnel_output
+            or str(tunnel_config) in tunnel_output
+        ):
+            raise RuntimeError("Installed wheel failed the secret-free tunnel preflight smoke.")
 
     return {
         "passed": True,
@@ -219,6 +273,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "http_transport_cleanup_retries": http_protocol["cleanup_retries"],
         "pilot_cli_commands": len(pilot_commands),
         "acceptance_cli_commands": len(acceptance_commands),
+        "tunnel_preflight_redacted": True,
         "inspector_worker_protocol": True,
         "isolated_install": True,
         "locked_dependencies": True,
