@@ -47,18 +47,23 @@ Taşınabilir yerel demo kitini yalnız bu rapordan üretin:
 .\scripts\build-demo-kit.ps1 -ReadinessReport "<report_path>"
 ```
 
-Kit, tam commit'e bağlı kaynak ZIP'ini, izole kurulumu denenmiş wheel'i ve hash manifestini içerir.
+Komut, üzerine yazmadan `cadplot-demo-delivery-<commit>` klasörü üretir. Klasör; tam commit'e
+bağlı kit dizinini, aynı dizinin ZIP'ini ve ikisini birbirine bağlayan `demo-kit-build.json` dış
+manifestini içerir. Kitte kaynak ZIP'i, izole kurulumu denenmiş wheel ve hash manifesti bulunur.
 Şirket varlığı veya Autodesk DLL'i içermez; canlı AutoCAD eklenti bundle'ı değildir.
 
-Klasörü göstermeden veya başka bilgisayara taşımadan önce paketin içindeki doğrulayıcıyı çalıştırın:
+Klasörü göstermeden veya başka bilgisayara taşımadan önce teslim kökünde arşiv doğrulayıcıyı
+çalıştırın:
 
 ```powershell
-.\verify-demo-kit.ps1 -KitRoot .
+.\cadplot-demo-kit-<commit>\verify-demo-archive.ps1 -DeliveryRoot .
 ```
 
 Sonuçta `Passed=true`, `MachinePathsIncluded=false`, `AutoCADLaunched=false` ve
-`LivePublishProven=false` görülmelidir. Kontrol exact dosya kümesini ve hashleri doğrular; paketin
-kimden geldiğini kanıtlamak için commit/hash değerini ayrıca güvenilir kanaldan karşılaştırın.
+`LivePublishProven=false` görülmelidir. Kontrol, ZIP'i çıkarmadan exact giriş kümesini ve her girişin
+hashini kit klasörüyle; iç manifest/SBOM kimliğini de dış manifestle karşılaştırır. ZIP açıldıktan
+sonra aynı kitteki `verify-demo-kit.ps1 -KitRoot .` iç doğrulaması bağımsız tekrar çalıştırılabilir.
+Paketin kimden geldiğini kanıtlamak için commit/hash değerini ayrıca güvenilir kanaldan karşılaştırın.
 
 `licensed_live_pilot_ready=false` hata değildir: lisanslı hedef makine, yetkili şirket plot kaynakları
 ve tek-pafta görsel kanıtı olmadan canlı başarı iddiası üretilmesini özellikle engeller.

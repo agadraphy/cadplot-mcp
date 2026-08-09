@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- One-command, no-overwrite portable demo delivery packaging with an exact kit directory, matching
+  ZIP, and outer manifest. Its embedded verifier checks safe ZIP paths, exact entry membership,
+  per-entry hashes, inner manifest/SBOM identity, and false live-evidence boundaries without
+  extraction; smoke tests reject outer-identity, archive-byte, and traversal tampering.
+
 - Deterministic CycloneDX 1.7 JSON SBOM generation and strict offline validation, binding the clean
   commit, package version, `uv.lock`, exported production requirements, licensed Python inventory,
   wheel/source artifacts, AutoCAD bundle, and four shipped first-party DLLs. Demo/release manifests,

@@ -43,8 +43,9 @@ Use this checklist for every alpha release.
 - [ ] The isolated wheel smoke records `tunnel_preflight_target_probed=true`: the installed package
       passed a secret/path-redacted local `initialize/list_tools` probe with the exact 20-tool
       surface while `autocad_launched=false` and `live_tunnel_proven=false` stayed explicit.
-- [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection, and
-      removal of machine-local API paths from the portable demo manifest.
+- [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection,
+      removal of machine-local API paths, outer identity/archive hash rejection, and ZIP traversal
+      rejection for the portable demo delivery.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
 - [ ] `scripts/probe-durable-queue.ps1` reports all fifteen exact production-core scenarios passed:
@@ -91,8 +92,9 @@ Use this checklist for every alpha release.
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/
       uninstall test and is not represented as matching-SDK or live AutoCAD evidence.
-- [ ] The portable demo folder passes its embedded `verify-demo-kit.ps1`; its commit/hash is also
-      compared through a trusted handoff channel because self-verification alone is not provenance.
+- [ ] The portable demo delivery passes embedded `verify-demo-archive.ps1` before extraction and
+      `verify-demo-kit.ps1` after extraction; its commit/hash is also compared through a trusted
+      handoff channel because self-verification alone is not provenance.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
 - [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as

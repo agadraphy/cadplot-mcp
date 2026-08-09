@@ -41,6 +41,26 @@ function Assert-NoRedirectedAncestor {
     }
 }
 
+function Write-NewUtf8Json {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Value,
+        [int]$Depth = 5
+    )
+
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes(
+        ($Value | ConvertTo-Json -Depth $Depth)
+    )
+    $stream = [System.IO.File]::Open(
+        $Path,
+        [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::Write,
+        [System.IO.FileShare]::Read
+    )
+    try { $stream.Write($bytes, 0, $bytes.Length) }
+    finally { $stream.Dispose() }
+}
+
 function Get-PublicApiProbeEvidence {
     param($Probe)
 
@@ -252,11 +272,18 @@ try {
         $OutputRoot = Join-Path $repoRoot "artifacts"
     }
     $resolvedOutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
-    $kitRoot = Join-Path $resolvedOutputRoot ("cadplot-demo-kit-{0}" -f $commit.Substring(0, 7))
-    if (Test-Path -LiteralPath $kitRoot) {
-        throw "Demo kit target already exists; packaging never overwrites: $kitRoot"
+    $shortCommit = $commit.Substring(0, 7)
+    $deliveryName = "cadplot-demo-delivery-$shortCommit"
+    $kitName = "cadplot-demo-kit-$shortCommit"
+    $deliveryRoot = Join-Path $resolvedOutputRoot $deliveryName
+    $kitRoot = Join-Path $deliveryRoot $kitName
+    $kitArchive = Join-Path $deliveryRoot "$kitName.zip"
+    $outerManifestPath = Join-Path $deliveryRoot "demo-kit-build.json"
+    if (Test-Path -LiteralPath $deliveryRoot) {
+        throw "Demo delivery target already exists; packaging never overwrites: $deliveryRoot"
     }
-    Assert-NoRedirectedAncestor -Path $kitRoot
+    Assert-NoRedirectedAncestor -Path $deliveryRoot
+    $null = New-Item -ItemType Directory -Path $deliveryRoot
     $null = New-Item -ItemType Directory -Path $kitRoot
 
     $sourceArchive = Join-Path $kitRoot ("cadplot-mcp-source-{0}.zip" -f $commit.Substring(0, 7))
@@ -269,6 +296,9 @@ try {
     $kitVerifier = Join-Path $kitRoot "verify-demo-kit.ps1"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") `
         -Destination $kitVerifier
+    $archiveVerifier = Join-Path $kitRoot "verify-demo-archive.ps1"
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-archive.ps1") `
+        -Destination $archiveVerifier
     $demoRunbook = Join-Path $kitRoot "pazartesi-demo-tr.md"
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\pazartesi-demo-tr.md") `
         -Destination $demoRunbook
@@ -319,7 +349,7 @@ try {
     }
     else { $null }
     $fileEvidence = @(@(
-        $sourceArchive, $kitWheel, $kitVerifier, $demoRunbook, $tunnelHandoff,
+        $sourceArchive, $kitWheel, $kitVerifier, $archiveVerifier, $demoRunbook, $tunnelHandoff,
         $chatgptEvaluation, $sbomPath
     ) | ForEach-Object {
         [ordered]@{
@@ -370,35 +400,68 @@ try {
         autodesk_binaries_included = $false
         purpose = "Portable local/synthetic demo kit; not a live AutoCAD plug-in bundle"
     }
-    $manifestJson = $manifest | ConvertTo-Json -Depth 4
-    $manifestBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($manifestJson)
-    $stream = [System.IO.File]::Open(
-        $manifestPath,
-        [System.IO.FileMode]::CreateNew,
-        [System.IO.FileAccess]::Write,
-        [System.IO.FileShare]::Read
-    )
-    try {
-        $stream.Write($manifestBytes, 0, $manifestBytes.Length)
-    }
-    finally {
-        $stream.Dispose()
-    }
+    Write-NewUtf8Json -Path $manifestPath -Value $manifest -Depth 6
 
     $verification = & $kitVerifier -KitRoot $kitRoot -PassThru
     if ($verification.Passed -ne $true -or $verification.MachinePathsIncluded -ne $false) {
         throw "Embedded demo-kit verification failed."
     }
 
+    Compress-Archive -LiteralPath $kitRoot -DestinationPath $kitArchive -CompressionLevel Optimal
+    $outerManifest = [ordered]@{
+        schema_version = 1
+        exact_commit = $commit
+        package_version = $packageVersion
+        created_utc = [DateTime]::UtcNow.ToString("o")
+        kit_directory = $kitName
+        kit_archive = [System.IO.Path]::GetFileName($kitArchive)
+        kit_manifest = "demo-kit.json"
+        kit_manifest_sha256 = (
+            Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        kit_archive_sha256 = (
+            Get-FileHash -LiteralPath $kitArchive -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        archive_file_count = 9
+        sbom = $manifest.sbom
+        local_demo_ready = $true
+        licensed_live_pilot_ready = $false
+        public_release_ready = $false
+        company_assets_copied = $false
+        autodesk_binaries_included = $false
+        autocad_launched = $false
+        live_publish_proven = $false
+    }
+    Write-NewUtf8Json -Path $outerManifestPath -Value $outerManifest -Depth 5
+    $archiveVerification = & $archiveVerifier -DeliveryRoot $deliveryRoot -PassThru
+    if (
+        $archiveVerification.Passed -ne $true -or
+        $archiveVerification.ExactCommit -cne $commit -or
+        $archiveVerification.ArchiveFileCount -ne 9 -or
+        $archiveVerification.MachinePathsIncluded -ne $false -or
+        $archiveVerification.AutoCADLaunched -ne $false -or
+        $archiveVerification.LivePublishProven -ne $false
+    ) { throw "Embedded demo archive verification failed." }
+
     [ordered]@{
         passed = $true
+        delivery_root = $deliveryRoot
         kit_root = $kitRoot
+        kit_archive = $kitArchive
+        outer_manifest = $outerManifestPath
         manifest = $manifestPath
         exact_commit = $commit
         source_sha256 = $sourceHash
         wheel_sha256 = $kitWheelHash
+        sbom_sha256 = $sbomHash
+        archive_sha256 = $archiveVerification.ArchiveSha256
+        outer_manifest_sha256 = (
+            Get-FileHash -LiteralPath $outerManifestPath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        archive_file_count = $archiveVerification.ArchiveFileCount
         synthetic_batch_evidence_digest = $batch.evidence_digest
         self_verification_passed = $true
+        archive_verification_passed = $true
         machine_paths_included = $false
         dependency_audit_passed = $readiness.dependency_audit_ran -eq $true
         company_assets_copied = $false

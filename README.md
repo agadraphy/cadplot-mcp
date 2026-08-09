@@ -380,8 +380,11 @@ commit target without changing global PATH. `verify-python-install.ps1` rechecks
 lock, requirements digest, command surface, and installed distribution inventory.
 `uninstall-python.ps1` revalidates that exact version/commit environment, previews with `-WhatIf`,
 and removes only an atomically renamed quarantine; modified or redirected directories are preserved.
-The smaller local demo kit carries `verify-demo-kit.ps1`; it verifies the exact flat file set and
-hashes while omitting machine-local API directory paths from its portable manifest.
+The smaller local demo builder creates a no-overwrite delivery directory containing the exact kit,
+its ZIP, and an outer `demo-kit-build.json`. The embedded `verify-demo-archive.ps1` checks the ZIP
+without extraction, including safe entry names, exact membership, per-entry hashes, inner-manifest
+identity, and false live-evidence flags. `verify-demo-kit.ps1` independently verifies the flat kit,
+which omits machine-local API directory paths from its portable manifest.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.

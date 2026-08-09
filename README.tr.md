@@ -330,8 +330,11 @@ adlandırır. Global PATH'i değiştirmez ve mevcut kurulumu ezmez. `verify-pyth
 lock, requirements digest'i, komutlar ve kurulu dağıtım envanterini tekrar denetler.
 `uninstall-python.ps1` aynı sürüm/commit ortamını yeniden doğrular, `-WhatIf` ile hedefi gösterir ve
 yalnız atomik adı değiştirilmiş karantinayı siler; değiştirilmiş veya yönlendirilmiş klasör korunur.
-Küçük yerel demo kiti kendi `verify-demo-kit.ps1` doğrulayıcısını taşır; exact dosya kümesi ve
-hashleri kontrol edilirken makineye özel API klasör yolu taşınabilir manifestten çıkarılır.
+Küçük yerel demo builder'ı üzerine yazılmayan bir teslim klasöründe exact kit dizinini, ZIP'ini ve
+ikisini bağlayan dış `demo-kit-build.json` manifestini üretir. Kitteki `verify-demo-archive.ps1`, ZIP'i
+çıkarmadan güvenli giriş adlarını, exact üyeliği, giriş hashlerini, iç manifest kimliğini ve false
+canlı-kanıt bayraklarını denetler. `verify-demo-kit.ps1` de makineye özel API klasör yolunu taşımayan
+düz kitin bağımsız iç doğrulamasını yapar.
 
 Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
 Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini

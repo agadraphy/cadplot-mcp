@@ -43,6 +43,8 @@ The deterministic UUIDv5 serial changes when the exact component inventory chang
 
 The embedded PowerShell kit verifiers independently check the SBOM identity, release binding,
 component counts, artifact hashes, false live-evidence flags, path redaction, and kit-manifest hash.
+The portable demo delivery also binds that inner evidence to an outer manifest and verifies every
+safe ZIP entry and hash without extracting the archive.
 An organization may additionally validate the file against the official
 [`bom-1.7.schema.json`](https://cyclonedx.org/schema/bom-1.7.schema.json) with its approved CycloneDX
 or JSON Schema tool.

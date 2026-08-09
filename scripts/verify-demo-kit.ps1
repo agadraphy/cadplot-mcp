@@ -55,6 +55,7 @@ $expectedFiles = @(
     "chatgpt-evaluation.md",
     "cadplot-mcp.cdx.json",
     "verify-demo-kit.ps1",
+    "verify-demo-archive.ps1",
     $wheelFiles[0].Name,
     $sourceFiles[0].Name
 )

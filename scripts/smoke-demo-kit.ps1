@@ -7,14 +7,22 @@ $smokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
     "cadplot-demo-kit-smoke-{0}" -f [Guid]::NewGuid().ToString("N")
 )
 $resolvedRoot = [System.IO.Path]::GetFullPath($smokeRoot)
+$archiveSmokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+    "cadplot-demo-archive-smoke-{0}" -f [Guid]::NewGuid().ToString("N")
+)
+$resolvedArchiveRoot = [System.IO.Path]::GetFullPath($archiveSmokeRoot)
 $tempBoundary = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
-if (-not $resolvedRoot.StartsWith($tempBoundary, [System.StringComparison]::OrdinalIgnoreCase)) {
+if (
+    -not $resolvedRoot.StartsWith($tempBoundary, [System.StringComparison]::OrdinalIgnoreCase) -or
+    -not $resolvedArchiveRoot.StartsWith($tempBoundary, [System.StringComparison]::OrdinalIgnoreCase)
+) {
     throw "Demo-kit smoke root escaped the system temporary directory."
 }
 
 try {
     $null = New-Item -ItemType Directory -Path $resolvedRoot
     $verifier = Join-Path $resolvedRoot "verify-demo-kit.ps1"
+    $archiveVerifier = Join-Path $resolvedRoot "verify-demo-archive.ps1"
     $wheel = Join-Path $resolvedRoot "cadplot_mcp-0.1.0-py3-none-any.whl"
     $source = Join-Path $resolvedRoot "cadplot-mcp-source-0000000.zip"
     $demoRunbook = Join-Path $resolvedRoot "pazartesi-demo-tr.md"
@@ -22,6 +30,8 @@ try {
     $chatgptEvaluation = Join-Path $resolvedRoot "chatgpt-evaluation.md"
     $sbomPath = Join-Path $resolvedRoot "cadplot-mcp.cdx.json"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") -Destination $verifier
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-archive.ps1") `
+        -Destination $archiveVerifier
     [System.IO.File]::WriteAllText($wheel, "synthetic wheel", [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($source, "synthetic source", [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText(
@@ -102,7 +112,8 @@ try {
         [System.Text.UTF8Encoding]::new($false)
     )
     $files = @(@(
-        $verifier, $wheel, $source, $demoRunbook, $tunnelHandoff, $chatgptEvaluation, $sbomPath
+        $verifier, $archiveVerifier, $wheel, $source, $demoRunbook, $tunnelHandoff,
+        $chatgptEvaluation, $sbomPath
     ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
@@ -114,11 +125,11 @@ try {
         exact_commit = "0" * 40
         package_version = "0.1.0"
         created_utc = [DateTime]::UtcNow.ToString("o")
-        source_archive = [ordered]@{ file = [System.IO.Path]::GetFileName($source); sha256 = $files[2].sha256 }
-        wheel = [ordered]@{ file = [System.IO.Path]::GetFileName($wheel); sha256 = $files[1].sha256 }
+        source_archive = [ordered]@{ file = [System.IO.Path]::GetFileName($source); sha256 = $files[3].sha256 }
+        wheel = [ordered]@{ file = [System.IO.Path]::GetFileName($wheel); sha256 = $files[2].sha256 }
         sbom = [ordered]@{
             file = "cadplot-mcp.cdx.json"
-            sha256 = $files[6].sha256
+            sha256 = $files[7].sha256
             spec_version = "1.7"
             component_count = 3
             runtime_dependency_count = 1
@@ -180,7 +191,7 @@ try {
         wheel_install_smoke = [ordered]@{
             passed = $true
             version = "0.1.0"
-            wheel_sha256 = $files[1].sha256
+            wheel_sha256 = $files[2].sha256
             protocol_version = "2025-11-25"
             tool_count = 20
             http_transport_tool_count = 20
@@ -257,6 +268,127 @@ try {
     ) {
         throw "Demo-kit verifier did not accept the exact path-redacted fixture."
     }
+
+    $null = New-Item -ItemType Directory -Path $resolvedArchiveRoot
+    $archiveKitName = "cadplot-demo-kit-0000000"
+    $archiveKitRoot = Join-Path $resolvedArchiveRoot $archiveKitName
+    Copy-Item -LiteralPath $resolvedRoot -Destination $archiveKitRoot -Recurse
+    $archivePath = Join-Path $resolvedArchiveRoot "$archiveKitName.zip"
+    Compress-Archive -LiteralPath $archiveKitRoot -DestinationPath $archivePath `
+        -CompressionLevel Optimal
+    $archiveManifestPath = Join-Path $resolvedArchiveRoot "demo-kit-build.json"
+    $archiveManifest = [ordered]@{
+        schema_version = 1
+        exact_commit = "0" * 40
+        package_version = "0.1.0"
+        created_utc = [DateTime]::UtcNow.ToString("o")
+        kit_directory = $archiveKitName
+        kit_archive = "$archiveKitName.zip"
+        kit_manifest = "demo-kit.json"
+        kit_manifest_sha256 = (
+            Get-FileHash -LiteralPath (Join-Path $archiveKitRoot "demo-kit.json") -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        kit_archive_sha256 = (
+            Get-FileHash -LiteralPath $archivePath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        archive_file_count = 9
+        sbom = $manifest.sbom
+        local_demo_ready = $true
+        licensed_live_pilot_ready = $false
+        public_release_ready = $false
+        company_assets_copied = $false
+        autodesk_binaries_included = $false
+        autocad_launched = $false
+        live_publish_proven = $false
+    }
+    [System.IO.File]::WriteAllText(
+        $archiveManifestPath,
+        ($archiveManifest | ConvertTo-Json -Depth 5),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $outerVerifier = Join-Path $archiveKitRoot "verify-demo-archive.ps1"
+    $archiveResult = & $outerVerifier -DeliveryRoot $resolvedArchiveRoot -PassThru
+    if (
+        $archiveResult.Passed -ne $true -or
+        $archiveResult.ArchiveFileCount -ne 9 -or
+        $archiveResult.MachinePathsIncluded -ne $false -or
+        $archiveResult.AutoCADLaunched -ne $false -or
+        $archiveResult.LivePublishProven -ne $false
+    ) { throw "Demo archive verifier rejected the exact synthetic delivery." }
+
+    $archiveManifestBytes = [System.IO.File]::ReadAllBytes($archiveManifestPath)
+    $archiveBytes = [System.IO.File]::ReadAllBytes($archivePath)
+    $outerIdentityTamper = [System.Text.Encoding]::UTF8.GetString(
+        $archiveManifestBytes
+    ) | ConvertFrom-Json
+    $outerIdentityTamper.exact_commit = "1" * 40
+    [System.IO.File]::WriteAllText(
+        $archiveManifestPath,
+        ($outerIdentityTamper | ConvertTo-Json -Depth 5),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $outerIdentityTamperBlocked = $false
+    try { & $outerVerifier -DeliveryRoot $resolvedArchiveRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*identity or safety/evidence fields*") { throw }
+        $outerIdentityTamperBlocked = $true
+    }
+    if (-not $outerIdentityTamperBlocked) {
+        throw "Demo archive verifier accepted altered outer identity."
+    }
+    [System.IO.File]::WriteAllBytes($archiveManifestPath, $archiveManifestBytes)
+
+    $archiveBytes[0] = $archiveBytes[0] -bxor 1
+    [System.IO.File]::WriteAllBytes($archivePath, $archiveBytes)
+    $archiveHashTamperBlocked = $false
+    try { & $outerVerifier -DeliveryRoot $resolvedArchiveRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*archive hash mismatch*") { throw }
+        $archiveHashTamperBlocked = $true
+    }
+    if (-not $archiveHashTamperBlocked) {
+        throw "Demo archive verifier accepted a modified archive."
+    }
+    $archiveBytes[0] = $archiveBytes[0] -bxor 1
+    [System.IO.File]::WriteAllBytes($archivePath, $archiveBytes)
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $updatedArchive = [System.IO.Compression.ZipFile]::Open(
+        $archivePath,
+        [System.IO.Compression.ZipArchiveMode]::Update
+    )
+    try {
+        $unsafeEntry = $updatedArchive.CreateEntry("$archiveKitName/../escape.txt")
+        $unsafeStream = $unsafeEntry.Open()
+        try {
+            $unsafeBytes = [System.Text.Encoding]::UTF8.GetBytes("unsafe")
+            $unsafeStream.Write($unsafeBytes, 0, $unsafeBytes.Length)
+        }
+        finally { $unsafeStream.Dispose() }
+    }
+    finally { $updatedArchive.Dispose() }
+    $traversalOuter = [System.Text.Encoding]::UTF8.GetString(
+        $archiveManifestBytes
+    ) | ConvertFrom-Json
+    $traversalOuter.kit_archive_sha256 = (
+        Get-FileHash -LiteralPath $archivePath -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    [System.IO.File]::WriteAllText(
+        $archiveManifestPath,
+        ($traversalOuter | ConvertTo-Json -Depth 5),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $archiveTraversalBlocked = $false
+    try { & $outerVerifier -DeliveryRoot $resolvedArchiveRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*unsafe entry name or size*") { throw }
+        $archiveTraversalBlocked = $true
+    }
+    if (-not $archiveTraversalBlocked) {
+        throw "Demo archive verifier accepted a traversal entry with a refreshed outer hash."
+    }
+    [System.IO.File]::WriteAllBytes($archivePath, $archiveBytes)
+    [System.IO.File]::WriteAllBytes($archiveManifestPath, $archiveManifestBytes)
     $manifestPath = Join-Path $resolvedRoot "demo-kit.json"
     $manifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
     $manifest.dependency_audit.python_license_inventory.packages[0].license = "UNKNOWN"
@@ -373,6 +505,10 @@ try {
         dependency_audit_verified = $true
         sbom_verified = $true
         sbom_semantic_tamper_blocked = $sbomSemanticTamperBlocked
+        archive_verified = $true
+        archive_outer_identity_tamper_blocked = $outerIdentityTamperBlocked
+        archive_hash_tamper_blocked = $archiveHashTamperBlocked
+        archive_traversal_tamper_blocked = $archiveTraversalBlocked
         dependency_license_tamper_blocked = $licenseTamperBlocked
         queue_backpressure_tamper_blocked = $queueTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
@@ -385,5 +521,8 @@ try {
 finally {
     if (Test-Path -LiteralPath $resolvedRoot) {
         Remove-Item -LiteralPath $resolvedRoot -Recurse -Force
+    }
+    if (Test-Path -LiteralPath $resolvedArchiveRoot) {
+        Remove-Item -LiteralPath $resolvedArchiveRoot -Recurse -Force
     }
 }

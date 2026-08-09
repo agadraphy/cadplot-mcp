@@ -287,9 +287,14 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         "[System.IO.FileMode]::CreateNew",
         "Assert-NoRedirectedAncestor",
         "verify-demo-kit.ps1",
+        "verify-demo-archive.ps1",
+        "Compress-Archive",
+        '"demo-kit-build.json"',
         '"pazartesi-demo-tr.md"',
         '"secure-tunnel-handoff.md"',
         "self_verification_passed = $true",
+        "archive_verification_passed = $true",
+        "archive_file_count = $archiveVerification.ArchiveFileCount",
         "machine_paths_included = $false",
         "company_assets_copied = $false",
         "autodesk_binaries_included = $false",
@@ -314,6 +319,9 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
     verifier = (REPOSITORY_ROOT / "scripts" / "verify-demo-kit.ps1").read_text(
         encoding="utf-8"
     )
+    archive_verifier = (
+        REPOSITORY_ROOT / "scripts" / "verify-demo-archive.ps1"
+    ).read_text(encoding="utf-8")
     smoke = (REPOSITORY_ROOT / "scripts" / "smoke-demo-kit.ps1").read_text(
         encoding="utf-8"
     )
@@ -340,7 +348,12 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         assert required in verifier
     for required in (
         "verify-demo-kit.ps1",
+        "verify-demo-archive.ps1",
         "machine_paths_redacted = $true",
+        "archive_verified = $true",
+        "archive_outer_identity_tamper_blocked",
+        "archive_hash_tamper_blocked",
+        "archive_traversal_tamper_blocked",
         "dependency_license_tamper_blocked",
         "queue_backpressure_tamper_blocked",
         "tunnel_target_probe_tamper_blocked",
@@ -348,8 +361,21 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
     ):
         assert required in smoke
+    for required in (
+        "demo-kit-build.json",
+        "Demo delivery archive contains an unsafe entry name or size",
+        "Demo delivery archive hash mismatch",
+        "Demo delivery archive entry hash mismatch",
+        "verify-demo-kit.ps1",
+        "ZipFile]::OpenRead",
+        "MachinePathsIncluded = $false",
+        "LivePublishProven = $false",
+    ):
+        assert required in archive_verifier
     assert "run-local-preflight.ps1 -SkipSync -AuditDependencies" in workflow
     assert "Start-Process" not in verifier
+    assert "Start-Process" not in archive_verifier
+    assert "Expand-Archive" not in archive_verifier
 
 
 def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> None:
