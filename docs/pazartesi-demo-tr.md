@@ -15,6 +15,15 @@ SHA-256 hash'ini rapora bağlar. AutoCAD'i açmaz ve canlı plot kanıtı üretm
 `-WriteReport`, aynı son JSON'u yeni ve üzerine yazılmayan bir geçici dosyada saklar; ekrandaki
 `report_path` değerini demo kaydı olarak koruyun.
 
+Taşınabilir yerel demo kitini yalnız bu rapordan üretin:
+
+```powershell
+.\scripts\build-demo-kit.ps1 -ReadinessReport "<report_path>"
+```
+
+Kit, tam commit'e bağlı kaynak ZIP'ini, izole kurulumu denenmiş wheel'i ve hash manifestini içerir.
+Şirket varlığı veya Autodesk DLL'i içermez; canlı AutoCAD eklenti bundle'ı değildir.
+
 `licensed_live_pilot_ready=false` hata değildir: lisanslı hedef makine, yetkili şirket plot kaynakları
 ve tek-pafta görsel kanıtı olmadan canlı başarı iddiası üretilmesini özellikle engeller.
 

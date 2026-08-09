@@ -128,6 +128,28 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
     assert "Start-Process" not in script
 
 
+def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "build-demo-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "ReadinessReport",
+        "git archive",
+        "Wheel hash no longer matches",
+        "current commit",
+        "packaging never overwrites",
+        "[System.IO.FileMode]::CreateNew",
+        "company_assets_copied = $false",
+        "autodesk_binaries_included = $false",
+        "live_publish_proven = $false",
+        "not a live AutoCAD plug-in bundle",
+    ):
+        assert required in script
+    assert "Remove-Item" not in script
+    assert "Start-Process" not in script
+
+
 def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "smoke-wheel-install.py").read_text(
         encoding="utf-8"
