@@ -198,6 +198,18 @@ namespace CadPlotMcp.Core
             });
         }
 
+        public string Sign(PublishQueueCancelledRecord record)
+        {
+            return Sign(writer =>
+            {
+                WriteField(writer, "cadplot-queue-cancelled-v1");
+                writer.Write(record.SchemaVersion);
+                WriteField(writer, record.PlanId);
+                WriteField(writer, record.ManifestSha256);
+                WriteField(writer, record.CancelledUtc);
+            });
+        }
+
         public bool Verify(PublishQueueRequestRecord record)
         {
             return record != null
@@ -206,6 +218,13 @@ namespace CadPlotMcp.Core
         }
 
         public bool Verify(PublishQueueStartedRecord record)
+        {
+            return record != null
+                && record.AuthenticationVersion == 1
+                && FixedTimeEquals(record.AuthenticationTag, Sign(record));
+        }
+
+        public bool Verify(PublishQueueCancelledRecord record)
         {
             return record != null
                 && record.AuthenticationVersion == 1

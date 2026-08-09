@@ -1,5 +1,6 @@
 import hashlib
 import json
+from base64 import b64encode
 from pathlib import Path
 
 import pytest
@@ -331,6 +332,7 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
     failed_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     review_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     awaiting_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    cancelled_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
 
     complete_manifest = Path(complete_job["manifest"])
     complete_receipt = {
@@ -363,6 +365,20 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
         encoding="utf-8",
     )
     Path(review_job["outputs"][0]["pdf"]).write_bytes(b"partial output")
+    cancelled_manifest = Path(cancelled_job["manifest"])
+    (cancelled_manifest.parent / ".cadplot-queue-cancelled.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plan_id": plan["plan_id"],
+                "manifest_sha256": cancelled_job["manifest_sha256"],
+                "cancelled_utc": "2026-08-09T20:00:00Z",
+                "authentication_version": 1,
+                "authentication_tag": b64encode(b"x" * 32).decode("ascii"),
+            }
+        ),
+        encoding="utf-8",
+    )
 
     report = build_publish_operations_report(config, limit=20)
     by_job = {item["job_id"]: item for item in report["items"]}
@@ -370,6 +386,7 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
     assert report["summary"] == {
         "complete": 1,
         "awaiting_execution": 1,
+        "cancelled_hold": 1,
         "failed": 1,
         "manual_review": 1,
         "invalid_job": 0,
@@ -383,6 +400,10 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
         "plan_id": plan["plan_id"],
         "manifest_sha256": awaiting_job["manifest_sha256"],
     }
+    cancelled = by_job[cancelled_job["job_id"]]
+    assert cancelled["status"] == "cancelled_hold"
+    assert cancelled["cancellation_requires_live_plugin_verification"] is True
+    assert "queue_approval" not in cancelled
 
 
 def test_operations_report_cursor_resumes_without_repeating_jobs(tmp_path: Path) -> None:
@@ -403,6 +424,20 @@ def test_operations_report_cursor_resumes_without_repeating_jobs(tmp_path: Path)
     assert [item["job_id"] for item in second["items"]] == expected_ids[2:]
     assert second["has_more"] is False
     assert second["next_after_job_id"] is None
+
+
+def test_operations_report_fails_closed_on_malformed_cancellation_marker(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest = Path(job["manifest"])
+    (manifest.parent / ".cadplot-queue-cancelled.json").write_text("{}", encoding="utf-8")
+
+    report = build_publish_operations_report(config, limit=20)
+    item = next(value for value in report["items"] if value["job_id"] == job["job_id"])
+
+    assert item["status"] == "invalid_job"
+    assert "queue_approval" not in item
+    assert "marker schema is invalid" in item["error"]
 
 
 def test_output_audit_rejects_manifest_path_escape(tmp_path: Path) -> None:

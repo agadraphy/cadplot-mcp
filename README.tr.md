@@ -35,6 +35,8 @@ Hazır olan parçalar:
 - açık plan+manifest onayını workspace dışındaki Windows DPAPI korumalı anahtarla imzalayan restart
   güvenli kuyruk niyeti; hiç başlamamış işler aynı kimlikle geri yüklenir, yarıda kesilen işler
   otomatik tekrar basılmaz;
+- yalnız exact `Pending` plan+manifest kimliğini imzalı tombstone ile kalıcı iptal eden, çalışan
+  PlotEngine işini zorla kesmeyen kuyruk kontrolü;
 - staged DWG içinde bellekte layout/page setup/viewport kurup her pafta için ayrı PDF üreten
   ortak executor.
 
@@ -67,8 +69,10 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
   çalışma başlangıcı ayrı marker ile kaydedilir. İki marker da workspace dışında tutulan, Windows
   kullanıcısına DPAPI ile bağlı anahtarın HMAC-SHA256 etiketi olmadan geçersizdir. Receipt'siz
   kesinti `job_interrupted` olur ve yeniden onay/staging incelemesi olmadan otomatik replay edilmez.
+- `cancel_publish_job`, exact plan ve manifest hashini gerektirir; iptal marker'ını bellekteki durumdan
+  önce yazar, aynı istekte idempotenttir ve `Running`/terminal işi iptal etmeyi reddeder.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.
-- 19 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
+- 20 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
   kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.
 - Şirket DWT, PC3, PMP, CTB/STB veya DWG dosyaları repoya eklenmez.
 - `uv run python scripts/audit-source-tree.py`; tracked veya stage edilebilir CAD/plot dosyalarını,
@@ -90,7 +94,7 @@ $env:CADPLOT_CONFIG = "$PWD\config.yaml"
 uv run cadplot-mcp
 ```
 
-Şirket yöneticisinin onayladığı Secure MCP Tunnel geliştirici pilotu için aynı 19 araç yüzeyi yalnız
+Şirket yöneticisinin onayladığı Secure MCP Tunnel geliştirici pilotu için aynı 20 araç yüzeyi yalnız
 loopback üzerinde Streamable HTTP olarak çalıştırılabilir:
 
 ```powershell
@@ -218,9 +222,14 @@ AutoCAD yeniden açıldığında yalnız aynı Windows kullanıcısının DPAPI 
 başlamamış pending işler geri yüklenir; started fakat receipt'siz iş `job_interrupted` olur.
 Terminal `receipt.json` kalıcıdır. `queueAuthentication` değeri
 `windows-dpapi-current-user+hmac-sha256-v1` değilse batch ilerlemesi reddedilir.
+Yanlış profil veya batch kapsamı fark edilirse değişmemiş exact `plan_id` ve `manifest_sha256` ile
+yalnız hâlâ `Pending` işler `cancel_publish_job` üzerinden iptal edilir. Tekrar çağrı güvenlidir;
+`Running` iş zorla kesilmez ve terminal çıktısı ayrıca incelenir.
 Tüm çalışma alanını kaldığınız yerden taramak için `create_publish_operations_report` çağrısını
 `has_more=false` olana kadar `next_after_job_id` ile sayfalayın. Her `report_page_id` bir kontrol
 noktasıdır. Yalnız `awaiting_execution` işlerinde yeniden sıra onayı döner; önce canlı durum bakılır.
+Yapısal iptal marker'ı `cancelled_hold` olarak requeue onayı olmadan görünür; HMAC doğrulamalı
+`Cancelled` durumu yalnız canlı eklentiden kabul edilir.
 
 Yerel preflight hedef ölçeği ayrıca 300 sentetik kaynakla gerçekten prova eder:
 

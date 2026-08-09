@@ -38,16 +38,18 @@ Use this checklist for every alpha release.
       STDIO/tool contract, loopback HTTP/header-guard contract, and isolated-inspector module
       protocol without source-tree import.
 - [ ] The isolated wheel smoke records `tunnel_preflight_target_probed=true`: the installed package
-      passed a secret/path-redacted local `initialize/list_tools` probe with the exact 19-tool
+      passed a secret/path-redacted local `initialize/list_tools` probe with the exact 20-tool
       surface while `autocad_launched=false` and `live_tunnel_proven=false` stayed explicit.
 - [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection, and
       removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
-- [ ] `scripts/probe-durable-queue.ps1` reports all eleven exact production-core scenarios passed:
+- [ ] `scripts/probe-durable-queue.ps1` reports all fifteen exact production-core scenarios passed:
       pending recovery with identical request, no interrupted replay, terminal receipt recovery,
       completed-job requeue rejection, unsigned/altered/foreign-key/started-marker rejection, and a
-      DPAPI-protected key outside the workspace, including corrupt-key rejection. It also loads the built `net45` core under Windows
+      DPAPI-protected key outside the workspace, including corrupt-key rejection, plus exact
+      idempotent pending cancellation, restart non-replay, authenticated cancel-marker enforcement,
+      and running-job refusal. It also loads the built `net45` core under Windows
       .NET Framework and proves DPAPI key creation there; AutoCAD/live publish remain false.
 - [ ] The compile-only API probe passes against an installed managed API folder, is labelled
       compile-only evidence, and records the correct release target (`R20.1/net45` or

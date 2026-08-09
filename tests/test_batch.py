@@ -293,7 +293,7 @@ def test_queue_approved_batch_rejects_duplicate_manifest_approvals() -> None:
 
 
 def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() -> None:
-    plan_ids = ["sha256:" + character * 64 for character in ("a", "b", "c", "d")]
+    plan_ids = ["sha256:" + character * 64 for character in ("a", "b", "c", "d", "e")]
     responses = {
         plan_ids[0]: {
             "found": True,
@@ -310,6 +310,10 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
         },
         plan_ids[2]: {"found": False, "plugin": {"ok": False, "error": "job_not_found"}},
         plan_ids[3]: {"found": False, "error": "bridge_unavailable"},
+        plan_ids[4]: {
+            "found": True,
+            "plugin": {"ok": True, "plan_id": plan_ids[4], "jobState": "Cancelled"},
+        },
     }
 
     result = build_publish_batch_status(
@@ -325,6 +329,7 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
             "queueAvailable": 16,
             "queueRecoveredOnStartup": 3,
             "queueInterruptedOnStartup": 1,
+            "queueCancelledOnStartup": 2,
         },
     )
 
@@ -332,6 +337,7 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
     assert result["status_batch_id"].startswith("sha256:")
     assert result["summary"] == {
         "failed": 1,
+        "cancelled": 1,
         "pending": 1,
         "running": 0,
         "succeeded": 0,
@@ -345,6 +351,7 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
         "available": 16,
         "recovered_on_startup": 3,
         "interrupted_on_startup": 1,
+        "cancelled_on_startup": 2,
         "authentication": "windows-dpapi-current-user+hmac-sha256-v1",
     }
     assert result["queue_error"] is None

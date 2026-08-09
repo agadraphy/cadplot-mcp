@@ -11,6 +11,7 @@ from mcp.client.stdio import stdio_client
 
 EXPECTED_TOOLS = {
     "audit_publish_outputs",
+    "cancel_publish_job",
     "create_batch_publish_plans",
     "create_publish_operations_report",
     "create_publish_plan",
@@ -31,11 +32,13 @@ EXPECTED_TOOLS = {
     "validate_staged_job",
 }
 WRITE_TOOLS = {
+    "cancel_publish_job",
     "queue_publish_batch",
     "queue_publish_job",
     "stage_publish_batch",
     "stage_publish_job",
 }
+DESTRUCTIVE_TOOLS = {"cancel_publish_job"}
 
 
 async def smoke() -> dict[str, object]:
@@ -113,7 +116,9 @@ async def smoke() -> dict[str, object]:
         expected_read_only = name not in WRITE_TOOLS
         if annotations.readOnlyHint is not expected_read_only:
             raise RuntimeError(f"MCP readOnlyHint mismatch: {name}")
-        if annotations.destructiveHint is not False or annotations.openWorldHint is not False:
+        if annotations.destructiveHint is not (name in DESTRUCTIVE_TOOLS):
+            raise RuntimeError(f"MCP destructiveHint mismatch: {name}")
+        if annotations.openWorldHint is not False:
             raise RuntimeError(f"MCP safety annotation mismatch: {name}")
 
     stage_schema = tools["stage_publish_batch"].inputSchema

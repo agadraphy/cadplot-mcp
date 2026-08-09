@@ -16,7 +16,7 @@ import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-EXPECTED_TOOL_COUNT = 19
+EXPECTED_TOOL_COUNT = 20
 
 
 def _remove_tree_with_retry(root: Path, *, timeout_seconds: float = 5.0) -> int:

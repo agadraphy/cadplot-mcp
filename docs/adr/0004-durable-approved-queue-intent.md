@@ -87,5 +87,5 @@ trusted workspace.
 
 1. [x] Persist and recover exact queue intent.
 2. [x] Prevent automatic interrupted replay and restore terminal receipt status.
-3. [x] Bind eleven exact recovery/authentication/tamper tests into release evidence.
+3. [x] Bind fifteen exact recovery/authentication/cancellation/tamper tests into release evidence.
 4. [ ] Accept restart behavior separately on licensed AutoCAD 2016 and 2025.

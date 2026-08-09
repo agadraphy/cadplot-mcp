@@ -57,7 +57,7 @@ def test_real_streamable_http_transport_and_header_guards() -> None:
     report = json.loads(result.stdout)
     assert report["passed"] is True
     assert report["server_name"] == "CadPlot MCP"
-    assert report["tool_count"] == 19
+    assert report["tool_count"] == 20
     assert report["structured_output_calls"] == 2
     assert report["invalid_host_blocked"] is True
     assert report["invalid_origin_blocked"] is True

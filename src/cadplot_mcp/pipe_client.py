@@ -107,6 +107,26 @@ def get_publish_job_status(
     )
 
 
+def cancel_pending_publish_job(
+    plan_id: str,
+    manifest_sha256: str,
+    pipe_name: str | None = None,
+    *,
+    timeout_ms: int = 2_000,
+) -> dict[str, Any]:
+    """Persistently cancel one exact pending job without interrupting a running plot."""
+    if not PLAN_ID_PATTERN.fullmatch(plan_id):
+        raise ValueError("Invalid plan_id.")
+    if not re.fullmatch(r"[0-9a-f]{64}", manifest_sha256):
+        raise ValueError("Invalid manifest_sha256.")
+    return _request_plugin(
+        "cancel_publish_job",
+        pipe_name=pipe_name,
+        timeout_ms=timeout_ms,
+        payload={"plan_id": plan_id, "manifest_sha256": manifest_sha256},
+    )
+
+
 def _staged_job_payload(manifest: dict[str, Any]) -> dict[str, Any]:
     outputs = manifest.get("outputs")
     if not isinstance(outputs, list) or not outputs:

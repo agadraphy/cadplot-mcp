@@ -10,6 +10,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $repoRoot "src\dotnet\CadPlotMcp.Core.Tests\CadPlotMcp.Core.Tests.csproj"
 $expectedTests = @(
     "PendingApprovedIntentRecoversAfterRestartWithExactIdentity",
+    "PendingCancellationIsDurableAndNeverReplayed",
+    "PendingCancellationIsExactAndIdempotent",
+    "RunningJobCannotBeCancelled",
+    "TamperedCancelledIntentDisablesRecovery",
     "InterruptedRunningIntentIsNeverAutomaticallyReplayed",
     "TerminalReceiptRestoresStatusAfterRestart",
     "TamperedPendingIntentDisablesRecovery",
@@ -107,6 +111,10 @@ try {
         signed_intent_required = $true
         foreign_key_intent_blocked = $true
         started_marker_authentication_required = $true
+        pending_cancellation_durable = $true
+        cancelled_job_not_replayed = $true
+        cancelled_marker_authentication_required = $true
+        running_job_not_cancelled = $true
         protected_key_outside_workspace = $true
         workspace_key_rejected = $true
         corrupt_key_blocked = $true

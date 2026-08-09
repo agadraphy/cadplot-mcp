@@ -2,7 +2,8 @@
 
 ## Status
 
-Implemented. Durable restart behavior is amended by ADR 0004. Licensed AutoCAD 2016 and 2025 live
+Implemented. Durable restart behavior is amended by ADR 0004 and authenticated pending cancellation
+by ADR 0006. Licensed AutoCAD 2016 and 2025 live
 acceptance remains pending.
 
 ## Context
@@ -26,7 +27,8 @@ The shared .NET core owns a bounded FIFO queue. A request is accepted only when:
 - the sheet count is between 1 and 5000;
 - the plan has not previously been queued in the current plug-in process.
 
-Jobs transition from `Pending` to `Running`, then to `Succeeded` or `Failed`. Completed plan IDs
+Jobs transition from `Pending` to `Running`, then to `Succeeded` or `Failed`; an exact pending-only
+control may instead persist `Cancelled`. Completed or cancelled plan IDs
 remain recorded for the process lifetime, preventing accidental duplicate plotting.
 
 Status, queue, and per-job responses expose the configured pending capacity plus current pending,

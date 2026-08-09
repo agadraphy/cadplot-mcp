@@ -194,7 +194,7 @@ try {
     $durableQueue = $readiness.durable_queue_recovery
     if (
         $durableQueue.passed -ne $true -or
-        $durableQueue.exact_test_count -ne 11 -or
+        $durableQueue.exact_test_count -ne 15 -or
         $durableQueue.pending_intent_recovered -ne $true -or
         $durableQueue.exact_request_identity_preserved -ne $true -or
         $durableQueue.interrupted_job_not_replayed -ne $true -or
@@ -205,6 +205,10 @@ try {
         $durableQueue.signed_intent_required -ne $true -or
         $durableQueue.foreign_key_intent_blocked -ne $true -or
         $durableQueue.started_marker_authentication_required -ne $true -or
+        $durableQueue.pending_cancellation_durable -ne $true -or
+        $durableQueue.cancelled_job_not_replayed -ne $true -or
+        $durableQueue.cancelled_marker_authentication_required -ne $true -or
+        $durableQueue.running_job_not_cancelled -ne $true -or
         $durableQueue.protected_key_outside_workspace -ne $true -or
         $durableQueue.workspace_key_rejected -ne $true -or
         $durableQueue.corrupt_key_blocked -ne $true -or
@@ -219,8 +223,8 @@ try {
     $wheelSmoke = $readiness.wheel_install_smoke
     if (
         $wheelSmoke.passed -ne $true -or
-        $wheelSmoke.tool_count -ne 19 -or
-        $wheelSmoke.http_transport_tool_count -ne 19 -or
+        $wheelSmoke.tool_count -ne 20 -or
+        $wheelSmoke.http_transport_tool_count -ne 20 -or
         $wheelSmoke.http_transport_loopback_only -ne $true -or
         $wheelSmoke.http_transport_header_guards -ne $true -or
         $wheelSmoke.tunnel_preflight_redacted -ne $true -or

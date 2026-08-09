@@ -91,7 +91,7 @@ def test_stdio_target_probe_exercises_exact_local_contract_without_autocad(
 
     assert report["passed"] is True
     assert report["server_name"] == "CadPlot MCP"
-    assert report["tool_count"] == 19
+    assert report["tool_count"] == 20
     assert report["exact_tool_names"] is True
     assert report["instructions_contract"] is True
     assert report["annotations_contract"] is True

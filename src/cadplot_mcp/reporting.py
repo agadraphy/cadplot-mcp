@@ -3,6 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from base64 import b64decode
+from binascii import Error as Base64Error
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +16,8 @@ from cadplot_mcp.security import require_plain_directory_path
 # Accept the earlier second-precision IDs while new jobs use sortable microsecond precision.
 JOB_ID_PATTERN = re.compile(r"job-\d{8}T(?:\d{6}|\d{12})Z-[0-9a-f]{12}")
 MAX_REPORTED_ISSUES_PER_JOB = 20
+CANCELLED_MARKER = ".cadplot-queue-cancelled.json"
+MAX_QUEUE_MARKER_BYTES = 65_536
 
 
 def build_publish_operations_report(
@@ -57,6 +62,11 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
         report = audit_publish_outputs(manifest_path, config)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest_sha256 = _sha256(manifest_path)
+        cancelled_hold = _has_structural_cancelled_marker(
+            job_root,
+            plan_id=manifest["plan_id"],
+            manifest_sha256=manifest_sha256,
+        )
     except (OSError, ValueError) as exc:
         return {
             **base,
@@ -68,7 +78,17 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
     receipt_wrapper = report["execution_receipt"]
     receipt = receipt_wrapper["receipt"] if receipt_wrapper["found"] else None
     summary = report["summary"]
-    if report["publish_verified"]:
+    if cancelled_hold and (receipt is not None or summary["valid"] or summary["invalid"]):
+        return {
+            **base,
+            "status": "invalid_job",
+            "next_action": "inspect_conflicting_cancel_and_execution_evidence",
+            "error": "cancelled_queue_marker_conflicts_with_execution_evidence",
+        }
+    if cancelled_hold:
+        status = "cancelled_hold"
+        next_action = "confirm_live_cancelled_or_stage_new_job"
+    elif report["publish_verified"]:
         status = "complete"
         next_action = "none"
     elif receipt is not None and receipt["state"] == "failed":
@@ -107,6 +127,7 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
         "output_issue_count": len(output_issues),
         "output_issues_truncated": len(output_issues) > MAX_REPORTED_ISSUES_PER_JOB,
         "receipt": receipt,
+        "cancellation_requires_live_plugin_verification": cancelled_hold,
     }
     if status == "awaiting_execution":
         item["queue_approval"] = {
@@ -126,7 +147,14 @@ def _report_page(
 ) -> dict[str, Any]:
     statuses = {
         name: sum(item["status"] == name for item in items)
-        for name in ("complete", "awaiting_execution", "failed", "manual_review", "invalid_job")
+        for name in (
+            "complete",
+            "awaiting_execution",
+            "cancelled_hold",
+            "failed",
+            "manual_review",
+            "invalid_job",
+        )
     }
     next_after_job_id = items[-1]["job_id"] if items and has_more else None
     payload = {
@@ -152,3 +180,52 @@ def _sha256(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _has_structural_cancelled_marker(
+    job_root: Path,
+    *,
+    plan_id: str,
+    manifest_sha256: str,
+) -> bool:
+    marker = job_root / CANCELLED_MARKER
+    if not marker.exists():
+        return False
+    stat = marker.lstat()
+    attributes = getattr(stat, "st_file_attributes", 0)
+    if marker.is_symlink() or attributes & 0x400:
+        raise ValueError("Cancelled queue marker must be a plain file.")
+    if not 2 <= stat.st_size <= MAX_QUEUE_MARKER_BYTES:
+        raise ValueError("Cancelled queue marker size is invalid.")
+    raw = json.loads(marker.read_text(encoding="utf-8"))
+    expected_keys = {
+        "schema_version",
+        "plan_id",
+        "manifest_sha256",
+        "cancelled_utc",
+        "authentication_version",
+        "authentication_tag",
+    }
+    if not isinstance(raw, dict) or set(raw) != expected_keys:
+        raise ValueError("Cancelled queue marker schema is invalid.")
+    if (
+        raw["schema_version"] != 1
+        or raw["authentication_version"] != 1
+        or raw["plan_id"] != plan_id
+        or raw["manifest_sha256"] != manifest_sha256
+        or not isinstance(raw["cancelled_utc"], str)
+    ):
+        raise ValueError("Cancelled queue marker identity is invalid.")
+    try:
+        parsed = datetime.fromisoformat(raw["cancelled_utc"].replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Cancelled queue marker timestamp is invalid.") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("Cancelled queue marker timestamp must include a timezone.")
+    try:
+        tag = b64decode(raw["authentication_tag"], validate=True)
+    except (Base64Error, ValueError, TypeError) as exc:
+        raise ValueError("Cancelled queue marker authentication tag is invalid.") from exc
+    if len(tag) != 32:
+        raise ValueError("Cancelled queue marker authentication tag is invalid.")
+    return True

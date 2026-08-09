@@ -15,6 +15,8 @@ The report classifies each job:
 - `complete`: valid successful receipt plus every expected PDF structurally valid;
 - `awaiting_execution`: no receipt and no existing outputs; check live plug-in status before using
   the returned exact `queue_approval`;
+- `cancelled_hold`: a structurally valid signed-marker envelope exists, so no requeue approval is
+  returned; only live plug-in status can authenticate it as `Cancelled`;
 - `failed`: valid failure receipt; diagnose its bounded code and stage a new job;
 - `manual_review`: partial, invalid, or execution-unverified outputs exist; never overwrite them;
 - `invalid_job`: manifest, staged drawing, path boundary, receipt, or digest validation failed.
@@ -26,7 +28,7 @@ use `output_issue_count` and `output_issues_truncated` to detect a longer list.
 
 For a live large run, use the plug-in's `queueAvailable` value as the feed window and require
 `queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`. The same status also reports
-`queueRecoveredOnStartup` and `queueInterruptedOnStartup`; an interrupted item is a manual-review
+`queueRecoveredOnStartup`, `queueInterruptedOnStartup`, and `queueCancelledOnStartup`; an interrupted item is a manual-review
 boundary, not permission to replay it. If
 `queue_publish_batch` returns schema v2 `deferred` items, retain their exact manifest paths, plan
 IDs, and manifest digests and retry them after slots reopen. After an AutoCAD restart, live status
@@ -41,6 +43,7 @@ must leave pending jobs non-executable; preserve the old job for review and crea
 approval on the authorized target instead.
 
 `get_publish_batch_status` accepts 1 to 20 unique exact plan IDs. It isolates per-plan connection,
-not-found, and protocol errors; summarizes `Pending`, `Running`, `Succeeded`, and `Failed`; then
+not-found, and protocol errors; summarizes `Pending`, `Running`, `Succeeded`, `Failed`, and
+`Cancelled`; then
 reads one final atomic queue-capacity sample. That queue sample is current at the end of the call,
 not a claim that all earlier per-job states were observed in one instant.

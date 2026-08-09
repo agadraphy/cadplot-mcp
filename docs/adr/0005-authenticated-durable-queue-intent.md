@@ -1,6 +1,7 @@
 # ADR 0005: Authenticate durable publish intent outside the job workspace
 
-**Status:** Accepted and implemented; licensed AutoCAD acceptance pending
+**Status:** Accepted and implemented; cancellation records are extended by ADR 0006; licensed
+AutoCAD acceptance pending
 **Date:** 2026-08-09
 **Deciders:** CadPlot maintainer; company CAD/IT owners approve live key policy
 

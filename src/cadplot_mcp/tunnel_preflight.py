@@ -31,6 +31,7 @@ EXTERNAL_GATES = (
 )
 EXPECTED_TOOLS = {
     "audit_publish_outputs",
+    "cancel_publish_job",
     "create_batch_publish_plans",
     "create_publish_operations_report",
     "create_publish_plan",
@@ -51,11 +52,13 @@ EXPECTED_TOOLS = {
     "validate_staged_job",
 }
 WRITE_TOOLS = {
+    "cancel_publish_job",
     "queue_publish_batch",
     "queue_publish_job",
     "stage_publish_batch",
     "stage_publish_job",
 }
+DESTRUCTIVE_TOOLS = {"cancel_publish_job"}
 
 
 def _configured(value: str | None) -> bool:
@@ -200,7 +203,9 @@ def _validated_probe_evidence(initialized: Any, listed: Any, transport: str) -> 
             raise RuntimeError("tool_metadata_mismatch")
         if annotations.readOnlyHint is not (name not in WRITE_TOOLS):
             raise RuntimeError("tool_annotation_mismatch")
-        if annotations.destructiveHint is not False or annotations.openWorldHint is not False:
+        if annotations.destructiveHint is not (name in DESTRUCTIVE_TOOLS):
+            raise RuntimeError("tool_annotation_mismatch")
+        if annotations.openWorldHint is not False:
             raise RuntimeError("tool_annotation_mismatch")
         if tool.outputSchema.get("additionalProperties") is not False:
             raise RuntimeError("tool_output_schema_mismatch")

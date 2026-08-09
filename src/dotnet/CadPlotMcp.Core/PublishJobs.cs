@@ -13,6 +13,7 @@ namespace CadPlotMcp.Core
         Running,
         Succeeded,
         Failed,
+        Cancelled,
     }
 
     public sealed class PublishJobRequest
@@ -40,6 +41,7 @@ namespace CadPlotMcp.Core
         public int Available { get; set; }
         public int RecoveredOnStartup { get; set; }
         public int InterruptedOnStartup { get; set; }
+        public int CancelledOnStartup { get; set; }
         public string Authentication { get; set; }
     }
 
@@ -180,11 +182,14 @@ namespace CadPlotMcp.Core
         private readonly Queue<PublishJobRequest> _pending = new Queue<PublishJobRequest>();
         private readonly Dictionary<string, PublishJobSnapshot> _states =
             new Dictionary<string, PublishJobSnapshot>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _manifestHashes =
+            new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly int _capacity;
         private readonly string _trustedWorkspaceRoot;
         private readonly PublishQueueJournal _journal;
         private readonly int _recoveredOnStartup;
         private readonly int _interruptedOnStartup;
+        private readonly int _cancelledOnStartup;
 
         public PublishJobQueue(string trustedWorkspaceRoot, int capacity)
             : this(trustedWorkspaceRoot, capacity, PublishQueueKeyStore.DefaultPath())
@@ -211,8 +216,10 @@ namespace CadPlotMcp.Core
             var recovery = _journal.Recover(capacity);
             foreach (var request in recovery.Pending) _pending.Enqueue(request);
             foreach (var pair in recovery.States) _states.Add(pair.Key, pair.Value);
+            foreach (var pair in recovery.ManifestHashes) _manifestHashes.Add(pair.Key, pair.Value);
             _recoveredOnStartup = recovery.RecoveredOnStartup;
             _interruptedOnStartup = recovery.InterruptedOnStartup;
+            _cancelledOnStartup = recovery.CancelledOnStartup;
         }
 
         public int PendingCount
@@ -250,6 +257,7 @@ namespace CadPlotMcp.Core
                     Available = _capacity - _pending.Count,
                     RecoveredOnStartup = _recoveredOnStartup,
                     InterruptedOnStartup = _interruptedOnStartup,
+                    CancelledOnStartup = _cancelledOnStartup,
                     Authentication = PublishQueueJournal.AuthenticationScheme,
                 };
             }
@@ -294,6 +302,75 @@ namespace CadPlotMcp.Core
                     request.PlanId,
                     new PublishJobSnapshot { PlanId = request.PlanId, State = PublishJobState.Pending }
                 );
+                _manifestHashes.Add(request.PlanId, request.ManifestSha256);
+                return true;
+            }
+        }
+
+        public bool TryCancelPending(string planId, string manifestSha256, out string error)
+        {
+            lock (_gate)
+            {
+                PublishJobSnapshot snapshot;
+                string expectedManifestSha256;
+                if (!_states.TryGetValue(planId ?? String.Empty, out snapshot)
+                    || !_manifestHashes.TryGetValue(planId ?? String.Empty, out expectedManifestSha256))
+                {
+                    error = "job_not_found";
+                    return false;
+                }
+                if (!String.Equals(
+                    expectedManifestSha256,
+                    manifestSha256,
+                    StringComparison.Ordinal
+                ))
+                {
+                    error = "manifest_mismatch";
+                    return false;
+                }
+                if (snapshot.State == PublishJobState.Cancelled)
+                {
+                    error = null;
+                    return true;
+                }
+                if (snapshot.State != PublishJobState.Pending)
+                {
+                    error = "job_not_pending";
+                    return false;
+                }
+
+                PublishJobRequest pendingRequest = null;
+                foreach (var candidate in _pending)
+                {
+                    if (String.Equals(candidate.PlanId, planId, StringComparison.Ordinal))
+                    {
+                        pendingRequest = candidate;
+                        break;
+                    }
+                }
+                if (pendingRequest == null)
+                {
+                    error = "queue_state_missing";
+                    return false;
+                }
+                error = _journal.RecordCancelled(pendingRequest);
+                if (error != null) return false;
+
+                var retained = new Queue<PublishJobRequest>();
+                var removed = false;
+                while (_pending.Count > 0)
+                {
+                    var candidate = _pending.Dequeue();
+                    if (!removed && String.Equals(candidate.PlanId, planId, StringComparison.Ordinal))
+                        removed = true;
+                    else
+                        retained.Enqueue(candidate);
+                }
+                while (retained.Count > 0) _pending.Enqueue(retained.Dequeue());
+                if (!removed)
+                    throw new InvalidOperationException("Pending queue state changed while cancelling.");
+                snapshot.State = PublishJobState.Cancelled;
+                snapshot.Error = null;
                 return true;
             }
         }

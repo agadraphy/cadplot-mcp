@@ -35,17 +35,31 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "authentication_tag")] public string AuthenticationTag { get; set; }
     }
 
+    [DataContract]
+    public sealed class PublishQueueCancelledRecord
+    {
+        [DataMember(Name = "schema_version")] public int SchemaVersion { get; set; }
+        [DataMember(Name = "plan_id")] public string PlanId { get; set; }
+        [DataMember(Name = "manifest_sha256")] public string ManifestSha256 { get; set; }
+        [DataMember(Name = "cancelled_utc")] public string CancelledUtc { get; set; }
+        [DataMember(Name = "authentication_version")] public int AuthenticationVersion { get; set; }
+        [DataMember(Name = "authentication_tag")] public string AuthenticationTag { get; set; }
+    }
+
     internal sealed class PublishQueueRecovery
     {
         public List<PublishJobRequest> Pending { get; private set; }
         public Dictionary<string, PublishJobSnapshot> States { get; private set; }
+        public Dictionary<string, string> ManifestHashes { get; private set; }
         public int RecoveredOnStartup { get; set; }
         public int InterruptedOnStartup { get; set; }
+        public int CancelledOnStartup { get; set; }
 
         public PublishQueueRecovery()
         {
             Pending = new List<PublishJobRequest>();
             States = new Dictionary<string, PublishJobSnapshot>(StringComparer.Ordinal);
+            ManifestHashes = new Dictionary<string, string>(StringComparer.Ordinal);
         }
     }
 
@@ -58,6 +72,7 @@ namespace CadPlotMcp.Core
         public const string AuthenticationScheme = "windows-dpapi-current-user+hmac-sha256-v1";
         public const string PendingFileName = ".cadplot-queue-request.json";
         public const string StartedFileName = ".cadplot-queue-started.json";
+        public const string CancelledFileName = ".cadplot-queue-cancelled.json";
         private const int MaxRecordBytes = 65536;
         private const int MaxJobDirectories = 50000;
         private static readonly Regex JobIdPattern = new Regex(
@@ -92,10 +107,11 @@ namespace CadPlotMcp.Core
 
                 var pendingPath = Path.Combine(jobRoot, PendingFileName);
                 var startedPath = Path.Combine(jobRoot, StartedFileName);
+                var cancelledPath = Path.Combine(jobRoot, CancelledFileName);
                 var receiptPath = Path.Combine(jobRoot, PublishReceiptWriter.ReceiptFileName);
                 if (!File.Exists(pendingPath))
                 {
-                    if (File.Exists(startedPath))
+                    if (File.Exists(startedPath) || File.Exists(cancelledPath))
                         throw new InvalidDataException("publish_queue_request_missing");
                     continue;
                 }
@@ -107,9 +123,26 @@ namespace CadPlotMcp.Core
                 var request = ValidateRequestRecord(pendingRecord, jobRoot);
                 if (recovery.States.ContainsKey(request.PlanId))
                     throw new InvalidDataException("publish_queue_duplicate_plan");
+                recovery.ManifestHashes.Add(request.PlanId, request.ManifestSha256);
 
                 PublishJobSnapshot snapshot;
-                if (File.Exists(receiptPath))
+                if (File.Exists(cancelledPath))
+                {
+                    if (File.Exists(startedPath) || File.Exists(receiptPath))
+                        throw new InvalidDataException("publish_queue_cancelled_state_conflict");
+                    RequirePlainFile(cancelledPath);
+                    var cancelledRecord = ReadRecord<PublishQueueCancelledRecord>(cancelledPath);
+                    if (!_authenticator.Verify(cancelledRecord))
+                        throw new InvalidDataException("publish_queue_cancelled_authentication_failed");
+                    ValidateCancelledRecord(cancelledRecord, request);
+                    snapshot = new PublishJobSnapshot
+                    {
+                        PlanId = request.PlanId,
+                        State = PublishJobState.Cancelled,
+                    };
+                    recovery.CancelledOnStartup++;
+                }
+                else if (File.Exists(receiptPath))
                 {
                     if (!File.Exists(startedPath))
                         throw new InvalidDataException("publish_queue_started_marker_missing");
@@ -158,9 +191,11 @@ namespace CadPlotMcp.Core
             var jobRoot = Path.GetDirectoryName(Path.GetFullPath(request.ManifestPath));
             var pendingPath = Path.Combine(jobRoot, PendingFileName);
             var startedPath = Path.Combine(jobRoot, StartedFileName);
+            var cancelledPath = Path.Combine(jobRoot, CancelledFileName);
             var receiptPath = Path.Combine(jobRoot, PublishReceiptWriter.ReceiptFileName);
             if (File.Exists(receiptPath)) return "job_already_completed";
-            if (File.Exists(pendingPath) || File.Exists(startedPath)) return "duplicate_plan";
+            if (File.Exists(pendingPath) || File.Exists(startedPath) || File.Exists(cancelledPath))
+                return "duplicate_plan";
             var record = new PublishQueueRequestRecord
             {
                 SchemaVersion = 1,
@@ -191,6 +226,7 @@ namespace CadPlotMcp.Core
             var jobRoot = Path.GetDirectoryName(Path.GetFullPath(request.ManifestPath));
             var pendingPath = Path.Combine(jobRoot, PendingFileName);
             var startedPath = Path.Combine(jobRoot, StartedFileName);
+            var cancelledPath = Path.Combine(jobRoot, CancelledFileName);
             var receiptPath = Path.Combine(jobRoot, PublishReceiptWriter.ReceiptFileName);
             try
             {
@@ -200,6 +236,7 @@ namespace CadPlotMcp.Core
                 if (!_authenticator.Verify(pendingRecord)) return "queue_state_authentication_failed";
                 var persisted = ValidateRequestRecord(pendingRecord, jobRoot);
                 if (!SameRequest(persisted, request)) return "queue_state_changed";
+                if (File.Exists(cancelledPath)) return "job_cancelled";
                 if (File.Exists(receiptPath)) return "job_already_completed";
                 if (File.Exists(startedPath)) return "job_already_started";
                 var record = new PublishQueueStartedRecord
@@ -223,6 +260,56 @@ namespace CadPlotMcp.Core
                 if (!IsBoundedFileException(exception)) throw;
                 return File.Exists(startedPath)
                     ? "job_already_started"
+                    : "queue_state_write_failed";
+            }
+        }
+
+        public string RecordCancelled(PublishJobRequest request)
+        {
+            var jobRoot = Path.GetDirectoryName(Path.GetFullPath(request.ManifestPath));
+            var pendingPath = Path.Combine(jobRoot, PendingFileName);
+            var startedPath = Path.Combine(jobRoot, StartedFileName);
+            var cancelledPath = Path.Combine(jobRoot, CancelledFileName);
+            var receiptPath = Path.Combine(jobRoot, PublishReceiptWriter.ReceiptFileName);
+            try
+            {
+                if (!File.Exists(pendingPath)) return "queue_state_missing";
+                RequirePlainFile(pendingPath);
+                var pendingRecord = ReadRecord<PublishQueueRequestRecord>(pendingPath);
+                if (!_authenticator.Verify(pendingRecord)) return "queue_state_authentication_failed";
+                var persisted = ValidateRequestRecord(pendingRecord, jobRoot);
+                if (!SameRequest(persisted, request)) return "queue_state_changed";
+                if (File.Exists(startedPath) || File.Exists(receiptPath)) return "job_not_pending";
+                if (File.Exists(cancelledPath))
+                {
+                    RequirePlainFile(cancelledPath);
+                    var existing = ReadRecord<PublishQueueCancelledRecord>(cancelledPath);
+                    if (!_authenticator.Verify(existing))
+                        return "queue_state_authentication_failed";
+                    ValidateCancelledRecord(existing, request);
+                    return null;
+                }
+                var record = new PublishQueueCancelledRecord
+                {
+                    SchemaVersion = 1,
+                    PlanId = request.PlanId,
+                    ManifestSha256 = request.ManifestSha256,
+                    CancelledUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                    AuthenticationVersion = 1,
+                };
+                record.AuthenticationTag = _authenticator.Sign(record);
+                WriteAtomicCreate(cancelledPath, record);
+                return null;
+            }
+            catch (InvalidDataException)
+            {
+                return "queue_state_invalid";
+            }
+            catch (Exception exception)
+            {
+                if (!IsBoundedFileException(exception)) throw;
+                return File.Exists(cancelledPath)
+                    ? "job_already_cancelled"
                     : "queue_state_write_failed";
             }
         }
@@ -267,6 +354,23 @@ namespace CadPlotMcp.Core
                 )
                 || !ValidTimestamp(record.StartedUtc))
                 throw new InvalidDataException("publish_queue_started_invalid");
+        }
+
+        private static void ValidateCancelledRecord(
+            PublishQueueCancelledRecord record,
+            PublishJobRequest request
+        )
+        {
+            if (record == null
+                || record.SchemaVersion != 1
+                || !String.Equals(record.PlanId, request.PlanId, StringComparison.Ordinal)
+                || !String.Equals(
+                    record.ManifestSha256,
+                    request.ManifestSha256,
+                    StringComparison.Ordinal
+                )
+                || !ValidTimestamp(record.CancelledUtc))
+                throw new InvalidDataException("publish_queue_cancelled_invalid");
         }
 
         private static PublishJobSnapshot ReadReceiptSnapshot(

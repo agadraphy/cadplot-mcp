@@ -15,6 +15,7 @@ namespace CadPlotMcp.Core
         public const string PreviewPublishPlanCommand = "preview_publish_plan";
         public const string ValidateStagedJobCommand = "validate_staged_job";
         public const string QueuePublishJobCommand = "queue_publish_job";
+        public const string CancelPublishJobCommand = "cancel_publish_job";
         public const string PublishJobStatusCommand = "publish_job_status";
         public const int MaxLineCharacters = 65536;
     }
@@ -59,6 +60,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "queueAvailable", EmitDefaultValue = false)] public int? QueueAvailable { get; set; }
         [DataMember(Name = "queueRecoveredOnStartup", EmitDefaultValue = false)] public int? QueueRecoveredOnStartup { get; set; }
         [DataMember(Name = "queueInterruptedOnStartup", EmitDefaultValue = false)] public int? QueueInterruptedOnStartup { get; set; }
+        [DataMember(Name = "queueCancelledOnStartup", EmitDefaultValue = false)] public int? QueueCancelledOnStartup { get; set; }
         [DataMember(Name = "queueAuthentication", EmitDefaultValue = false)] public string QueueAuthentication { get; set; }
         [DataMember(Name = "publishInitializationError", EmitDefaultValue = false)] public string PublishInitializationError { get; set; }
     }
@@ -285,6 +287,40 @@ namespace CadPlotMcp.Core
                 PopulateQueueTelemetry(response);
                 return response;
             }
+            if (String.Equals(request.Command, PipeProtocol.CancelPublishJobCommand, StringComparison.Ordinal))
+            {
+                if (!_runtimeSupported)
+                {
+                    response.Error = "unsupported_autocad_runtime";
+                    return response;
+                }
+                if (!_publishEnabled)
+                {
+                    response.Error = "publish_disabled";
+                    return response;
+                }
+                if (String.IsNullOrWhiteSpace(request.PlanId) || !PlanIdPattern.IsMatch(request.PlanId))
+                {
+                    response.Error = "invalid_plan_id";
+                    return response;
+                }
+                string error;
+                if (!_publishQueue.TryCancelPending(request.PlanId, request.ManifestSha256, out error))
+                {
+                    response.Error = error;
+                    PopulateQueueTelemetry(response);
+                    return response;
+                }
+                response.Ok = true;
+                response.Product = _productName();
+                response.Adapter = _adapter;
+                response.ReadOnly = false;
+                response.PublishEnabled = true;
+                response.PlanId = request.PlanId;
+                response.JobState = PublishJobState.Cancelled.ToString();
+                PopulateQueueTelemetry(response);
+                return response;
+            }
             else
             {
                 response.Error = "command_not_allowed";
@@ -302,6 +338,7 @@ namespace CadPlotMcp.Core
             response.QueueAvailable = telemetry.Available;
             response.QueueRecoveredOnStartup = telemetry.RecoveredOnStartup;
             response.QueueInterruptedOnStartup = telemetry.InterruptedOnStartup;
+            response.QueueCancelledOnStartup = telemetry.CancelledOnStartup;
             response.QueueAuthentication = telemetry.Authentication;
         }
 

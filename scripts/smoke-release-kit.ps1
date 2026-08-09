@@ -181,8 +181,8 @@ try {
         version = $bundleEvidence.PackageVersion
         wheel_sha256 = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
         protocol_version = "2025-11-25"
-        tool_count = 19
-        http_transport_tool_count = 19
+        tool_count = 20
+        http_transport_tool_count = 20
         http_transport_loopback_only = $true
         http_transport_header_guards = $true
         tunnel_preflight_redacted = $true
@@ -197,7 +197,7 @@ try {
     }
     $durableQueue = [ordered]@{
         passed = $true
-        exact_test_count = 11
+        exact_test_count = 15
         pending_intent_recovered = $true
         exact_request_identity_preserved = $true
         interrupted_job_not_replayed = $true
@@ -208,6 +208,10 @@ try {
         signed_intent_required = $true
         foreign_key_intent_blocked = $true
         started_marker_authentication_required = $true
+        pending_cancellation_durable = $true
+        cancelled_job_not_replayed = $true
+        cancelled_marker_authentication_required = $true
+        running_job_not_cancelled = $true
         protected_key_outside_workspace = $true
         workspace_key_rejected = $true
         corrupt_key_blocked = $true

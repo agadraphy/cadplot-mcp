@@ -576,6 +576,7 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
     for required in (
         ".cadplot-queue-request.json",
         ".cadplot-queue-started.json",
+        ".cadplot-queue-cancelled.json",
         "FileMode.CreateNew",
         "File.Move(temporaryPath, finalPath)",
         "MaxJobDirectories",
@@ -587,6 +588,7 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
         "PublishManifestReader.Validate",
         "publish_queue_request_authentication_failed",
         "publish_queue_started_authentication_failed",
+        "publish_queue_cancelled_authentication_failed",
         "_authenticator.Verify",
     ):
         assert required in journal
@@ -594,9 +596,11 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
         "invalid_job_id",
         "_journal.RecordPending(request)",
         "_journal.RecordStarted(request)",
+        "_journal.RecordCancelled(pendingRequest)",
         "var blocked = _pending.Dequeue()",
         "RecoveredOnStartup",
         "InterruptedOnStartup",
+        "CancelledOnStartup",
         "PublishQueueKeyStore.LoadOrCreate",
         "PublishQueueJournal.AuthenticationScheme",
     ):
@@ -605,6 +609,7 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
     for required in (
         "queueRecoveredOnStartup",
         "queueInterruptedOnStartup",
+        "queueCancelledOnStartup",
         "queueAuthentication",
         "publishInitializationError",
     ):
@@ -619,6 +624,10 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
         "ForgedUnsignedPendingIntentCannotAuthorizeRestart",
         "ForeignProtectedKeyCannotAuthorizeRestart",
         "TamperedStartedIntentDisablesRecovery",
+        "PendingCancellationIsDurableAndNeverReplayed",
+        "PendingCancellationIsExactAndIdempotent",
+        "RunningJobCannotBeCancelled",
+        "TamperedCancelledIntentDisablesRecovery",
         "AuthenticationKeyIsDpapiProtectedOutsideWorkspace",
         "AuthenticationKeyInsideWorkspaceIsRejected",
         "CorruptAuthenticationKeyDisablesInitialization",
@@ -638,7 +647,7 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
     assert "net45_dpapi_runtime_proven" in probe
     assert 'net45_core_image_runtime = $net45Assembly.ImageRuntimeVersion' in probe
     assert "production-core-net45+net8-with-synthetic-files" in probe
-    assert "exact_test_count -ne 11" in (
+    assert "exact_test_count -ne 15" in (
         REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1"
     ).read_text(encoding="utf-8")
     assert "Start-Process" not in probe

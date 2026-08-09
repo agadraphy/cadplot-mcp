@@ -120,6 +120,109 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void PendingCancellationIsDurableAndNeverReplayed()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+
+        Assert.True(original.TryCancelPending(
+            _request.PlanId,
+            _request.ManifestSha256,
+            out var cancelError
+        ));
+        Assert.Null(cancelError);
+        Assert.Equal(0, original.PendingCount);
+        Assert.Equal(PublishJobState.Cancelled, original.GetStatus(_request.PlanId)!.State);
+        var markerPath = Path.Combine(_jobRoot, PublishQueueJournal.CancelledFileName);
+        Assert.True(File.Exists(markerPath));
+        using (var marker = JsonDocument.Parse(File.ReadAllText(markerPath)))
+        {
+            Assert.Equal(1, marker.RootElement.GetProperty("authentication_version").GetInt32());
+            Assert.Equal(
+                32,
+                Convert.FromBase64String(
+                    marker.RootElement.GetProperty("authentication_tag").GetString()!
+                ).Length
+            );
+        }
+
+        var recovered = NewQueue();
+        var telemetry = recovered.GetTelemetry();
+        Assert.Equal(0, telemetry.Pending);
+        Assert.Equal(0, telemetry.RecoveredOnStartup);
+        Assert.Equal(1, telemetry.CancelledOnStartup);
+        Assert.Equal(PublishJobState.Cancelled, recovered.GetStatus(_request.PlanId)!.State);
+        Assert.False(recovered.TryStartNext(out _, out var startError));
+        Assert.Equal("no_pending_job", startError);
+    }
+
+    [Fact]
+    public void PendingCancellationIsExactAndIdempotent()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+
+        Assert.False(queue.TryCancelPending(
+            _request.PlanId,
+            new string('b', 64),
+            out var mismatch
+        ));
+        Assert.Equal("manifest_mismatch", mismatch);
+        Assert.Equal(1, queue.PendingCount);
+
+        Assert.True(queue.TryCancelPending(
+            _request.PlanId,
+            _request.ManifestSha256,
+            out var firstError
+        ));
+        Assert.Null(firstError);
+        Assert.True(queue.TryCancelPending(
+            _request.PlanId,
+            _request.ManifestSha256,
+            out var retryError
+        ));
+        Assert.Null(retryError);
+        Assert.Equal(0, queue.PendingCount);
+    }
+
+    [Fact]
+    public void RunningJobCannotBeCancelled()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        Assert.True(queue.TryStartNext(out _, out _));
+
+        Assert.False(queue.TryCancelPending(
+            _request.PlanId,
+            _request.ManifestSha256,
+            out var error
+        ));
+        Assert.Equal("job_not_pending", error);
+        Assert.Equal(PublishJobState.Running, queue.GetStatus(_request.PlanId)!.State);
+        Assert.False(File.Exists(Path.Combine(_jobRoot, PublishQueueJournal.CancelledFileName)));
+    }
+
+    [Fact]
+    public void TamperedCancelledIntentDisablesRecovery()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        Assert.True(original.TryCancelPending(
+            _request.PlanId,
+            _request.ManifestSha256,
+            out _
+        ));
+        var markerPath = Path.Combine(_jobRoot, PublishQueueJournal.CancelledFileName);
+        var marker = JsonNode.Parse(File.ReadAllText(markerPath))!.AsObject();
+        marker["cancelled_utc"] = DateTime.UtcNow.AddMinutes(1).ToString("o");
+        File.WriteAllText(markerPath, marker.ToJsonString());
+
+        var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
+
+        Assert.Contains("publish_queue_cancelled_authentication_failed", exception.Message);
+    }
+
+    [Fact]
     public void InterruptedRunningIntentIsNeverAutomaticallyReplayed()
     {
         var original = NewQueue();
@@ -658,6 +761,7 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(4, queued.QueueAvailable);
         Assert.Equal(0, queued.QueueRecoveredOnStartup);
         Assert.Equal(0, queued.QueueInterruptedOnStartup);
+        Assert.Equal(0, queued.QueueCancelledOnStartup);
         Assert.Equal(PublishQueueJournal.AuthenticationScheme, queued.QueueAuthentication);
         Assert.True(status.Ok);
         Assert.True(status.ReadOnly);
@@ -668,7 +772,46 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(4, status.QueueAvailable);
         Assert.Equal(0, status.QueueRecoveredOnStartup);
         Assert.Equal(0, status.QueueInterruptedOnStartup);
+        Assert.Equal(0, status.QueueCancelledOnStartup);
         Assert.Equal(PublishQueueJournal.AuthenticationScheme, status.QueueAuthentication);
+    }
+
+    [Fact]
+    public void EnabledDispatcherDurablyCancelsOnlyExactPendingJob()
+    {
+        var queue = NewQueue();
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            _workspaceRoot,
+            queue,
+            publishEnabled: true
+        );
+        Assert.True(dispatcher.Dispatch(JobPipeRequest("queue_publish_job")).Ok);
+
+        var wrong = dispatcher.Dispatch(new PipeRequest
+        {
+            Version = "1",
+            Command = "cancel_publish_job",
+            PlanId = _request.PlanId,
+            ManifestSha256 = new string('b', 64),
+        });
+        var cancelled = dispatcher.Dispatch(new PipeRequest
+        {
+            Version = "1",
+            Command = "cancel_publish_job",
+            PlanId = _request.PlanId,
+            ManifestSha256 = _request.ManifestSha256,
+        });
+
+        Assert.False(wrong.Ok);
+        Assert.Equal("manifest_mismatch", wrong.Error);
+        Assert.True(cancelled.Ok);
+        Assert.False(cancelled.ReadOnly);
+        Assert.Equal("Cancelled", cancelled.JobState);
+        Assert.Equal(0, cancelled.QueuePending);
+        Assert.Equal(5, cancelled.QueueAvailable);
+        Assert.Equal(PublishJobState.Cancelled, queue.GetStatus(_request.PlanId)!.State);
     }
 
     [Fact]

@@ -6,15 +6,19 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Exact, idempotent pending-job cancellation with an authenticated durable tombstone, restart
+  non-replay, `Cancelled` live state, cancellation telemetry, fail-safe operations-report hold, and
+  explicit refusal to interrupt a running PlotEngine job. Fifteen exact queue scenarios now bind
+  recovery, authentication, cancellation, and tamper evidence.
 - Windows-user-bound durable queue authentication: a no-overwrite DPAPI-protected 256-bit key
   outside the workspace signs exact request and started records with deterministic HMAC-SHA256.
   Unsigned, altered, foreign-key, or workspace-local key evidence fails closed; status and batch
-  telemetry expose/require the exact scheme. Eleven exact tests plus a built-net45 Windows Framework
+  telemetry expose/require the exact scheme. Fifteen exact tests plus a built-net45 Windows Framework
   DPAPI runtime probe are bound into release evidence.
 - Secret-free `cadplot-tunnel-preflight` administrator handoff for OpenAI Secure MCP Tunnel,
   including local config/command validation, STDIO-first and fixed-loopback command templates,
   redacted credential presence checks, and explicit external workspace/network/live-pilot gates.
-- Optional real local MCP `initialize/list_tools` probing in tunnel preflight, with exact 19-tool
+- Optional real local MCP `initialize/list_tools` probing in tunnel preflight, with exact 20-tool
   identity/instruction/annotation/schema validation and a contract digest; isolated-wheel, demo-kit,
   and release-kit evidence now bind the successful redacted probe without calling AutoCAD.
 - Root-local virtual environment variants are explicitly excluded from source distributions so
@@ -22,7 +26,7 @@ All notable changes to this project are documented in this file.
 - Durable job-local queue intent for explicitly approved plan/manifest identities: never-started
   pending work is revalidated after restart, receipt-backed terminal status is restored, and an
   interrupted running job is held as `job_interrupted` instead of being replayed. Readiness,
-  demo-kit, and release-kit evidence bind eleven exact production-core recovery/authentication/tamper
+  demo-kit, and release-kit evidence bind fifteen exact production-core recovery/authentication/tamper
   scenarios.
 - Flat, hash-verified Turkish Monday runbook and Secure MCP Tunnel handoff files in the portable
   local demo kit, so operators do not need to extract the commit-bound source archive first.

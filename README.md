@@ -19,6 +19,8 @@ The repository now provides:
 - durable, authenticated queue intent: a Windows DPAPI-protected key outside the workspace signs
   exact approvals; never-started work recovers after restart while an interrupted running job is
   held as `job_interrupted` and is never replayed automatically;
+- durable pending cancellation: an exact signed tombstone survives restart, while a running
+  PlotEngine operation is never force-aborted;
 - in-memory layout/page-setup/viewport creation and one PDF per sheet;
 - structural and physical-size PDF auditing.
 
@@ -49,6 +51,8 @@ the loaded adapter does not match the running AutoCAD release.
   `CADPLOT_ENABLE_PUBLISH=1` and a trusted workspace.
 - Queue acceptance is acknowledged only after an immutable job-local intent is persisted. A
   separate started marker prevents ambiguous crash recovery from silently plotting twice.
+- Pending cancellation requires the exact plan and manifest digests, persists before memory state
+  changes, and is idempotent. `Running` or terminal work cannot be cancelled in place.
 - All MCP tools expose closed top-level structured-output schemas; plan and receipt identities also
   carry exact digest patterns. The real STDIO smoke test exercises this contract with `call_tool`.
 - MCP tool annotations distinguish local write actions from read-only tools; clients must still
@@ -151,10 +155,12 @@ uv run python scripts/run-synthetic-demo.py
   independently configured trusted workspace; it does not queue or plot the job.
 - `queue_publish_job`: require the exact staged `plan_id` and `manifest_sha256`, then enqueue the
   byte-bound copy-only job when the installed plug-in has explicitly enabled publishing.
+- `cancel_publish_job`: durably cancel only the exact `Pending` plan/manifest identity. The signed
+  cancellation survives restart; the tool never interrupts a `Running` AutoCAD plot.
 - `queue_publish_batch`: queue at most 20 unique manifest/plan/hash approvals while isolating each
   plug-in refusal or connection error. Schema v2 distinguishes retryable `deferred` items from
   permanent `failed` items and stops issuing pipe requests after the first `queue_full` response.
-- `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, or `Failed` plus a bounded
+- `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, `Failed`, or `Cancelled` plus a bounded
   machine-safe failure code.
 - `get_publish_batch_status`: read up to 20 exact plan IDs in one bounded MCP call, summarize live
   states, and take one final internally consistent queue-capacity sample without writing files.
@@ -253,10 +259,14 @@ Restart state is reconstructed only from authenticated durable intent and immuta
 held as `job_interrupted` and is not replayed. Use `read_publish_receipt` or the audit report to
 resume verification without guessing from PDFs alone. Copying the workspace to another Windows
 user or machine does not transfer pending authorization because the DPAPI key remains user-bound.
+If a wrong profile or batch scope is discovered, call `cancel_publish_job` with the unchanged exact
+plan and manifest digest for each still-pending item. Retry is idempotent. A job already reported as
+`Running` is deliberately not aborted; wait for terminal evidence and review its outputs.
 For a large run, call `create_publish_operations_report` until `has_more=false`, passing each
 `next_after_job_id` to the next call. Its summary is page-local; retain every `report_page_id` as a
 checkpoint. Only items in `awaiting_execution` include a `queue_approval`, and live status must be
-checked before submitting it.
+checked before submitting it. A structurally valid cancellation marker is reported as
+`cancelled_hold` without requeue approval; only the live plug-in authenticates it as `Cancelled`.
 
 The local preflight also runs an explicit 300-drawing synthetic scale rehearsal:
 

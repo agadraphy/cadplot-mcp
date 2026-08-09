@@ -27,6 +27,13 @@ def test_write_capable_tools_are_declared_non_read_only() -> None:
         assert annotations.idempotentHint is False
         assert annotations.openWorldHint is False
 
+    cancel = tools["cancel_publish_job"].annotations
+    assert cancel is not None
+    assert cancel.readOnlyHint is False
+    assert cancel.destructiveHint is True
+    assert cancel.idempotentHint is True
+    assert cancel.openWorldHint is False
+
 
 def test_all_tools_have_concise_human_titles() -> None:
     tools = mcp._tool_manager.list_tools()
@@ -43,6 +50,7 @@ def test_all_tools_have_concise_human_titles() -> None:
 def test_remaining_tools_are_declared_local_read_only() -> None:
     tools = {tool.name: tool for tool in mcp._tool_manager.list_tools()}
     write_tools = {
+        "cancel_publish_job",
         "stage_publish_job",
         "stage_publish_batch",
         "queue_publish_job",
@@ -101,6 +109,7 @@ def test_all_outputs_have_closed_mcp_schemas() -> None:
         "create_publish_plan": {"plan_id", "ready", "sheets", "warnings"},
         "stage_publish_job": {"staged", "plan", "job", "error"},
         "queue_publish_job": {"queued", "plan_id", "plugin", "error"},
+        "cancel_publish_job": {"cancelled", "plan_id", "plugin", "error"},
         "audit_publish_outputs": {"complete", "publish_verified", "outputs", "error"},
         "read_publish_receipt": {"found", "receipt", "error"},
         "match_paper_profile": {"matched", "label", "profile"},

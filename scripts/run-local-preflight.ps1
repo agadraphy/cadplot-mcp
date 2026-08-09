@@ -161,8 +161,8 @@ try {
     catch { throw "Isolated wheel smoke did not return valid JSON evidence." }
     if (
         $wheelSmoke.passed -ne $true -or
-        $wheelSmoke.tool_count -ne 19 -or
-        $wheelSmoke.http_transport_tool_count -ne 19 -or
+        $wheelSmoke.tool_count -ne 20 -or
+        $wheelSmoke.http_transport_tool_count -ne 20 -or
         $wheelSmoke.http_transport_loopback_only -ne $true -or
         $wheelSmoke.http_transport_header_guards -ne $true -or
         $wheelSmoke.tunnel_preflight_redacted -ne $true -or
@@ -192,7 +192,7 @@ try {
         -PassThru
     if (
         $durableQueueEvidence.passed -ne $true -or
-        $durableQueueEvidence.exact_test_count -ne 11 -or
+        $durableQueueEvidence.exact_test_count -ne 15 -or
         $durableQueueEvidence.pending_intent_recovered -ne $true -or
         $durableQueueEvidence.exact_request_identity_preserved -ne $true -or
         $durableQueueEvidence.interrupted_job_not_replayed -ne $true -or
@@ -203,6 +203,10 @@ try {
         $durableQueueEvidence.signed_intent_required -ne $true -or
         $durableQueueEvidence.foreign_key_intent_blocked -ne $true -or
         $durableQueueEvidence.started_marker_authentication_required -ne $true -or
+        $durableQueueEvidence.pending_cancellation_durable -ne $true -or
+        $durableQueueEvidence.cancelled_job_not_replayed -ne $true -or
+        $durableQueueEvidence.cancelled_marker_authentication_required -ne $true -or
+        $durableQueueEvidence.running_job_not_cancelled -ne $true -or
         $durableQueueEvidence.protected_key_outside_workspace -ne $true -or
         $durableQueueEvidence.workspace_key_rejected -ne $true -or
         $durableQueueEvidence.corrupt_key_blocked -ne $true -or

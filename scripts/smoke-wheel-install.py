@@ -253,7 +253,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             or tunnel_report.get("target_probe_requested") is not True
             or tunnel_report.get("local_target_proven") is not True
             or tunnel_report.get("target_probe", {}).get("passed") is not True
-            or tunnel_report.get("target_probe", {}).get("tool_count") != 19
+            or tunnel_report.get("target_probe", {}).get("tool_count") != 20
             or tunnel_report.get("target_probe", {}).get("exact_tool_names") is not True
             or tunnel_report.get("target_probe", {}).get("autocad_launched") is not False
             or tunnel_report.get("autocad_launched") is not False

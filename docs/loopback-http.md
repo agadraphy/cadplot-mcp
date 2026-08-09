@@ -7,7 +7,7 @@ $env:CADPLOT_CONFIG = "C:\CadPlotPilot\config.yaml"
 cadplot-mcp-http --port 8765
 ```
 
-The endpoint is `http://127.0.0.1:8765/mcp`. It exposes the same 19 typed tools and approval
+The endpoint is `http://127.0.0.1:8765/mcp`. It exposes the same 20 typed tools and approval
 contract as `cadplot-mcp` over STDIO. It does not launch AutoCAD.
 
 ## Fixed security boundary

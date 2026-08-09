@@ -98,6 +98,13 @@ class QueuePublishJobOutput(_ClosedOutput):
     error: str | None = None
 
 
+class CancelPublishJobOutput(_ClosedOutput):
+    cancelled: bool
+    plan_id: PlanIdString | None = None
+    plugin: dict[str, Any] | None = None
+    error: str | None = None
+
+
 class AuditSummaryOutput(_ClosedOutput):
     expected: int
     valid: int

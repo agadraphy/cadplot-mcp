@@ -12,7 +12,7 @@ StageBuilder = Callable[[dict[str, Any], str], dict[str, Any]]
 QueueBuilder = Callable[[dict[str, str]], dict[str, Any]]
 StatusBuilder = Callable[[str], dict[str, Any]]
 PluginStatusBuilder = Callable[[], dict[str, Any]]
-PUBLISH_JOB_STATES = {"Pending", "Running", "Succeeded", "Failed"}
+PUBLISH_JOB_STATES = {"Pending", "Running", "Succeeded", "Failed", "Cancelled"}
 QUEUE_AUTHENTICATION_SCHEME = "windows-dpapi-current-user+hmac-sha256-v1"
 
 
@@ -368,6 +368,7 @@ def _normalize_queue_telemetry(response: Any) -> dict[str, int | str]:
     values = {name: response.get(wire_name) for name, wire_name in names.items()}
     values["recovered_on_startup"] = response.get("queueRecoveredOnStartup", 0)
     values["interrupted_on_startup"] = response.get("queueInterruptedOnStartup", 0)
+    values["cancelled_on_startup"] = response.get("queueCancelledOnStartup", 0)
     if any(
         not isinstance(value, int) or isinstance(value, bool) or value < 0
         for value in values.values()

@@ -20,7 +20,7 @@ deliberately does not modify global PATH; this session-only prefix lets both pre
 
 The JSON report validates the CadPlot configuration and installed command. With `--probe-target`,
 it starts a temporary local CadPlot STDIO process, performs only MCP `initialize` and `list_tools`,
-then requires the exact 19-tool identity, instructions, annotations, and closed output schemas. It
+then requires the exact 20-tool identity, instructions, annotations, and closed output schemas. It
 does not call any CadPlot tool or AutoCAD API. It only reports whether `CADPLOT_TUNNEL_ID` and
 `CONTROL_PLANE_API_KEY` are present; their values, the config path, and all machine paths are
 omitted. The command does not contact OpenAI, start `tunnel-client`, launch AutoCAD, or prove a live

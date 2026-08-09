@@ -10,6 +10,7 @@ from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
 from cadplot_mcp.pipe_client import (
+    cancel_pending_publish_job,
     get_plugin_status,
     get_publish_job_status,
     preview_publish_plan,
@@ -104,6 +105,37 @@ def test_queue_requires_exact_approved_plan_before_connecting(tmp_path: Path) ->
 def test_publish_status_rejects_invalid_plan_before_connecting() -> None:
     with pytest.raises(ValueError, match="Invalid plan_id"):
         get_publish_job_status("not-a-plan")
+
+
+def test_cancel_requires_exact_identity_before_connecting() -> None:
+    plan_id = "sha256:" + "a" * 64
+
+    with pytest.raises(ValueError, match="Invalid plan_id"):
+        cancel_pending_publish_job("not-a-plan", "b" * 64)
+    with pytest.raises(ValueError, match="Invalid manifest_sha256"):
+        cancel_pending_publish_job(plan_id, "not-a-hash")
+
+
+def test_cancel_sends_only_exact_pending_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+
+    def fake_request(command: str, **kwargs):
+        captured.update({"command": command, **kwargs})
+        return {"ok": True, "jobState": "Cancelled"}
+
+    monkeypatch.setattr("cadplot_mcp.pipe_client._request_plugin", fake_request)
+    plan_id = "sha256:" + "a" * 64
+    manifest_sha256 = "b" * 64
+
+    response = cancel_pending_publish_job(plan_id, manifest_sha256, timeout_ms=1234)
+
+    assert response["jobState"] == "Cancelled"
+    assert captured == {
+        "command": "cancel_publish_job",
+        "pipe_name": None,
+        "timeout_ms": 1234,
+        "payload": {"plan_id": plan_id, "manifest_sha256": manifest_sha256},
+    }
 
 
 def test_pipe_client_rejects_tampered_preview_before_connecting(tmp_path: Path) -> None:

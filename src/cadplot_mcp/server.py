@@ -30,6 +30,9 @@ from cadplot_mcp.pipe_client import (
     get_plugin_status,
 )
 from cadplot_mcp.pipe_client import (
+    cancel_pending_publish_job as request_publish_cancel,
+)
+from cadplot_mcp.pipe_client import (
     get_publish_job_status as request_publish_job_status,
 )
 from cadplot_mcp.pipe_client import preview_publish_plan as request_publish_preview
@@ -44,6 +47,7 @@ from cadplot_mcp.tool_outputs import (
     AuditPublishOutputsOutput,
     AutoCADPluginStatusOutput,
     BatchPublishPlansOutput,
+    CancelPublishJobOutput,
     EnvironmentValidationOutput,
     InspectDrawingOutput,
     MatchPaperProfileOutput,
@@ -85,9 +89,9 @@ SERVER_INSTRUCTIONS = (
     "Run validate_environment; use inventory_office_resources for unknown names. Dry-run before "
     "writes. Never stage without exact plan_id approval or queue without the exact approved "
     "plan_id and manifest_sha256. Source DWGs are immutable. Complete only when "
-    "audit_publish_outputs returns publish_verified=true. For an approved large run, respect "
-    "queueAvailable, retry unchanged deferred queue_full approvals without asking again, and "
-    "recover with create_publish_operations_report after restart."
+    "audit_publish_outputs returns publish_verified=true. For approved batches, respect "
+    "queueAvailable, retry unchanged deferred queue_full approvals, cancel only exact "
+    "Pending work, and recover with create_publish_operations_report after restart."
 )
 mcp = FastMCP("CadPlot MCP", instructions=SERVER_INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(
@@ -100,6 +104,12 @@ LOCAL_WRITE = ToolAnnotations(
     readOnlyHint=False,
     destructiveHint=False,
     idempotentHint=False,
+    openWorldHint=False,
+)
+QUEUE_CONTROL = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=True,
+    idempotentHint=True,
     openWorldHint=False,
 )
 
@@ -318,6 +328,29 @@ def queue_publish_job(
     return {
         "queued": bool(response.get("ok")),
         "plan_id": manifest["plan_id"],
+        "plugin": response,
+        **({"error": str(response["error"])} if response.get("error") else {}),
+    }
+
+
+@mcp.tool(title="Cancel pending publish job", annotations=QUEUE_CONTROL)
+def cancel_publish_job(
+    plan_id: PlanIdString,
+    manifest_sha256: Sha256String,
+    timeout_ms: TimeoutMilliseconds = 2_000,
+) -> CancelPublishJobOutput:
+    """Durably cancel one exact pending job; never interrupts a running AutoCAD plot."""
+    try:
+        response = request_publish_cancel(
+            plan_id,
+            manifest_sha256,
+            timeout_ms=timeout_ms,
+        )
+    except (PluginConnectionError, ValueError) as exc:
+        return {"cancelled": False, "plan_id": plan_id, "error": str(exc)}
+    return {
+        "cancelled": bool(response.get("ok")),
+        "plan_id": plan_id,
         "plugin": response,
         **({"error": str(response["error"])} if response.get("error") else {}),
     }

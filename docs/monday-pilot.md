@@ -108,6 +108,8 @@ them with the pilot evidence.
    `publishEnabled=true`, plus
    `queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`. A runtime/adapter or unsigned
    queue mismatch must remain fail-closed.
+   Record `queueCancelledOnStartup`; a separately staged pending-cancellation exercise must restore
+   `Cancelled` after restart, while a `Running` job must refuse cancellation with `job_not_pending`.
 3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.
 4. Call `queue_publish_job` with the exact manifest path, approved `plan_id`, and approved
    `manifest_sha256` returned by staging.

@@ -19,12 +19,13 @@ def test_real_stdio_mcp_initialize_and_tool_contract() -> None:
     report = json.loads(result.stdout)
     assert report["passed"] is True
     assert report["server_name"] == "CadPlot MCP"
-    assert report["tool_count"] == 19
+    assert report["tool_count"] == 20
     assert report["all_tools_titled"] is True
     assert report["closed_approval_schemas"] is True
     assert report["closed_output_schemas"] is True
     assert report["structured_output_calls"] == 3
     assert report["write_tools"] == [
+        "cancel_publish_job",
         "queue_publish_batch",
         "queue_publish_job",
         "stage_publish_batch",
