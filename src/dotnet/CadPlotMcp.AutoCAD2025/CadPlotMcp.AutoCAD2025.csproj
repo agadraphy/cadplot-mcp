@@ -9,6 +9,9 @@
   <PropertyGroup Condition="'$(AutoCADSdkAvailable)' == 'true'">
     <DefineConstants>$(DefineConstants);AUTOCAD_SDK</DefineConstants>
   </PropertyGroup>
+  <ItemGroup Condition="'$(RepositoryCommit)' != ''">
+    <AssemblyMetadata Include="RepositoryCommit" Value="$(RepositoryCommit)" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CadPlotMcp.Core\CadPlotMcp.Core.csproj" />
     <Compile Remove="AutodeskExtension.cs" Condition="'$(AutoCADSdkAvailable)' != 'true'" />
@@ -21,5 +24,8 @@
   </ItemGroup>
   <Target Name="RequireAutoCADSdk" BeforeTargets="CoreCompile" Condition="'$(BuildAutoCADPlugin)' == 'true' and '$(AutoCADSdkAvailable)' != 'true'">
     <Error Text="AutoCAD 2025 SDK references were not found. Set AutoCAD2025SdkDir to the folder containing AcMgd.dll, AcDbMgd.dll, and AcCoreMgd.dll." />
+  </Target>
+  <Target Name="RequireRepositoryCommit" BeforeTargets="CoreCompile" Condition="'$(BuildAutoCADPlugin)' == 'true' and '$(RepositoryCommit)' == ''">
+    <Error Text="Production AutoCAD plug-in builds require the exact RepositoryCommit." />
   </Target>
 </Project>

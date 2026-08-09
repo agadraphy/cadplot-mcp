@@ -71,6 +71,8 @@ def test_version_adapters_require_all_managed_autocad_references() -> None:
         assert "AcDbMgd.dll" in text
         assert "AcCoreMgd.dll" in text
         assert "AutoCadPublishRuntime.cs" in text
+        assert "RepositoryCommit" in text
+        assert "RequireRepositoryCommit" in text
 
 
 def test_api_probe_is_compile_only() -> None:
@@ -271,6 +273,7 @@ def test_bundle_build_is_commit_bound_no_overwrite_and_release_verified() -> Non
         "bundle-build.json",
         "[System.IO.FileMode]::CreateNew",
         "matching_sdk_bundle_built = $true",
+        '"-p:RepositoryCommit=$commit"',
         "autocad_launched = $false",
         "live_publish_proven = $false",
         "verify-bundle-release.ps1",
@@ -292,6 +295,47 @@ def test_bundle_build_is_commit_bound_no_overwrite_and_release_verified() -> Non
         assert required in release_verifier
     assert "Expand-Archive" not in release_verifier
     assert "Start-Process" not in release_verifier
+
+
+def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
+    protocol = (
+        REPOSITORY_ROOT / "src" / "dotnet" / "CadPlotMcp.Core" / "Protocol.cs"
+    ).read_text(encoding="utf-8")
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+    pilot = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "pilot.py").read_text(
+        encoding="utf-8"
+    )
+    assembler = (REPOSITORY_ROOT / "scripts" / "assemble-pilot-evidence.py").read_text(
+        encoding="utf-8"
+    )
+
+    for required in ("buildCommit", "pluginSha256", "BuildCommit", "PluginSha256"):
+        assert required in protocol
+    for required in (
+        "Assembly.GetExecutingAssembly()",
+        'ReadAssemblyMetadata(pluginAssembly, "RepositoryCommit")',
+        "SHA256.Create()",
+        "assembly.Location",
+    ):
+        assert required in runtime
+    for required in (
+        '"build_commit"',
+        '"plugin_sha256"',
+        "validate_bundle_build_evidence",
+        "Bundle archive entry hash mismatch",
+        "running plug-in commit mismatch",
+        "running plug-in binary mismatch",
+        '"schema_version": 2',
+    ):
+        assert required in pilot
+    assert "--bundle-build-manifest" in assembler
+    assert "--repository-commit" not in assembler
 
 
 def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:

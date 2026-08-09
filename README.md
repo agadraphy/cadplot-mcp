@@ -275,7 +275,10 @@ See [publish executor](docs/publish-executor.md) and the
 [Monday demo runbook](docs/pazartesi-demo-tr.md).
 The final two-version acceptance record is checked by
 [`scripts/validate-pilot-evidence.py`](scripts/validate-pilot-evidence.py); its completed company
-evidence file stays outside the public repository.
+evidence file stays outside the public repository. Live status exposes the embedded build commit
+and running adapter DLL SHA-256. The pilot assembler derives the release commit from the verified
+`bundle-build.json`, re-hashes every bundle ZIP entry, and refuses either version when its running
+binary does not match the corresponding adapter artifact.
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration

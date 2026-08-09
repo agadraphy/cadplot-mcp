@@ -121,11 +121,13 @@ try {
     $project2025 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2025\CadPlotMcp.AutoCAD2025.csproj"
 
     & $DotNet build $project2016 --configuration $Configuration `
-        "-p:BuildAutoCADPlugin=true" "-p:AutoCAD2016SdkDir=$AutoCAD2016SdkDir"
+        "-p:BuildAutoCADPlugin=true" "-p:AutoCAD2016SdkDir=$AutoCAD2016SdkDir" `
+        "-p:RepositoryCommit=$commit"
     if ($LASTEXITCODE -ne 0) { throw "AutoCAD 2016 plug-in build failed." }
 
     & $DotNet build $project2025 --configuration $Configuration `
-        "-p:BuildAutoCADPlugin=true" "-p:AutoCAD2025SdkDir=$AutoCAD2025SdkDir"
+        "-p:BuildAutoCADPlugin=true" "-p:AutoCAD2025SdkDir=$AutoCAD2025SdkDir" `
+        "-p:RepositoryCommit=$commit"
     if ($LASTEXITCODE -ne 0) { throw "AutoCAD 2025 plug-in build failed." }
 
     $commitAfterBuild = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))[0].Trim()

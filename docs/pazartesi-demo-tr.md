@@ -51,7 +51,9 @@ taşınmaz.
 1. AutoCAD kapalıyken build JSON'daki tam bundle yolunu
    `scripts/install-bundle.ps1 -SourceBundle "<tam yol>" -WhatIf` ile gösterin.
 2. İlk açılışta publish kapalı kalsın. `get_autocad_plugin_status` ile doğru adapter, `ACADVER`,
-   `workspaceConfigured=true` ve `publishEnabled=false` değerlerini gösterin.
+   `workspaceConfigured=true` ve `publishEnabled=false` değerlerini gösterin. `buildCommit` release
+   commit'iyle, `pluginSha256` ise `bundle-build.json` içindeki ilgili adapter DLL hash'iyle aynı
+   olmalıdır.
 3. `inspect_drawing` çalıştırıp bulunan çerçeve, mevcut layout, page setup, plotter, media ve stili
    ekranda karşılaştırın.
 4. `create_publish_plan` çalıştırın. Ölçek, yön, plot window, hedef layout ve blocker listesini

@@ -108,6 +108,10 @@ uv run python scripts/run-synthetic-demo.py
 Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
 2016 ve 2025 canlı sonuçları ayrı JSON kayıtları olarak tutulur ve
 `scripts/validate-pilot-evidence.py` ile birlikte doğrulanmadan üretim kabulü verilmez.
+Canlı eklenti status'u gömülü build commit'ini ve çalışan adapter DLL SHA-256 değerini verir. Pilot
+assembler commit'i operatörden kabul etmek yerine doğrulanmış `bundle-build.json` içinden türetir,
+ZIP'in tüm girdilerini yeniden hash'ler ve iki sürümün çalışan binary değerlerini ilgili bundle
+adapter'ıyla eşleştirmeden kabul üretmez.
 
 ## Önerilen pilot akışı
 

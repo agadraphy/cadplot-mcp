@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Security;
+using System.Security.Cryptography;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
@@ -62,6 +64,10 @@ namespace CadPlotMcp.AutoCAD
             }
             _publishEnabled = publishEnabled;
 
+            var pluginAssembly = Assembly.GetExecutingAssembly();
+            var buildCommit = ReadAssemblyMetadata(pluginAssembly, "RepositoryCommit");
+            var pluginSha256 = HashAssembly(pluginAssembly);
+
             _host = new NamedPipeCommandHost(
                 null,
                 new CommandDispatcher(
@@ -69,7 +75,9 @@ namespace CadPlotMcp.AutoCAD
                     () => capturedProduct,
                     workspace,
                     queue,
-                    _publishEnabled
+                    _publishEnabled,
+                    buildCommit,
+                    pluginSha256
                 )
             );
             _host.Start();
@@ -103,6 +111,37 @@ namespace CadPlotMcp.AutoCAD
                 Environment.GetEnvironmentVariable("CADPLOT_QUEUE_CAPACITY"),
                 out parsed
             ) && parsed >= 1 && parsed <= 100 ? parsed : 20;
+        }
+
+        private static string ReadAssemblyMetadata(Assembly assembly, string key)
+        {
+            foreach (var attribute in assembly.GetCustomAttributes(typeof(AssemblyMetadataAttribute), false))
+            {
+                var metadata = attribute as AssemblyMetadataAttribute;
+                if (metadata != null && String.Equals(metadata.Key, key, StringComparison.Ordinal))
+                    return metadata.Value;
+            }
+            return null;
+        }
+
+        private static string HashAssembly(Assembly assembly)
+        {
+            try
+            {
+                using (var stream = File.OpenRead(assembly.Location))
+                using (var algorithm = SHA256.Create())
+                    return BitConverter.ToString(algorithm.ComputeHash(stream))
+                        .Replace("-", "")
+                        .ToLowerInvariant();
+            }
+            catch (Exception exception)
+            {
+                if (exception is IOException
+                    || exception is UnauthorizedAccessException
+                    || exception is SecurityException)
+                    return null;
+                throw;
+            }
         }
     }
 

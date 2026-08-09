@@ -62,7 +62,9 @@ First preview the copy:
 Then run the same exact source without `-WhatIf`. Start AutoCAD and call MCP tool
 `get_autocad_plugin_status`. Required
 result: `connected=true`, correct adapter/release, `readOnly=true`, and `publishEnabled=false`.
-The product field must include the live `ACADVER`; record it with the pilot evidence.
+The product field must include the live `ACADVER`. `buildCommit` must be the exact release commit,
+and `pluginSha256` must match that release's adapter DLL entry in `bundle-build.json`; record all of
+them with the pilot evidence.
 
 ## Gate 4: drawing inspection
 
@@ -118,6 +120,7 @@ collector/assembler/validator chain to return `valid=true`.
 - No AutoCAD document saved or closed by the tool.
 - Correct layout/frame/profile inventory returned.
 - MCP-to-plug-in status round trip works.
+- Live build commit and running adapter DLL SHA-256 match the verified bundle build manifest.
 - Staged manifest passes the independent plug-in workspace check.
 - The queued job succeeds, its immutable receipt validates after restart, and the PDF audit reports
   `publish_verified=true`.

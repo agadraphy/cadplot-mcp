@@ -23,6 +23,27 @@ public sealed class ProtocolTests
     }
 
     [Fact]
+    public void StatusCommandReportsExactRunningPluginBuildIdentity()
+    {
+        var commit = new string('a', 40);
+        var pluginSha256 = new string('b', 64);
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            buildCommit: commit,
+            pluginSha256: pluginSha256
+        );
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest { Id = "build-identity", Version = "1", Command = "status" }
+        );
+
+        Assert.True(response.Ok);
+        Assert.Equal(commit, response.BuildCommit);
+        Assert.Equal(pluginSha256, response.PluginSha256);
+    }
+
+    [Fact]
     public void UnknownCommandIsRejectedByPositiveWhitelist()
     {
         var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");

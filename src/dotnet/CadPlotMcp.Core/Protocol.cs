@@ -42,6 +42,8 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "error", EmitDefaultValue = false)] public string Error { get; set; }
         [DataMember(Name = "product", EmitDefaultValue = false)] public string Product { get; set; }
         [DataMember(Name = "adapter", EmitDefaultValue = false)] public string Adapter { get; set; }
+        [DataMember(Name = "buildCommit", EmitDefaultValue = false)] public string BuildCommit { get; set; }
+        [DataMember(Name = "pluginSha256", EmitDefaultValue = false)] public string PluginSha256 { get; set; }
         [DataMember(Name = "readOnly", EmitDefaultValue = false)] public bool ReadOnly { get; set; }
         [DataMember(Name = "plan_id", EmitDefaultValue = false)] public string PlanId { get; set; }
         [DataMember(Name = "acceptedSheetCount", EmitDefaultValue = false)] public int AcceptedSheetCount { get; set; }
@@ -94,13 +96,17 @@ namespace CadPlotMcp.Core
         private readonly string _trustedWorkspaceRoot;
         private readonly PublishJobQueue _publishQueue;
         private readonly bool _publishEnabled;
+        private readonly string _buildCommit;
+        private readonly string _pluginSha256;
 
         public CommandDispatcher(
             string adapter,
             Func<string> productName,
             string trustedWorkspaceRoot = null,
             PublishJobQueue publishQueue = null,
-            bool publishEnabled = false
+            bool publishEnabled = false,
+            string buildCommit = null,
+            string pluginSha256 = null
         )
         {
             _adapter = adapter ?? "unknown";
@@ -108,6 +114,8 @@ namespace CadPlotMcp.Core
             _trustedWorkspaceRoot = trustedWorkspaceRoot;
             _publishQueue = publishQueue;
             _publishEnabled = publishEnabled && publishQueue != null;
+            _buildCommit = buildCommit;
+            _pluginSha256 = pluginSha256;
         }
 
         public PipeResponse Dispatch(PipeRequest request)
@@ -124,6 +132,8 @@ namespace CadPlotMcp.Core
                 response.Ok = true;
                 response.Product = _productName();
                 response.Adapter = _adapter;
+                response.BuildCommit = _buildCommit;
+                response.PluginSha256 = _pluginSha256;
                 response.ReadOnly = true;
                 response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
                 response.PublishEnabled = _publishEnabled;

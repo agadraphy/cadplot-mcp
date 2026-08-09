@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
-from cadplot_mcp.pilot import assemble_pilot_evidence
+from cadplot_mcp.pilot import assemble_pilot_evidence, validate_bundle_build_evidence
 
 MAX_RUN_BYTES = 256 * 1024
 
@@ -18,7 +17,11 @@ def main() -> int:
     parser.add_argument("--run-2016", required=True)
     parser.add_argument("--run-2025", required=True)
     parser.add_argument("--bundle", required=True, help="Verified CadPlot bundle ZIP.")
-    parser.add_argument("--repository-commit", required=True, help="Full lowercase commit SHA.")
+    parser.add_argument(
+        "--bundle-build-manifest",
+        required=True,
+        help="Matching bundle-build.json from the verified release root.",
+    )
     parser.add_argument(
         "--output", required=True, help="New local JSON file; existing files refuse."
     )
@@ -31,11 +34,14 @@ def main() -> int:
         bundle = Path(args.bundle).expanduser().resolve(strict=True)
         if not bundle.is_file():
             raise ValueError("Bundle path must be a file.")
+        bundle_evidence = validate_bundle_build_evidence(
+            bundle,
+            args.bundle_build_manifest,
+        )
         evidence = assemble_pilot_evidence(
             _load_run(args.run_2016),
             _load_run(args.run_2025),
-            repository_commit=args.repository_commit,
-            bundle_sha256=_sha256(bundle),
+            **bundle_evidence,
         )
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("x", encoding="utf-8") as stream:
@@ -49,6 +55,10 @@ def main() -> int:
                 "assembled": True,
                 "accepted_releases": ["2016", "2025"],
                 "bundle_sha256": evidence["bundle_sha256"],
+                "repository_commit": evidence["repository_commit"],
+                "bundle_build_manifest_sha256": evidence[
+                    "bundle_build_manifest_sha256"
+                ],
                 "output": str(output),
             },
             ensure_ascii=False,
@@ -66,14 +76,6 @@ def _load_run(value: str) -> Any:
         return json.loads(path.read_text(encoding="utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Pilot run must be valid UTF-8 JSON.") from exc
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _fail(message: str) -> int:

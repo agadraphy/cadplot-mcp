@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Live plug-in build-commit and adapter-binary SHA-256 identity, plus schema-v2 pilot evidence that
+  binds both licensed runs to the exact matching-SDK bundle manifest and inner adapter hashes.
 - A 300-drawing synthetic batch rehearsal covering immutable planning pages, bounded staging and
   queue-approval protocol, restart-report pagination, source preservation, and 300 structural PDF
   audits while deliberately retaining zero live execution/publish verification.

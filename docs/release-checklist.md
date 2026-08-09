@@ -68,7 +68,8 @@ Use this checklist for every alpha release.
 - [ ] `scripts/validate-pilot-evidence.py` returns `valid=true` for the locally retained two-version
       acceptance record.
 - [ ] `collect-pilot-run.py` produced each run from the live plug-in and immutable job evidence;
-      `assemble-pilot-evidence.py` bound both runs to the exact verified bundle and commit.
+      live `buildCommit`/`pluginSha256` matched the corresponding adapter entry, and
+      `assemble-pilot-evidence.py` bound both runs to the exact verified bundle/build manifest.
 - [ ] The demo operator reviewed `docs/pazartesi-demo-tr.md` and can state the title-block and
       managed-ChatGPT boundaries without overstating readiness.
 

@@ -59,6 +59,8 @@ def main() -> int:
             {
                 "collected": True,
                 "release": run["autocad_release"],
+                "build_commit": run["build_commit"],
+                "plugin_sha256": run["plugin_sha256"],
                 "plan_id": run["plan_id"],
                 "output": str(output),
             },

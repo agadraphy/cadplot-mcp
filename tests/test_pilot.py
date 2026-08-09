@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import zipfile
 from copy import deepcopy
 from pathlib import Path
 
@@ -14,11 +15,18 @@ from cadplot_mcp.pilot import (
     VISUAL_CHECKS,
     assemble_pilot_evidence,
     build_pilot_run_evidence,
+    validate_bundle_build_evidence,
     validate_pilot_evidence,
 )
 
 
-def _run(release: str, digit: str) -> dict:
+def _run(
+    release: str,
+    digit: str,
+    *,
+    build_commit: str = "1" * 40,
+    plugin_sha256: str | None = None,
+) -> dict:
     expected = {
         "2016": ("AutoCAD 2016 (ACADVER R20.1s)", "autocad-2016-net45"),
         "2025": ("AutoCAD 2025-2026 (ACADVER R25.0s)", "autocad-2025-net8"),
@@ -31,6 +39,8 @@ def _run(release: str, digit: str) -> dict:
         "autocad_release": release,
         "product": product,
         "adapter": adapter,
+        "build_commit": build_commit,
+        "plugin_sha256": plugin_sha256 or (("6" if release == "2016" else "7") * 64),
         "licensed": True,
         "authorized_test_asset": True,
         "plan_id": "sha256:" + digit * 64,
@@ -59,11 +69,19 @@ def _run(release: str, digit: str) -> dict:
 
 
 def _evidence() -> dict:
+    run_2016 = _run("2016", "3")
+    run_2025 = _run("2025", "4")
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "repository_commit": "1" * 40,
+        "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
-        "runs": [_run("2016", "3"), _run("2025", "4")],
+        "bundle_build_manifest_sha256": "5" * 64,
+        "adapter_sha256": {
+            "2016": run_2016["plugin_sha256"],
+            "2025": run_2025["plugin_sha256"],
+        },
+        "runs": [run_2016, run_2025],
     }
 
 
@@ -143,6 +161,78 @@ def _status(release: str) -> dict:
         "publishEnabled": True,
         "product": product,
         "adapter": adapter,
+        "buildCommit": "1" * 40,
+        "pluginSha256": ("6" if release == "2016" else "7") * 64,
+    }
+
+
+def _bundle_release_fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
+    bundle = tmp_path / "CadPlotMcp.bundle.zip"
+    build_manifest = tmp_path / "bundle-build.json"
+    files = {
+        "LICENSE": b"fixture license",
+        "PackageContents.xml": b"<fixture />",
+        "Contents/Windows/2016/CadPlotMcp.AutoCAD2016.dll": b"adapter 2016",
+        "Contents/Windows/2016/CadPlotMcp.Core.dll": b"core 2016",
+        "Contents/Windows/2025/CadPlotMcp.AutoCAD2025.dll": b"adapter 2025",
+        "Contents/Windows/2025/CadPlotMcp.Core.dll": b"core 2025",
+    }
+    with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path, value in files.items():
+            archive.writestr(f"CadPlotMcp.bundle/{path}", value)
+    file_hashes = {path: hashlib.sha256(value).hexdigest() for path, value in files.items()}
+    api_names = ("AcMgd.dll", "AcDbMgd.dll", "AcCoreMgd.dll")
+    manifest = {
+        "schema_version": 1,
+        "exact_commit": "1" * 40,
+        "package_version": "0.1.0",
+        "created_utc": "2026-08-10T09:00:00+03:00",
+        "api_identity": {
+            "autocad_2016": {
+                "detected_series": "R20.1",
+                "assemblies": [
+                    {
+                        "name": name,
+                        "assembly_version": "20.1.0.0",
+                        "sha256": "a" * 64,
+                    }
+                    for name in api_names
+                ],
+            },
+            "autocad_2025": {
+                "detected_series": "R25.0",
+                "assemblies": [
+                    {
+                        "name": name,
+                        "assembly_version": "25.0.0.0",
+                        "sha256": "b" * 64,
+                    }
+                    for name in api_names
+                ],
+            },
+        },
+        "bundle": {
+            "directory": "CadPlotMcp.bundle",
+            "archive": bundle.name,
+            "archive_sha256": hashlib.sha256(bundle.read_bytes()).hexdigest(),
+            "files": [
+                {"path": path, "sha256": digest}
+                for path, digest in sorted(file_hashes.items())
+            ],
+        },
+        "source_tree_audit_passed": True,
+        "bundle_verification_passed": True,
+        "archive_audit_passed": True,
+        "matching_sdk_bundle_built": True,
+        "company_assets_copied": False,
+        "autodesk_binaries_included": False,
+        "autocad_launched": False,
+        "live_publish_proven": False,
+    }
+    build_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    return bundle, build_manifest, {
+        "2016": file_hashes["Contents/Windows/2016/CadPlotMcp.AutoCAD2016.dll"],
+        "2025": file_hashes["Contents/Windows/2025/CadPlotMcp.AutoCAD2025.dll"],
     }
 
 
@@ -174,6 +264,8 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
     assert run["source_sha256_before"] == run["source_sha256_after"]
     assert run["staged_sha256_before"] == run["staged_sha256_after"]
     assert run["adapter"] == "autocad-2016-net45"
+    assert run["build_commit"] == "1" * 40
+    assert run["plugin_sha256"] == "6" * 64
 
 
 def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -> None:
@@ -218,6 +310,9 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
         _run("2025", "4"),
         repository_commit="1" * 40,
         bundle_sha256="2" * 64,
+        bundle_build_manifest_sha256="5" * 64,
+        package_version="0.1.0",
+        adapter_sha256={"2016": "6" * 64, "2025": "7" * 64},
     )
 
     assert evidence["runs"][0]["autocad_release"] == "2016"
@@ -230,6 +325,9 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
             _run("2016", "3"),
             repository_commit="1" * 40,
             bundle_sha256="2" * 64,
+            bundle_build_manifest_sha256="5" * 64,
+            package_version="0.1.0",
+            adapter_sha256={"2016": "6" * 64, "2025": "7" * 64},
         )
 
 
@@ -252,6 +350,10 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
         (
             lambda value: value["runs"][1].__setitem__("restart_receipt_verified", False),
             "restart_receipt_verified",
+        ),
+        (
+            lambda value: value["runs"][0].__setitem__("plugin_sha256", "9" * 64),
+            "running plug-in binary mismatch",
         ),
     ],
 )
@@ -282,11 +384,16 @@ def test_pilot_evidence_cli_returns_machine_readable_success(tmp_path: Path) -> 
 def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> None:
     run_2016 = tmp_path / "run-2016.json"
     run_2025 = tmp_path / "run-2025.json"
-    bundle = tmp_path / "CadPlotMcp.bundle.zip"
+    bundle, build_manifest, adapter_sha256 = _bundle_release_fixture(tmp_path)
     output = tmp_path / "pilot-evidence.json"
-    run_2016.write_text(json.dumps(_run("2016", "3")), encoding="utf-8")
-    run_2025.write_text(json.dumps(_run("2025", "4")), encoding="utf-8")
-    bundle.write_bytes(b"verified synthetic bundle fixture")
+    run_2016.write_text(
+        json.dumps(_run("2016", "3", plugin_sha256=adapter_sha256["2016"])),
+        encoding="utf-8",
+    )
+    run_2025.write_text(
+        json.dumps(_run("2025", "4", plugin_sha256=adapter_sha256["2025"])),
+        encoding="utf-8",
+    )
     script = Path(__file__).resolve().parents[1] / "scripts" / "assemble-pilot-evidence.py"
     command = [
         sys.executable,
@@ -297,8 +404,8 @@ def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> 
         str(run_2025),
         "--bundle",
         str(bundle),
-        "--repository-commit",
-        "1" * 40,
+        "--bundle-build-manifest",
+        str(build_manifest),
         "--output",
         str(output),
     ]
@@ -310,6 +417,18 @@ def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> 
     assert validate_pilot_evidence(json.loads(output.read_text(encoding="utf-8")))["valid"]
     assert duplicate.returncode == 1
     assert "never overwritten" in duplicate.stdout
+
+
+def test_bundle_build_evidence_rejects_archive_tamper(tmp_path: Path) -> None:
+    bundle, build_manifest, _ = _bundle_release_fixture(tmp_path)
+
+    verified = validate_bundle_build_evidence(bundle, build_manifest)
+    with bundle.open("ab") as stream:
+        stream.write(b"tampered")
+
+    assert verified["repository_commit"] == "1" * 40
+    with pytest.raises(ValueError, match="archive hash"):
+        validate_bundle_build_evidence(bundle, build_manifest)
 
 
 def test_collect_cli_fails_closed_without_explicit_configuration(tmp_path: Path) -> None:
