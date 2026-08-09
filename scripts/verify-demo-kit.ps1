@@ -47,6 +47,8 @@ if (
 }
 $expectedFiles = @(
     "demo-kit.json",
+    "pazartesi-demo-tr.md",
+    "secure-tunnel-handoff.md",
     "verify-demo-kit.ps1",
     $wheelFiles[0].Name,
     $sourceFiles[0].Name

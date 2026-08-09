@@ -215,6 +215,12 @@ try {
     $kitVerifier = Join-Path $kitRoot "verify-demo-kit.ps1"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") `
         -Destination $kitVerifier
+    $demoRunbook = Join-Path $kitRoot "pazartesi-demo-tr.md"
+    Copy-Item -LiteralPath (Join-Path $repoRoot "docs\pazartesi-demo-tr.md") `
+        -Destination $demoRunbook
+    $tunnelHandoff = Join-Path $kitRoot "secure-tunnel-handoff.md"
+    Copy-Item -LiteralPath (Join-Path $repoRoot "docs\secure-tunnel-handoff.md") `
+        -Destination $tunnelHandoff
 
     $sourceHash = (Get-FileHash -LiteralPath $sourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
     $kitWheelHash = (Get-FileHash -LiteralPath $kitWheel -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -222,7 +228,9 @@ try {
         Get-PublicApiProbeEvidence -Probe $readiness.api_probe
     }
     else { $null }
-    $fileEvidence = @(@($sourceArchive, $kitWheel, $kitVerifier) | ForEach-Object {
+    $fileEvidence = @(@(
+        $sourceArchive, $kitWheel, $kitVerifier, $demoRunbook, $tunnelHandoff
+    ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
             sha256 = (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()

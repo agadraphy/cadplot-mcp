@@ -17,10 +17,18 @@ try {
     $verifier = Join-Path $resolvedRoot "verify-demo-kit.ps1"
     $wheel = Join-Path $resolvedRoot "cadplot_mcp-0.1.0-py3-none-any.whl"
     $source = Join-Path $resolvedRoot "cadplot-mcp-source-0000000.zip"
+    $demoRunbook = Join-Path $resolvedRoot "pazartesi-demo-tr.md"
+    $tunnelHandoff = Join-Path $resolvedRoot "secure-tunnel-handoff.md"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") -Destination $verifier
     [System.IO.File]::WriteAllText($wheel, "synthetic wheel", [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($source, "synthetic source", [System.Text.UTF8Encoding]::new($false))
-    $files = @(@($verifier, $wheel, $source) | ForEach-Object {
+    [System.IO.File]::WriteAllText(
+        $demoRunbook, "synthetic demo runbook", [System.Text.UTF8Encoding]::new($false)
+    )
+    [System.IO.File]::WriteAllText(
+        $tunnelHandoff, "synthetic tunnel handoff", [System.Text.UTF8Encoding]::new($false)
+    )
+    $files = @(@($verifier, $wheel, $source, $demoRunbook, $tunnelHandoff) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
             sha256 = (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
