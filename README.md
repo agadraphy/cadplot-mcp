@@ -296,7 +296,8 @@ exact removal with `scripts/uninstall-bundle.ps1 -WhatIf`, run it only after che
 then pass the new build JSON's `bundle` path explicitly as `install-bundle.ps1 -SourceBundle ...`.
 The uninstaller rejects junctions and any directory whose
 package name/ProductCode does not match CadPlot MCP. It also requires the exact verified bundle
-contents before recursively removing the package directory.
+contents and hashes twice, atomically renames the exact target to a unique non-`.bundle` quarantine,
+and recursively removes only that checked quarantine. A rename/removal failure preserves evidence.
 
 To compile-check the shared executor against a locally installed API without launching AutoCAD:
 

@@ -60,6 +60,8 @@ Use this checklist for every alpha release.
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.
 - [ ] `uninstall-python.ps1 -WhatIf` preserved the install; the real removal reverified it, atomically
       quarantined only the exact version/commit directory, and left no target or quarantine behind.
+- [ ] `uninstall-bundle.ps1 -WhatIf` preserved `CadPlotMcp.bundle`; the real removal reverified every
+      hash, atomically changed it to a non-`.bundle` quarantine, and left no quarantine behind.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/

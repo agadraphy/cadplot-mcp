@@ -34,6 +34,16 @@ $kit = "C:\CadPlotTransfer\cadplot-release-kit-0.1.0-abcdef0\CadPlotMcp.release"
 The installer never overwrites an existing `CadPlotMcp.bundle`. Use the verified uninstaller with
 AutoCAD closed before an upgrade.
 
+```powershell
+& "$kit\scripts\uninstall-bundle.ps1" -WhatIf
+& "$kit\scripts\uninstall-bundle.ps1"
+```
+
+The uninstaller validates package name/ProductCode, exact contents, reparse points, and file hashes
+twice. It then atomically renames only `CadPlotMcp.bundle` to a unique non-`.bundle` quarantine and
+recursively removes only that checked path. If AutoCAD holds the bundle open or removal fails, the
+operation fails closed and preserves either the install or quarantine for inspection.
+
 ## 3. Install the Python MCP command
 
 Preview the version/commit-bound destination, then install the exact wheel and every production

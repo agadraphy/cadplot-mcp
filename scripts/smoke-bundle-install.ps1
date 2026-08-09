@@ -181,8 +181,34 @@ try {
         throw "Installer accepted an existing destination bundle."
     }
 
-    & $uninstaller -DestinationRoot $destinationRoot -WhatIf
-    if (-not (Test-Path -LiteralPath $installedBundle -PathType Container)) {
+    $driveRootBlocked = $false
+    try {
+        & $uninstaller `
+            -DestinationRoot ([System.IO.Path]::GetPathRoot($destinationRoot)) `
+            -WhatIf `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*drive root*") { throw }
+        $driveRootBlocked = $true
+    }
+    if (-not $driveRootBlocked) {
+        throw "Bundle uninstaller accepted a drive root destination."
+    }
+
+    $whatIfBundleUninstall = & $uninstaller `
+        -DestinationRoot $destinationRoot `
+        -WhatIf `
+        -PassThru
+    $whatIfBundleQuarantines = @(
+        Get-ChildItem -LiteralPath $destinationRoot -Force -Directory `
+            -Filter ".cadplot-bundle-removing-*"
+    )
+    if (
+        $whatIfBundleUninstall.WhatIf -ne $true -or
+        -not (Test-Path -LiteralPath $installedBundle -PathType Container) -or
+        $whatIfBundleQuarantines.Count -ne 0
+    ) {
         throw "Uninstall -WhatIf removed the installed bundle."
     }
 
@@ -201,8 +227,20 @@ try {
     }
     [System.IO.File]::Delete($unexpectedFile)
 
-    & $uninstaller -DestinationRoot $destinationRoot -Confirm:$false
-    if (Test-Path -LiteralPath $installedBundle) {
+    $bundleUninstall = & $uninstaller `
+        -DestinationRoot $destinationRoot `
+        -Confirm:$false `
+        -PassThru
+    $bundleQuarantines = @(
+        Get-ChildItem -LiteralPath $destinationRoot -Force -Directory `
+            -Filter ".cadplot-bundle-removing-*"
+    )
+    if (
+        $bundleUninstall.Removed -ne $true -or
+        $bundleUninstall.QuarantineRemoved -ne $true -or
+        (Test-Path -LiteralPath $installedBundle) -or
+        $bundleQuarantines.Count -ne 0
+    ) {
         throw "Verified bundle remained after smoke uninstall."
     }
 
@@ -229,6 +267,9 @@ try {
         existing_install_blocked = $overwriteBlocked
         what_if_uninstall_mutated = $false
         unexpected_file_uninstall_blocked = $unexpectedFileBlocked
+        bundle_uninstall_what_if_safe = $true
+        bundle_uninstall_drive_root_blocked = $driveRootBlocked
+        bundle_uninstall_quarantine_removed = $true
         uninstall_verified = $true
         autocad_launched = $false
         live_publish_proven = $false

@@ -605,10 +605,15 @@ def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
 
     assert "SupportsShouldProcess = $true" in script
     assert "C2E79B66-6076-40D4-AE45-E725A644B288" in script
+    assert "Refusing to use a drive root" in script
     assert "ReparsePoint" in script
     assert "ShouldProcess($destinationBundle" in script
     assert "verify-bundle.ps1" in script
-    assert "Remove-Item -LiteralPath $destinationBundle" in script
+    assert "Get-BundleHashSignature" in script
+    assert "Move-Item -LiteralPath $destinationBundle -Destination $quarantine" in script
+    assert "^\\.cadplot-bundle-removing-[0-9a-f]{32}$" in script
+    assert "Remove-Item -LiteralPath $quarantine -Recurse -Force" in script
+    assert "Remove-Item -LiteralPath $destinationBundle -Recurse" not in script
 
 
 def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> None:
@@ -629,6 +634,9 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "copied_hashes_verified = $true",
         "existing_install_blocked = $overwriteBlocked",
         "unexpected_file_uninstall_blocked = $unexpectedFileBlocked",
+        "bundle_uninstall_what_if_safe = $true",
+        "bundle_uninstall_drive_root_blocked = $driveRootBlocked",
+        "bundle_uninstall_quarantine_removed = $true",
         "autocad_launched = $false",
         "live_publish_proven = $false",
     ):

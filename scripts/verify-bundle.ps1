@@ -67,9 +67,16 @@ if ($unexpected.Count -gt 0) {
 }
 
 $manifestPath = Join-Path $root "PackageContents.xml"
+$manifestItem = Get-Item -LiteralPath $manifestPath -Force
+if ($manifestItem.Length -gt 1MB) { throw "PackageContents.xml exceeds 1 MiB." }
 [xml]$manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8
 $package = $manifest.ApplicationPackage
-if ($package.AutodeskProduct -ne "AutoCAD" -or $package.Name -ne "CadPlot MCP") {
+$expectedProductCode = "{C2E79B66-6076-40D4-AE45-E725A644B288}"
+if (
+    $package.AutodeskProduct -ne "AutoCAD" -or
+    $package.Name -ne "CadPlot MCP" -or
+    $package.ProductCode -ne $expectedProductCode
+) {
     throw "PackageContents.xml does not identify the expected CadPlot AutoCAD package."
 }
 $expectedModules = @(

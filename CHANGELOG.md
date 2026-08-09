@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Double-verified AutoCAD bundle removal with package/hash identity replay, atomic non-`.bundle`
+  quarantine rename, fail-closed retention, and protocol-fixture quarantine cleanup proof.
 - Verified Python uninstaller with `-WhatIf`, repeated manifest/environment validation, redirected-
   path rejection, atomic non-loadable quarantine rename, and exact-target removal smoke coverage.
 - Release-kit Python installer/verifier with embedded kit revalidation, frozen hash-required

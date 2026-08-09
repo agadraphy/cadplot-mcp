@@ -243,7 +243,8 @@ Kopya/doğrulama hatasında staging klasörünü otomatik ve recursive silmez, i
 `run-local-preflight.ps1`, protokol-only bir fixture ile `WhatIf → kur → doğrula → WhatIf kaldır →
 kaldır` smoke zincirini çalıştırır. Bu test AutoCAD'i açmaz ve canlı uyumluluk kanıtı değildir.
 Kaldırıcı yalnız CadPlot MCP adı/ProductCode'u ve tam dosya kümesi doğrulanan paketi kaldırır;
-junction veya beklenmeyen dosya üzerinden silmez.
+junction veya beklenmeyen dosya üzerinden silmez. Hashleri iki kez doğrular, exact bundle'ı atomik
+olarak benzersiz bir non-`.bundle` karantinaya taşır ve recursive silmeyi yalnız bu yolda yapar.
 
 Merkezi ChatGPT Business/Enterprise/Edu ortamında ise şirket yöneticisinin MCP bağlantısını
 onaylaması ve merkezi servis ile AutoCAD iş istasyonu arasında yönetilen güvenli bağlantı kurması
