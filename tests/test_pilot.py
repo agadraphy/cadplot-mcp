@@ -60,7 +60,21 @@ def _run(
         "staged_sha256_before": staged,
         "staged_sha256_after": staged,
         "template_assets": [],
-        "pdf_sha256": ("e" if release == "2016" else "f") * 64,
+        "published_pdf": {
+            "sha256": ("e" if release == "2016" else "f") * 64,
+            "size_bytes": 2048,
+            "page_count": 1,
+            "page_width_mm": 210.0,
+            "page_height_mm": 297.0,
+        },
+        "visual_reference": {
+            "sha256": ("8" if release == "2016" else "9") * 64,
+            "size_bytes": 1024,
+            "page_count": 1,
+            "page_width_mm": 210.0,
+            "page_height_mm": 297.0,
+            "comparison_tolerance_mm": 2.0,
+        },
         "publish_verified": True,
         "restart_receipt_verified": True,
         "visual_checks": {
@@ -81,7 +95,7 @@ def _evidence() -> dict:
     run_2016 = _run("2016", "3")
     run_2025 = _run("2025", "4")
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "repository_commit": "1" * 40,
         "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
@@ -96,7 +110,7 @@ def _evidence() -> dict:
 
 def _completed_job(
     tmp_path: Path, *, external_template: bool = False
-) -> tuple[Path, object]:
+) -> tuple[Path, object, Path]:
     project = tmp_path / "project"
     source_dir = tmp_path / "work" / "job-live" / "source"
     output_dir = tmp_path / "work" / "job-live" / "output"
@@ -143,6 +157,11 @@ template_roots: [templates]
     writer.add_blank_page(width=595.276, height=841.89)
     with pdf.open("wb") as stream:
         writer.write(stream)
+    reference_pdf = project / "approved-reference.pdf"
+    reference_writer = PdfWriter()
+    reference_writer.add_blank_page(width=595.276, height=841.89)
+    with reference_pdf.open("wb") as stream:
+        reference_writer.write(stream)
     manifest = {
         "schema_version": 1,
         "job_id": "job-live",
@@ -195,7 +214,7 @@ paper_profiles:
 """.strip(),
         encoding="utf-8",
     )
-    return manifest_path, load_config(config_path)
+    return manifest_path, load_config(config_path), reference_pdf
 
 
 def _status(release: str) -> dict:
@@ -301,7 +320,7 @@ def test_pilot_evidence_requires_and_accepts_both_version_runs() -> None:
 
 
 def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path) -> None:
-    manifest, config = _completed_job(tmp_path)
+    manifest, config, reference_pdf = _completed_job(tmp_path)
 
     run = build_pilot_run_evidence(
         manifest,
@@ -313,6 +332,7 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
         authorized_test_asset=True,
         restart_receipt_verified=True,
         visual_checks={name: True for name in VISUAL_CHECKS},
+        reference_pdf=reference_pdf,
         completed_utc="2026-08-08T11:15:00+03:00",
     )
 
@@ -324,10 +344,16 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
     assert run["build_commit"] == "1" * 40
     assert run["plugin_sha256"] == "6" * 64
     assert run["runtime_series"] == "R20.1"
+    assert run["visual_reference"]["sha256"] == hashlib.sha256(
+        reference_pdf.read_bytes()
+    ).hexdigest()
+    assert run["visual_reference"]["page_count"] == 1
+    assert run["published_pdf"]["sha256"]
+    assert str(tmp_path) not in json.dumps(run)
 
 
 def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -> None:
-    manifest, config = _completed_job(tmp_path)
+    manifest, config, reference_pdf = _completed_job(tmp_path)
 
     with pytest.raises(ValueError, match="visual acceptance"):
         build_pilot_run_evidence(
@@ -340,11 +366,60 @@ def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -
             authorized_test_asset=True,
             restart_receipt_verified=True,
             visual_checks={name: False for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
+        )
+
+
+def test_build_pilot_run_binds_reference_geometry_and_rejects_wrong_orientation(
+    tmp_path: Path,
+) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    landscape = reference_pdf.with_name("wrong-orientation.pdf")
+    writer = PdfWriter()
+    writer.add_blank_page(width=841.89, height=595.276)
+    with landscape.open("wb") as stream:
+        writer.write(stream)
+
+    with pytest.raises(ValueError, match="orientation or page size"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=landscape,
+        )
+
+
+def test_build_pilot_run_rejects_reference_outside_allowed_roots(tmp_path: Path) -> None:
+    manifest, config, _ = _completed_job(tmp_path)
+    outside = tmp_path / "unapproved-reference.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=595.276, height=841.89)
+    with outside.open("wb") as stream:
+        writer.write(stream)
+
+    with pytest.raises(ValueError, match="outside configured allowed roots"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=outside,
         )
 
 
 def test_build_pilot_run_detects_source_change_after_staging(tmp_path: Path) -> None:
-    manifest, config = _completed_job(tmp_path)
+    manifest, config, reference_pdf = _completed_job(tmp_path)
     raw = json.loads(manifest.read_text(encoding="utf-8"))
     Path(raw["source_drawing"]).write_bytes(b"source changed after the approved pilot")
 
@@ -359,11 +434,12 @@ def test_build_pilot_run_detects_source_change_after_staging(tmp_path: Path) -> 
             authorized_test_asset=True,
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
         )
 
 
 def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -> None:
-    manifest, config = _completed_job(tmp_path, external_template=True)
+    manifest, config, reference_pdf = _completed_job(tmp_path, external_template=True)
 
     run = build_pilot_run_evidence(
         manifest,
@@ -375,6 +451,7 @@ def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -
         authorized_test_asset=True,
         restart_receipt_verified=True,
         visual_checks={name: True for name in VISUAL_CHECKS},
+        reference_pdf=reference_pdf,
     )
 
     asset = run["template_assets"][0]
@@ -404,6 +481,7 @@ def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -
             authorized_test_asset=True,
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
         )
 
     raw = json.loads(manifest.read_text(encoding="utf-8"))
@@ -419,6 +497,7 @@ def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -
             authorized_test_asset=True,
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
         )
 
 
@@ -478,6 +557,18 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
         (
             lambda value: value["runs"][1]["visual_checks"].__setitem__("fonts", False),
             "visual acceptance",
+        ),
+        (
+            lambda value: value["runs"][0]["visual_reference"].__setitem__(
+                "page_count", 2
+            ),
+            "visual_reference must contain one page",
+        ),
+        (
+            lambda value: value["runs"][0]["visual_reference"].__setitem__(
+                "page_width_mm", 297.0
+            ),
+            "geometry does not match",
         ),
         (
             lambda value: value["runs"][0].__setitem__("receipt_manifest_sha256", "8" * 64),
@@ -581,6 +672,8 @@ def test_collect_cli_fails_closed_without_explicit_configuration(tmp_path: Path)
             "2016",
             "--approved-by",
             "Authorized CAD manager",
+            "--reference-pdf",
+            str(tmp_path / "reference.pdf"),
             "--output",
             str(tmp_path / "run.json"),
         ],
@@ -594,3 +687,28 @@ def test_collect_cli_fails_closed_without_explicit_configuration(tmp_path: Path)
     assert result.returncode == 1
     assert response == {"collected": False, "error": "CADPLOT_CONFIG is not set."}
     assert not (tmp_path / "run.json").exists()
+
+
+def test_collect_cli_exposes_reference_and_separate_visual_attestations() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "collect-pilot-run.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    for flag in (
+        "--reference-pdf",
+        "--accept-orientation",
+        "--accept-crop",
+        "--accept-viewport-scale",
+        "--accept-lineweights",
+        "--accept-plot-style",
+        "--accept-fonts",
+        "--accept-title-block",
+    ):
+        assert flag in result.stdout
+    assert "--accept-visual-checks" not in result.stdout

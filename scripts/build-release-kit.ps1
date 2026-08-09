@@ -258,7 +258,9 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $repoRoot "examples\config.inventory.example.yaml") `
         -Destination (Join-Path $kitRoot "config\config.inventory.example.yaml")
-    foreach ($fileName in @("LICENSE", "README.md", "README.tr.md", "THIRD_PARTY_NOTICES.md")) {
+    foreach ($fileName in @(
+        "LICENSE", "README.md", "README.tr.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md"
+    )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $fileName) -Destination $kitRoot
     }
 

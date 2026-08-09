@@ -8,7 +8,8 @@ enables one explicitly approved sheet and proves the real in-memory layout/viewp
 - Licensed AutoCAD release and `ACADVER` value.
 - Managed API folder containing `AcMgd.dll`, `AcDbMgd.dll`, and `AcCoreMgd.dll` for that release.
 - One anonymized/non-production DWG copy.
-- The expected PDF for that DWG.
+- The expected one-page PDF for that DWG, kept under an approved `allowed_roots` input boundary so
+  schema-v4 pilot collection can bind its path-redacted hash and page geometry.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
 - Exact case-sensitive canonical media name reported by AutoCAD for every custom PC3 paper.
 - If the title-block layout is external, its approved DWG/DWT path, layout name, and separately

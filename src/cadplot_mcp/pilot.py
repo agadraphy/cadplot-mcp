@@ -2,18 +2,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
+
 from cadplot_mcp.audit import audit_publish_outputs, load_staged_manifest
 from cadplot_mcp.config import CadPlotConfig
+from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 PLAN_ID = re.compile(r"sha256:[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
+MAX_REFERENCE_PDF_BYTES = 128 * 1024 * 1024
 VISUAL_CHECKS = {
     "orientation",
     "crop",
@@ -41,12 +47,28 @@ RUN_FIELDS = {
     "staged_sha256_before",
     "staged_sha256_after",
     "template_assets",
-    "pdf_sha256",
+    "published_pdf",
+    "visual_reference",
     "publish_verified",
     "restart_receipt_verified",
     "visual_checks",
     "approved_by",
     "completed_utc",
+}
+VISUAL_REFERENCE_FIELDS = {
+    "sha256",
+    "size_bytes",
+    "page_count",
+    "page_width_mm",
+    "page_height_mm",
+    "comparison_tolerance_mm",
+}
+PDF_EVIDENCE_FIELDS = {
+    "sha256",
+    "size_bytes",
+    "page_count",
+    "page_width_mm",
+    "page_height_mm",
 }
 TEMPLATE_ASSET_FIELDS = {
     "id",
@@ -102,6 +124,7 @@ def build_pilot_run_evidence(
     authorized_test_asset: bool,
     restart_receipt_verified: bool,
     visual_checks: dict[str, bool],
+    reference_pdf: str | Path,
     completed_utc: str | None = None,
 ) -> dict[str, Any]:
     """Build one read-only live-pilot record from cross-checked job evidence."""
@@ -128,6 +151,7 @@ def build_pilot_run_evidence(
     source_before = manifest["source_fingerprint"]["sha256"]
     receipt = report["execution_receipt"]["receipt"]
     completed = completed_utc or datetime.now(UTC).isoformat()
+    output = report["outputs"][0]
     run = {
         "autocad_release": autocad_release,
         "product": plugin_status.get("product"),
@@ -146,7 +170,12 @@ def build_pilot_run_evidence(
         "staged_sha256_before": source_before,
         "staged_sha256_after": _sha256(staged),
         "template_assets": _collect_template_asset_evidence(manifest, config),
-        "pdf_sha256": report["outputs"][0]["sha256"],
+        "published_pdf": _collect_published_pdf(output),
+        "visual_reference": _collect_visual_reference(
+            reference_pdf,
+            config,
+            output,
+        ),
         "publish_verified": report["publish_verified"],
         "restart_receipt_verified": restart_receipt_verified,
         "visual_checks": visual_checks,
@@ -179,7 +208,7 @@ def assemble_pilot_evidence(
     if validated_2025["autocad_release"] != "2025":
         raise ValueError("run_2025 must contain AutoCAD 2025 evidence.")
     raw = {
-        "schema_version": 3,
+        "schema_version": 4,
         "repository_commit": repository_commit,
         "package_version": package_version,
         "bundle_sha256": bundle_sha256,
@@ -203,7 +232,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
         "runs",
     }:
         raise ValueError("Pilot evidence must contain exactly the documented top-level fields.")
-    if raw["schema_version"] != 3:
+    if raw["schema_version"] != 4:
         raise ValueError("Unsupported pilot evidence schema.")
     if not isinstance(raw["repository_commit"], str) or not COMMIT.fullmatch(
         raw["repository_commit"]
@@ -237,7 +266,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             raise ValueError(f"AutoCAD {release} running plug-in binary mismatch.")
     return {
         "valid": True,
-        "schema_version": 3,
+        "schema_version": 4,
         "repository_commit": raw["repository_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": raw["bundle_sha256"],
@@ -297,7 +326,6 @@ def _validate_run(run: Any) -> dict[str, Any]:
         "source_sha256_after",
         "staged_sha256_before",
         "staged_sha256_after",
-        "pdf_sha256",
     ):
         _require_digest(run[field], field)
     if run["manifest_sha256"] != run["receipt_manifest_sha256"]:
@@ -309,6 +337,17 @@ def _validate_run(run: Any) -> dict[str, Any]:
     _validate_template_assets(run["template_assets"], release)
     if run["receipt_state"] != "succeeded":
         raise ValueError(f"AutoCAD {release} receipt_state must be succeeded.")
+    _validate_pdf_evidence(run["published_pdf"], release, "published_pdf")
+    _validate_visual_reference(run["visual_reference"], release)
+    tolerance = float(run["visual_reference"]["comparison_tolerance_mm"])
+    for field in ("page_width_mm", "page_height_mm"):
+        if abs(
+            float(run["published_pdf"][field])
+            - float(run["visual_reference"][field])
+        ) > tolerance:
+            raise ValueError(
+                f"AutoCAD {release} visual reference geometry does not match published PDF."
+            )
     checks = run["visual_checks"]
     if not isinstance(checks, dict) or set(checks) != VISUAL_CHECKS:
         raise ValueError(f"AutoCAD {release} visual_checks fields are incomplete.")
@@ -325,6 +364,137 @@ def _validate_run(run: Any) -> dict[str, Any]:
     if parsed.tzinfo is None:
         raise ValueError(f"AutoCAD {release} completed_utc must include a timezone.")
     return run
+
+
+def _collect_visual_reference(
+    reference_pdf_value: str | Path,
+    config: CadPlotConfig,
+    output: dict[str, Any],
+) -> dict[str, Any]:
+    supplied = Path(reference_pdf_value).expanduser().absolute()
+    if _is_reparse(supplied):
+        raise ValueError("Visual reference PDF must not be a symlink or reparse point.")
+    reference = config.path_policy.require_allowed(supplied, suffix=".pdf")
+    if not reference.is_file():
+        raise ValueError("Visual reference PDF must be a regular file.")
+    size = reference.stat().st_size
+    if size <= 0 or size > MAX_REFERENCE_PDF_BYTES:
+        raise ValueError("Visual reference PDF must be between 1 byte and 128 MiB.")
+    with reference.open("rb") as stream:
+        if stream.read(5) != b"%PDF-":
+            raise ValueError("Visual reference does not have a PDF header.")
+    try:
+        with reference.open("rb") as stream:
+            reader = PdfReader(stream, strict=False)
+            if reader.is_encrypted:
+                raise ValueError("Visual reference PDF must not be encrypted.")
+            if len(reader.pages) != 1:
+                raise ValueError("Visual reference PDF must contain exactly one page.")
+            media_box = reader.pages[0].mediabox
+            width_mm = float(media_box.width) * 25.4 / 72
+            height_mm = float(media_box.height) * 25.4 / 72
+    except (OSError, PdfReadError, TypeError, ValueError) as exc:
+        if isinstance(exc, ValueError) and str(exc).startswith("Visual reference"):
+            raise
+        raise ValueError("Visual reference PDF structure is invalid.") from exc
+    if not all(math.isfinite(value) and value > 0 for value in (width_mm, height_mm)):
+        raise ValueError("Visual reference PDF page size is invalid.")
+    output_width = output.get("page_width_mm")
+    output_height = output.get("page_height_mm")
+    if not all(
+        isinstance(value, (int, float)) and math.isfinite(value) and value > 0
+        for value in (output_width, output_height)
+    ):
+        raise ValueError("Published PDF is missing validated page geometry.")
+    if (
+        abs(width_mm - float(output_width)) > config.pdf_page_tolerance_mm
+        or abs(height_mm - float(output_height)) > config.pdf_page_tolerance_mm
+    ):
+        raise ValueError(
+            "Visual reference PDF orientation or page size does not match the published PDF."
+        )
+    return {
+        "sha256": _sha256(reference),
+        "size_bytes": size,
+        "page_count": 1,
+        "page_width_mm": round(width_mm, 3),
+        "page_height_mm": round(height_mm, 3),
+        "comparison_tolerance_mm": config.pdf_page_tolerance_mm,
+    }
+
+
+def _collect_published_pdf(output: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "sha256": output["sha256"],
+        "size_bytes": output["size_bytes"],
+        "page_count": output["page_count"],
+        "page_width_mm": output["page_width_mm"],
+        "page_height_mm": output["page_height_mm"],
+    }
+
+
+def _validate_pdf_evidence(raw: Any, release: str, label: str) -> None:
+    if not isinstance(raw, dict) or set(raw) != PDF_EVIDENCE_FIELDS:
+        raise ValueError(f"AutoCAD {release} {label} fields are incomplete.")
+    _require_digest(raw["sha256"], f"{label}.sha256")
+    if (
+        not isinstance(raw["size_bytes"], int)
+        or isinstance(raw["size_bytes"], bool)
+        or raw["size_bytes"] < 1
+    ):
+        raise ValueError(f"AutoCAD {release} {label} size is invalid.")
+    if raw["page_count"] != 1:
+        raise ValueError(f"AutoCAD {release} {label} must contain one page.")
+    for field in ("page_width_mm", "page_height_mm"):
+        value = raw[field]
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError(f"AutoCAD {release} {label} page size is invalid.")
+
+
+def _validate_visual_reference(raw: Any, release: str) -> None:
+    if not isinstance(raw, dict) or set(raw) != VISUAL_REFERENCE_FIELDS:
+        raise ValueError(f"AutoCAD {release} visual_reference fields are incomplete.")
+    _require_digest(raw["sha256"], "visual_reference.sha256")
+    if (
+        not isinstance(raw["size_bytes"], int)
+        or isinstance(raw["size_bytes"], bool)
+        or not 1 <= raw["size_bytes"] <= MAX_REFERENCE_PDF_BYTES
+    ):
+        raise ValueError(f"AutoCAD {release} visual_reference size is invalid.")
+    if raw["page_count"] != 1:
+        raise ValueError(f"AutoCAD {release} visual_reference must contain one page.")
+    for field in ("page_width_mm", "page_height_mm"):
+        value = raw[field]
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError(f"AutoCAD {release} visual_reference page size is invalid.")
+    tolerance = raw["comparison_tolerance_mm"]
+    if (
+        not isinstance(tolerance, (int, float))
+        or isinstance(tolerance, bool)
+        or not math.isfinite(tolerance)
+        or not 0 <= tolerance <= 10
+    ):
+        raise ValueError(f"AutoCAD {release} visual_reference tolerance is invalid.")
+
+
+def _is_reparse(path: Path) -> bool:
+    try:
+        stat = path.lstat()
+    except OSError:
+        return False
+    return path.is_symlink() or bool(
+        getattr(stat, "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT
+    )
 
 
 def _collect_template_asset_evidence(

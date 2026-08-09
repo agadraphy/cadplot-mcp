@@ -54,7 +54,21 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
         "staged_sha256_before": staged,
         "staged_sha256_after": staged,
         "template_assets": [],
-        "pdf_sha256": ("e" if release == "2016" else "f") * 64,
+        "published_pdf": {
+            "sha256": ("e" if release == "2016" else "f") * 64,
+            "size_bytes": 2048,
+            "page_count": 1,
+            "page_width_mm": 210.0,
+            "page_height_mm": 297.0,
+        },
+        "visual_reference": {
+            "sha256": ("8" if release == "2016" else "9") * 64,
+            "size_bytes": 1024,
+            "page_count": 1,
+            "page_width_mm": 210.0,
+            "page_height_mm": 297.0,
+            "comparison_tolerance_mm": 2.0,
+        },
         "publish_verified": True,
         "restart_receipt_verified": True,
         "visual_checks": {

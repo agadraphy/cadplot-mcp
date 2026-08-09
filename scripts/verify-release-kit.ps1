@@ -173,7 +173,7 @@ if (
 }
 
 $fixedFiles = @(
-    "LICENSE", "README.md", "README.tr.md", "THIRD_PARTY_NOTICES.md",
+    "LICENSE", "README.md", "README.tr.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md",
     "autocad/CadPlotMcp.bundle.zip", "autocad/bundle-build.json",
     "autocad/CadPlotMcp.bundle/PackageContents.xml", "autocad/CadPlotMcp.bundle/LICENSE",
     "autocad/CadPlotMcp.bundle/Contents/Windows/2016/CadPlotMcp.AutoCAD2016.dll",

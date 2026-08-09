@@ -27,13 +27,23 @@ def collect_main() -> int:
     parser.add_argument("--release", choices=("2016", "2025"), required=True)
     parser.add_argument("--approved-by", required=True, help="Authorized CAD approver name/role.")
     parser.add_argument(
+        "--reference-pdf",
+        required=True,
+        help="Authorized one-page office reference PDF under an allowed root.",
+    )
+    parser.add_argument(
         "--output", required=True, help="New local JSON file; existing files refuse."
     )
     parser.add_argument("--timeout-ms", type=int, default=2_000)
     parser.add_argument("--licensed", action="store_true")
     parser.add_argument("--authorized-test-asset", action="store_true")
     parser.add_argument("--restart-receipt-verified", action="store_true")
-    parser.add_argument("--accept-visual-checks", action="store_true")
+    for check in sorted(VISUAL_CHECKS):
+        parser.add_argument(
+            f"--accept-{check.replace('_', '-')}",
+            action="store_true",
+            help=f"Explicitly attest the {check.replace('_', ' ')} comparison.",
+        )
     args = parser.parse_args()
 
     config_path = os.environ.get("CADPLOT_CONFIG")
@@ -42,7 +52,9 @@ def collect_main() -> int:
     output = Path(args.output).expanduser().resolve(strict=False)
     if output.exists():
         return _fail("collected", "Output already exists; pilot evidence is never overwritten.")
-    visual_checks = {name: bool(args.accept_visual_checks) for name in sorted(VISUAL_CHECKS)}
+    visual_checks = {
+        name: bool(getattr(args, f"accept_{name}")) for name in sorted(VISUAL_CHECKS)
+    }
     try:
         config = load_config(config_path)
         status = get_plugin_status(timeout_ms=args.timeout_ms)
@@ -56,6 +68,7 @@ def collect_main() -> int:
             authorized_test_asset=args.authorized_test_asset,
             restart_receipt_verified=args.restart_receipt_verified,
             visual_checks=visual_checks,
+            reference_pdf=args.reference_pdf,
         )
         _write_new_json(output, run)
     except (OSError, PluginConnectionError, ValueError) as exc:
@@ -69,6 +82,8 @@ def collect_main() -> int:
                 "plugin_sha256": run["plugin_sha256"],
                 "runtime_series": run["runtime_series"],
                 "plan_id": run["plan_id"],
+                "published_pdf_sha256": run["published_pdf"]["sha256"],
+                "reference_pdf_sha256": run["visual_reference"]["sha256"],
                 "template_asset_count": len(run["template_assets"]),
                 "output": str(output),
             },

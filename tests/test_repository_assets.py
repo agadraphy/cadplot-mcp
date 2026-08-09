@@ -487,14 +487,28 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
         "running plug-in binary mismatch",
-        '"schema_version": 3',
+        '"schema_version": 4',
         '"template_assets"',
+        '"published_pdf"',
+        '"visual_reference"',
         "source_sha256_after",
         "staged_sha256_after",
     ):
         assert required in pilot
     assert "--bundle-build-manifest" in assembler
     assert "--repository-commit" not in assembler
+    assert "--reference-pdf" in assembler
+    for visual_flag in (
+        "--accept-orientation",
+        "--accept-crop",
+        "--accept-viewport-scale",
+        "--accept-lineweights",
+        "--accept-plot-style",
+        "--accept-fonts",
+        "--accept-title-block",
+    ):
+        assert visual_flag in assembler or "VISUAL_CHECKS" in assembler
+    assert "--accept-visual-checks" not in assembler
 
 
 def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> None:
@@ -656,6 +670,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "pilot-evidence.md",
         "release-acceptance.md",
         "autodesk-sdk-prerequisites.md",
+        "CHANGELOG.md",
         "self_verification_passed = $verification.Passed",
         "Readiness report has invalid compile-only API evidence",
         "current lock-bound dependency-audit evidence",
@@ -689,6 +704,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         '"docs/pilot-evidence.md"',
         '"docs/release-acceptance.md"',
         '"docs/autodesk-sdk-prerequisites.md"',
+        '"CHANGELOG.md"',
     ):
         assert required in verifier
     assert "Expand-Archive" not in verifier
