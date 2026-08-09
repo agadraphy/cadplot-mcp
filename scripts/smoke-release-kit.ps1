@@ -201,6 +201,14 @@ try {
             ready = 300
             staging_batches = 15
             staged = 300
+            queue_capacity = 7
+            queue_waves = 45
+            queue_approvals = 300
+            queue_simulated_acceptances = 300
+            queue_deferred_results = 285
+            queue_pipe_attempts = 330
+            queue_exact_retry_identity_preserved = $true
+            queue_plugin_contacted = $false
             restart_pages_before_outputs = 6
             restart_pages_after_outputs = 6
             outputs_complete = 300

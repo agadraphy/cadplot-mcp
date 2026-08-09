@@ -35,9 +35,13 @@ def test_synthetic_batch_demo_rehearses_bounded_scale_without_live_claims(
     assert result["queue_protocol_rehearsal"] == {
         "synthetic": True,
         "batch_size": 20,
-        "batches": 2,
+        "queue_capacity": 7,
+        "waves": 4,
         "approvals": 25,
         "simulated_acceptances": 25,
+        "deferred_results": 19,
+        "pipe_attempts": 27,
+        "exact_retry_identity_preserved": True,
         "plugin_contacted": False,
     }
     assert result["restart_report_before_outputs"]["awaiting_execution"] == 25

@@ -63,6 +63,12 @@ try {
         $preflightSummary.passed -ne $true -or
         $preflightSummary.synthetic_batch_rehearsal.target_drawings -ne 300 -or
         $preflightSummary.synthetic_batch_rehearsal.staged -ne 300 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_capacity -ne 7 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_waves -ne 45 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_simulated_acceptances -ne 300 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_deferred_results -ne 285 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_exact_retry_identity_preserved -ne $true -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_plugin_contacted -ne $false -or
         $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0
     ) {
         throw "Preflight summary does not contain the required 300-drawing rehearsal evidence."

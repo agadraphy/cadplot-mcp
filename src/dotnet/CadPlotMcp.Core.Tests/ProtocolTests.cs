@@ -62,6 +62,10 @@ public sealed class ProtocolTests
         Assert.False(response.RuntimeSupported);
         Assert.False(response.WorkspaceConfigured);
         Assert.False(response.PublishEnabled);
+        Assert.Null(response.QueueCapacity);
+        Assert.Null(response.QueuePending);
+        Assert.Null(response.QueueRunning);
+        Assert.Null(response.QueueAvailable);
         Assert.Contains("\"runtimeSupported\":false", json, StringComparison.Ordinal);
         Assert.Contains("\"workspaceConfigured\":false", json, StringComparison.Ordinal);
         Assert.Contains("\"publishEnabled\":false", json, StringComparison.Ordinal);

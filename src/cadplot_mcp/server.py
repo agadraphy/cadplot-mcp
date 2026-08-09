@@ -79,13 +79,12 @@ from cadplot_mcp.workspace import stage_publish_job as stage_job
 # before construction under current pydantic-settings releases.
 FastMCPSettings.model_rebuild()
 SERVER_INSTRUCTIONS = (
-    "Run validate_environment. Use inventory_office_resources for unknown office names; keep "
-    "publishing disabled. Dry-run before writes. External DWG/DWT templates require "
-    "template_roots plus exact path/layout/SHA-256; use staged copies. Never stage without "
-    "exact plan_id approval; never queue without the exact approved "
-    "plan_id and manifest_sha256. Source DWGs are immutable; only staged copies/outputs may "
-    "change. Complete only when audit_publish_outputs returns publish_verified=true; report "
-    "blockers otherwise."
+    "Run validate_environment; use inventory_office_resources for unknown names. Dry-run before "
+    "writes. Never stage without exact plan_id approval or queue without the exact approved "
+    "plan_id and manifest_sha256. Source DWGs are immutable. Complete only when "
+    "audit_publish_outputs returns publish_verified=true. For an approved large run, respect "
+    "queueAvailable, retry unchanged deferred queue_full approvals without asking again, and "
+    "recover with create_publish_operations_report after restart."
 )
 mcp = FastMCP("CadPlot MCP", instructions=SERVER_INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(
@@ -317,6 +316,7 @@ def queue_publish_job(
         "queued": bool(response.get("ok")),
         "plan_id": manifest["plan_id"],
         "plugin": response,
+        **({"error": str(response["error"])} if response.get("error") else {}),
     }
 
 
@@ -359,7 +359,7 @@ def queue_publish_batch(
     approvals: QueueApprovals,
     timeout_ms: TimeoutMilliseconds = 2_000,
 ) -> QueuePublishBatchOutput:
-    """Queue up to 20 exact manifest/plan/hash approvals; isolates per-job failures."""
+    """Queue up to 20 approvals; capacity-full items are deferred for an exact retry."""
     return queue_approved_batch(
         approvals,
         lambda approval: queue_publish_job(

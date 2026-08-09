@@ -104,20 +104,64 @@ def run_synthetic_batch_demo(
 
     queue_approvals = [item["queue_approval"] for item in before_items]
     queue_batches: list[dict[str, Any]] = []
+    queue_capacity = min(7, batch_size)
+    queue_pipe_attempts = 0
+    accepted_plan_ids: list[str] = []
     for chunk in _chunks(queue_approvals, batch_size):
-        queued = queue_approved_batch(
-            chunk,
-            lambda approval: {
-                "queued": True,
-                "synthetic": True,
-                "job_id": Path(approval["manifest_path"]).parent.name,
-            },
-        )
-        queue_batches.append(queued)
+        pending = list(chunk)
+        while pending:
+            accepted_in_window = 0
+
+            def queue_with_backpressure(approval: dict[str, str]) -> dict[str, Any]:
+                nonlocal accepted_in_window, queue_pipe_attempts
+                queue_pipe_attempts += 1
+                if accepted_in_window >= queue_capacity:
+                    return {
+                        "queued": False,
+                        "synthetic": True,
+                        "plugin": {
+                            "ok": False,
+                            "error": "queue_full",
+                            "queueCapacity": queue_capacity,
+                            "queuePending": queue_capacity,
+                            "queueRunning": 0,
+                            "queueAvailable": 0,
+                        },
+                    }
+                accepted_in_window += 1
+                accepted_plan_ids.append(approval["plan_id"])
+                return {
+                    "queued": True,
+                    "synthetic": True,
+                    "job_id": Path(approval["manifest_path"]).parent.name,
+                    "plugin": {
+                        "ok": True,
+                        "queueCapacity": queue_capacity,
+                        "queuePending": accepted_in_window,
+                        "queueRunning": 0,
+                        "queueAvailable": queue_capacity - accepted_in_window,
+                    },
+                }
+
+            queued = queue_approved_batch(pending, queue_with_backpressure)
+            queue_batches.append(queued)
+            pending = [
+                {
+                    "manifest_path": item["manifest_path"],
+                    "plan_id": item["plan_id"],
+                    "manifest_sha256": item["manifest_sha256"],
+                }
+                for item in queued["items"]
+                if item.get("deferred") is True
+            ]
     simulated_queue_acceptances = sum(
         batch["summary"]["queued"] for batch in queue_batches
     )
-    if simulated_queue_acceptances != drawing_count:
+    if (
+        simulated_queue_acceptances != drawing_count
+        or len(accepted_plan_ids) != len(set(accepted_plan_ids))
+        or set(accepted_plan_ids) != {item["plan_id"] for item in queue_approvals}
+    ):
         raise RuntimeError("Synthetic queue-protocol rehearsal lost an approval.")
 
     pdf_bytes = _blank_a4_pdf()
@@ -176,9 +220,15 @@ def run_synthetic_batch_demo(
         "queue_protocol_rehearsal": {
             "synthetic": True,
             "batch_size": batch_size,
-            "batches": len(queue_batches),
+            "queue_capacity": queue_capacity,
+            "waves": len(queue_batches),
             "approvals": len(queue_approvals),
             "simulated_acceptances": simulated_queue_acceptances,
+            "deferred_results": sum(
+                batch["summary"]["deferred"] for batch in queue_batches
+            ),
+            "pipe_attempts": queue_pipe_attempts,
+            "exact_retry_identity_preserved": True,
             "plugin_contacted": False,
         },
         "restart_report_before_outputs": {

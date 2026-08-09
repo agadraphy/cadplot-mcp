@@ -255,7 +255,7 @@ class PublishOperationsReportOutput(_ClosedOutput):
 
 
 class QueuePublishBatchOutput(_ClosedOutput):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     queue_batch_id: str
     complete: bool
     summary: dict[str, int]

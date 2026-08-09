@@ -53,6 +53,10 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "publishEnabled", EmitDefaultValue = false)] public bool? PublishEnabled { get; set; }
         [DataMember(Name = "jobState", EmitDefaultValue = false)] public string JobState { get; set; }
         [DataMember(Name = "jobError", EmitDefaultValue = false)] public string JobError { get; set; }
+        [DataMember(Name = "queueCapacity", EmitDefaultValue = false)] public int? QueueCapacity { get; set; }
+        [DataMember(Name = "queuePending", EmitDefaultValue = false)] public int? QueuePending { get; set; }
+        [DataMember(Name = "queueRunning", EmitDefaultValue = false)] public int? QueueRunning { get; set; }
+        [DataMember(Name = "queueAvailable", EmitDefaultValue = false)] public int? QueueAvailable { get; set; }
     }
 
     public static class JsonLineCodec
@@ -147,6 +151,7 @@ namespace CadPlotMcp.Core
                 response.ReadOnly = true;
                 response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
                 response.PublishEnabled = _publishEnabled;
+                PopulateQueueTelemetry(response);
                 return response;
             }
             if (String.Equals(request.Command, PipeProtocol.PreviewPublishPlanCommand, StringComparison.Ordinal))
@@ -218,6 +223,7 @@ namespace CadPlotMcp.Core
                 if (!_publishQueue.TryEnqueue(job, out error))
                 {
                     response.Error = error;
+                    PopulateQueueTelemetry(response);
                     return response;
                 }
                 response.Ok = true;
@@ -228,6 +234,7 @@ namespace CadPlotMcp.Core
                 response.PlanId = request.PlanId;
                 response.AcceptedSheetCount = request.SheetCount;
                 response.JobState = PublishJobState.Pending.ToString();
+                PopulateQueueTelemetry(response);
                 return response;
             }
             if (String.Equals(request.Command, PipeProtocol.PublishJobStatusCommand, StringComparison.Ordinal))
@@ -261,6 +268,7 @@ namespace CadPlotMcp.Core
                 response.PlanId = snapshot.PlanId;
                 response.JobState = snapshot.State.ToString();
                 response.JobError = snapshot.Error;
+                PopulateQueueTelemetry(response);
                 return response;
             }
             else
@@ -268,6 +276,16 @@ namespace CadPlotMcp.Core
                 response.Error = "command_not_allowed";
                 return response;
             }
+        }
+
+        private void PopulateQueueTelemetry(PipeResponse response)
+        {
+            if (_publishQueue == null) return;
+            var telemetry = _publishQueue.GetTelemetry();
+            response.QueueCapacity = telemetry.Capacity;
+            response.QueuePending = telemetry.Pending;
+            response.QueueRunning = telemetry.Running;
+            response.QueueAvailable = telemetry.Available;
         }
 
         private static PublishJobRequest CreateJob(PipeRequest request)

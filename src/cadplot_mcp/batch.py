@@ -196,26 +196,48 @@ def queue_approved_batch(
     approvals: list[dict[str, str]],
     queue_builder: QueueBuilder,
 ) -> dict[str, Any]:
-    """Queue up to 20 exact staged-manifest approvals with per-job isolation."""
+    """Queue up to 20 approvals, deferring safely after live queue saturation."""
     normalized = _validate_queue_approvals(approvals)
     canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     batch_id = "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     items: list[dict[str, Any]] = []
+    queue_saturated = False
     for approval in normalized:
+        if queue_saturated:
+            items.append(
+                {
+                    **approval,
+                    "queued": False,
+                    "deferred": True,
+                    "error": "queue_full",
+                }
+            )
+            continue
         try:
             result = queue_builder(approval)
         except Exception as exc:
             result = {"queued": False, "error": str(exc)}
+        if not isinstance(result, dict):
+            result = {"queued": False, "error": "invalid_queue_response"}
+        error = result.get("error")
+        plugin = result.get("plugin")
+        if error is None and isinstance(plugin, dict):
+            error = plugin.get("error")
+        if error == "queue_full":
+            queue_saturated = True
+            result = {**result, "queued": False, "deferred": True, "error": "queue_full"}
         items.append({**approval, **result})
     queued = sum(item.get("queued") is True for item in items)
+    deferred = sum(item.get("deferred") is True for item in items)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "queue_batch_id": batch_id,
         "complete": queued == len(items),
         "summary": {
             "requested": len(items),
             "queued": queued,
-            "failed": len(items) - queued,
+            "deferred": deferred,
+            "failed": len(items) - queued - deferred,
         },
         "items": items,
     }

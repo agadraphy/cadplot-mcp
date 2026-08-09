@@ -32,6 +32,14 @@ namespace CadPlotMcp.Core
         public string Error { get; set; }
     }
 
+    public sealed class PublishQueueTelemetry
+    {
+        public int Capacity { get; set; }
+        public int Pending { get; set; }
+        public int Running { get; set; }
+        public int Available { get; set; }
+    }
+
     public static class PublishJobValidator
     {
         private static readonly Regex PlanIdPattern = new Regex(
@@ -183,6 +191,38 @@ namespace CadPlotMcp.Core
         public int PendingCount
         {
             get { lock (_gate) return _pending.Count; }
+        }
+
+        public int Capacity
+        {
+            get { return _capacity; }
+        }
+
+        public int AvailableCount
+        {
+            get { return GetTelemetry().Available; }
+        }
+
+        public int RunningCount
+        {
+            get { return GetTelemetry().Running; }
+        }
+
+        public PublishQueueTelemetry GetTelemetry()
+        {
+            lock (_gate)
+            {
+                var running = 0;
+                foreach (var snapshot in _states.Values)
+                    if (snapshot.State == PublishJobState.Running) running++;
+                return new PublishQueueTelemetry
+                {
+                    Capacity = _capacity,
+                    Pending = _pending.Count,
+                    Running = running,
+                    Available = _capacity - _pending.Count,
+                };
+            }
         }
 
         public bool TryEnqueue(PublishJobRequest request, out string error)

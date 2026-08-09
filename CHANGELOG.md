@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Live publish-queue capacity telemetry on status/queue/job responses plus batch response schema v2,
+  which treats `queue_full` as retryable backpressure, defers untouched approvals, and stops further
+  pipe calls until slots reopen for safer one-prompt large-run orchestration; the 300-drawing
+  rehearsal and release evidence chain now enforce a saturated seven-slot exact-retry simulation.
 - Read-only bounded block-definition frame labels, including nested definitions, with no `Explode`,
   strict depth/entity/text caps, cycle/Xref/layout rejection, lower confidence, and fail-closed
   handling whenever a detected paper label came from incomplete traversal.

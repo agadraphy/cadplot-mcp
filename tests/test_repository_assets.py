@@ -139,6 +139,9 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "run-synthetic-batch-demo.py",
         "300-drawing bounded synthetic batch workflow",
         "target_drawings -ne 300",
+        "queue_protocol_rehearsal.queue_capacity -ne 7",
+        "queue_protocol_rehearsal.deferred_results -ne 285",
+        "queue_exact_retry_identity_preserved",
         "publish_verified -ne 0",
         "manual_review_without_receipts",
         "evidence_digest",
@@ -301,6 +304,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "target_drawings -ne 300",
         "python_license_inventory",
         "dependency license inventory is incomplete",
+        "queue_deferred_results -ne 285",
         "live_publish_proven -ne $false",
     ):
         assert required in verifier
@@ -308,6 +312,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "verify-demo-kit.ps1",
         "machine_paths_redacted = $true",
         "dependency_license_tamper_blocked",
+        "queue_backpressure_tamper_blocked",
         "wheel_tamper_blocked = $true",
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
     ):
@@ -465,6 +470,11 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "PluginSha256",
         "runtimeSeries",
         "runtimeSupported",
+        "queueCapacity",
+        "queuePending",
+        "queueRunning",
+        "queueAvailable",
+        "GetTelemetry",
     ):
         assert required in protocol
     for required in (

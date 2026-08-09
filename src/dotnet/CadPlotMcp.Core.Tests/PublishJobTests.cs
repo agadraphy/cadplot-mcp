@@ -39,13 +39,21 @@ public sealed class PublishJobTests : IDisposable
 
         Assert.True(queue.TryEnqueue(_request, out var error));
         Assert.Null(error);
+        Assert.Equal(5, queue.Capacity);
+        Assert.Equal(1, queue.PendingCount);
+        Assert.Equal(0, queue.RunningCount);
+        Assert.Equal(4, queue.AvailableCount);
         Assert.Equal(PublishJobState.Pending, queue.GetStatus(_request.PlanId)!.State);
         Assert.True(queue.TryStartNext(out var started));
         Assert.Same(_request, started);
+        Assert.Equal(0, queue.PendingCount);
+        Assert.Equal(1, queue.RunningCount);
+        Assert.Equal(5, queue.AvailableCount);
         Assert.Equal(PublishJobState.Running, queue.GetStatus(_request.PlanId)!.State);
 
         queue.Complete(_request.PlanId, succeeded: true);
 
+        Assert.Equal(0, queue.RunningCount);
         Assert.Equal(PublishJobState.Succeeded, queue.GetStatus(_request.PlanId)!.State);
     }
 
@@ -379,9 +387,17 @@ public sealed class PublishJobTests : IDisposable
         Assert.False(queued.ReadOnly);
         Assert.True(queued.PublishEnabled);
         Assert.Equal("Pending", queued.JobState);
+        Assert.Equal(5, queued.QueueCapacity);
+        Assert.Equal(1, queued.QueuePending);
+        Assert.Equal(0, queued.QueueRunning);
+        Assert.Equal(4, queued.QueueAvailable);
         Assert.True(status.Ok);
         Assert.True(status.ReadOnly);
         Assert.Equal("Pending", status.JobState);
+        Assert.Equal(5, status.QueueCapacity);
+        Assert.Equal(1, status.QueuePending);
+        Assert.Equal(0, status.QueueRunning);
+        Assert.Equal(4, status.QueueAvailable);
     }
 
     [Fact]

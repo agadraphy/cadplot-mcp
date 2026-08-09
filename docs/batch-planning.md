@@ -32,8 +32,9 @@ and never kills the licensed AutoCAD process.
 
 `uv run python scripts/run-synthetic-batch-demo.py --drawings 300` exercises the complete bounded
 local path at the requested count. Expected evidence is 15 planning pages, 15 staging batches, 300
-unique jobs, six restart-report pages before and after outputs, 300 structurally valid PDFs, and an
-unchanged source inventory. The rehearsal never contacts AutoCAD or creates execution receipts;
+unique jobs, a deliberately saturated seven-slot queue simulation with exact deferred retries, six
+restart-report pages before and after outputs, 300 structurally valid PDFs, and an unchanged source
+inventory. The rehearsal never contacts AutoCAD or creates execution receipts;
 therefore its required result is `publish_verified=0` and 300 `manual_review` jobs, not live success.
 `run-local-preflight.ps1` rejects any result that crosses this evidence boundary.
 

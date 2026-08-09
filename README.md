@@ -110,7 +110,9 @@ uv run python scripts/run-synthetic-demo.py
 ## MCP tools
 
 - `validate_environment`: report configuration and AutoCAD connection readiness.
-- `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge.
+- `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge. When publishing is
+  enabled it also reports `queueCapacity`, `queuePending`, `queueRunning`, and `queueAvailable` so
+  large-run clients can apply backpressure without guessing.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, labelled rectangular polylines, and strictly
   validated orthogonal block frames backed by instance attributes or bounded read-only nested
@@ -133,7 +135,8 @@ uv run python scripts/run-synthetic-demo.py
 - `queue_publish_job`: require the exact staged `plan_id` and `manifest_sha256`, then enqueue the
   byte-bound copy-only job when the installed plug-in has explicitly enabled publishing.
 - `queue_publish_batch`: queue at most 20 unique manifest/plan/hash approvals while isolating each
-  plug-in refusal or connection error.
+  plug-in refusal or connection error. Schema v2 distinguishes retryable `deferred` items from
+  permanent `failed` items and stops issuing pipe requests after the first `queue_full` response.
 - `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, or `Failed` plus a bounded
   machine-safe failure code.
 - `read_publish_receipt`: recover immutable, digest-bound terminal execution evidence from the
@@ -218,6 +221,11 @@ fails closed if the DWG inventory changes. The hard page limit prevents a 300-fi
 one fragile, opaque MCP request.
 After staging and approving the returned manifest digests, use `queue_publish_batch` in bounded
 pages; do not submit all 300 jobs as one call.
+Read `queueAvailable` from `get_autocad_plugin_status` or the most recent queue/status response,
+then retry the unchanged exact approvals reported as `deferred` when slots reopen. A `queue_full`
+result is backpressure, not a publish failure and not permission to alter or silently replace an
+approval. The MCP server instructions direct capable clients to keep feeding an already approved
+large run autonomously; the operator still retains AutoCAD's publish opt-in gate.
 Process-local queue status disappears when AutoCAD exits, but every terminal job writes an
 immutable `receipt.json`. Use `read_publish_receipt` or the audit report to resume verification
 without guessing from the presence of PDFs alone.
@@ -233,8 +241,9 @@ uv run python scripts/run-synthetic-batch-demo.py --drawings 300
 ```
 
 It creates 300 non-DWG synthetic fixtures in a temporary directory, plans them in 15 immutable
-pages, stages 300 independently hash-bound copies in 15 approval batches, walks the restart report
-without repeats, and structurally audits 300 generated PDFs. It deliberately creates no plug-in
+pages, stages 300 independently hash-bound copies in 15 approval batches, saturates a synthetic
+seven-slot queue and retries only the exact deferred approvals, walks the restart report without
+repeats, and structurally audits 300 generated PDFs. It deliberately creates no plug-in
 receipt, so all 300 outputs remain `manual_review`, `execution_verified=0`, and
 `publish_verified=0`. This proves bounded local orchestration and fail-closed recovery at the target
 count; it is not AutoCAD execution evidence.

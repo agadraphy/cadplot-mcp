@@ -28,6 +28,12 @@ The shared .NET core owns a bounded FIFO queue. A request is accepted only when:
 Jobs transition from `Pending` to `Running`, then to `Succeeded` or `Failed`. Completed plan IDs
 remain recorded for the process lifetime, preventing accidental duplicate plotting.
 
+Status, queue, and per-job responses expose the configured pending capacity plus current pending,
+running, and available counts. Batch response schema v2 classifies `queue_full` and every untouched
+approval after it as `deferred`, not `failed`, and makes no more pipe requests in that call. The
+caller can wait for `queueAvailable` to increase and retry those same hash-bound approvals without
+asking the operator to approve different content.
+
 `PublishJobWorker` drains one request through an `IPublishJobExecutor`. An interlocked busy guard
 rejects concurrent processing. Executor exceptions are converted to a failed state containing the
 exception type only; exception messages are not returned across the job boundary.

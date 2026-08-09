@@ -66,6 +66,9 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 
 - The queue and live status history are process-local; restarting AutoCAD clears them. Terminal
   results survive in `receipt.json` and can be cross-checked through `read_publish_receipt`.
+- Queue telemetry reports pending-slot capacity, pending, running, and available counts. A bounded
+  batch stops after its first `queue_full` response and returns the untouched remainder as
+  retryable `deferred` approvals; it never disguises capacity backpressure as terminal failure.
 - A plot, layout, or DWG-discard failure removes the executor-owned temporary PDFs and exposes no
   final output names. Multi-file promotion is not a filesystem-wide atomic operation: after a rare
   I/O or external race, the executor reverses only unchanged, SHA-256-matched completed moves

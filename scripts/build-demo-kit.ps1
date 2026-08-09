@@ -162,6 +162,14 @@ try {
         $batch.target_drawings -ne 300 -or
         $batch.ready -ne 300 -or
         $batch.staged -ne 300 -or
+        $batch.queue_capacity -ne 7 -or
+        $batch.queue_waves -ne 45 -or
+        $batch.queue_approvals -ne 300 -or
+        $batch.queue_simulated_acceptances -ne 300 -or
+        $batch.queue_deferred_results -ne 285 -or
+        $batch.queue_pipe_attempts -ne 330 -or
+        $batch.queue_exact_retry_identity_preserved -ne $true -or
+        $batch.queue_plugin_contacted -ne $false -or
         $batch.outputs_complete -ne 300 -or
         $batch.execution_verified -ne 0 -or
         $batch.publish_verified -ne 0 -or

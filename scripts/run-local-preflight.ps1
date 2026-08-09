@@ -124,6 +124,14 @@ try {
         $batchResult.target_drawings -ne 300 -or
         $batchResult.planning.ready -ne 300 -or
         $batchResult.staging.staged -ne 300 -or
+        $batchResult.queue_protocol_rehearsal.queue_capacity -ne 7 -or
+        $batchResult.queue_protocol_rehearsal.waves -ne 45 -or
+        $batchResult.queue_protocol_rehearsal.approvals -ne 300 -or
+        $batchResult.queue_protocol_rehearsal.simulated_acceptances -ne 300 -or
+        $batchResult.queue_protocol_rehearsal.deferred_results -ne 285 -or
+        $batchResult.queue_protocol_rehearsal.pipe_attempts -ne 330 -or
+        $batchResult.queue_protocol_rehearsal.exact_retry_identity_preserved -ne $true -or
+        $batchResult.queue_protocol_rehearsal.plugin_contacted -ne $false -or
         $batchResult.output_audit.outputs_complete -ne 300 -or
         $batchResult.output_audit.execution_verified -ne 0 -or
         $batchResult.output_audit.publish_verified -ne 0 -or
@@ -210,6 +218,14 @@ try {
             ready = $batchResult.planning.ready
             staging_batches = $batchResult.staging.batches
             staged = $batchResult.staging.staged
+            queue_capacity = $batchResult.queue_protocol_rehearsal.queue_capacity
+            queue_waves = $batchResult.queue_protocol_rehearsal.waves
+            queue_approvals = $batchResult.queue_protocol_rehearsal.approvals
+            queue_simulated_acceptances = $batchResult.queue_protocol_rehearsal.simulated_acceptances
+            queue_deferred_results = $batchResult.queue_protocol_rehearsal.deferred_results
+            queue_pipe_attempts = $batchResult.queue_protocol_rehearsal.pipe_attempts
+            queue_exact_retry_identity_preserved = $batchResult.queue_protocol_rehearsal.exact_retry_identity_preserved
+            queue_plugin_contacted = $batchResult.queue_protocol_rehearsal.plugin_contacted
             restart_pages_before_outputs = $batchResult.restart_report_before_outputs.pages
             restart_pages_after_outputs = $batchResult.restart_report_after_outputs.pages
             outputs_complete = $batchResult.output_audit.outputs_complete

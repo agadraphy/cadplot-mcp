@@ -226,8 +226,45 @@ def test_queue_approved_batch_isolates_per_job_failures() -> None:
     )
 
     assert result["complete"] is False
-    assert result["summary"] == {"requested": 3, "queued": 2, "failed": 1}
+    assert result["schema_version"] == 2
+    assert result["summary"] == {
+        "requested": 3,
+        "queued": 2,
+        "deferred": 0,
+        "failed": 1,
+    }
     assert result["items"][1]["error"] == "publish_disabled"
+
+
+def test_queue_approved_batch_defers_remaining_items_after_queue_saturation() -> None:
+    approvals = [
+        {
+            "manifest_path": f"job-{index}/manifest.json",
+            "plan_id": "sha256:" + f"{index:064x}",
+            "manifest_sha256": f"{index + 20:064x}",
+        }
+        for index in range(1, 5)
+    ]
+    called: list[str] = []
+
+    def queue(approval: dict[str, str]) -> dict[str, object]:
+        called.append(approval["plan_id"])
+        if len(called) == 2:
+            return {"queued": False, "plugin": {"ok": False, "error": "queue_full"}}
+        return {"queued": True, "plugin": {"ok": True}}
+
+    result = queue_approved_batch(approvals, queue)
+
+    assert called == [approvals[0]["plan_id"], approvals[1]["plan_id"]]
+    assert result["complete"] is False
+    assert result["summary"] == {
+        "requested": 4,
+        "queued": 1,
+        "deferred": 3,
+        "failed": 0,
+    }
+    assert [item.get("deferred") for item in result["items"]] == [None, True, True, True]
+    assert all(item.get("error") == "queue_full" for item in result["items"][1:])
 
 
 def test_queue_approved_batch_rejects_duplicate_manifest_approvals() -> None:

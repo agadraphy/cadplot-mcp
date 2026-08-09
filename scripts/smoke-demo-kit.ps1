@@ -87,6 +87,10 @@ try {
         }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300; ready = 300; staged = 300; outputs_complete = 300
+            queue_capacity = 7; queue_waves = 45; queue_approvals = 300
+            queue_simulated_acceptances = 300; queue_deferred_results = 285
+            queue_pipe_attempts = 330; queue_exact_retry_identity_preserved = $true
+            queue_plugin_contacted = $false
             execution_verified = 0; publish_verified = 0; manual_review_without_receipts = 300
             source_unchanged = $true; evidence_digest = "sha256:$('d' * 64)"; synthetic = $true
         }
@@ -128,6 +132,23 @@ try {
         throw "Demo-kit verifier accepted an unknown dependency license."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $queueTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $queueTamper.synthetic_batch_rehearsal.queue_deferred_results = 284
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($queueTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $queueTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*300-drawing synthetic batch evidence*") { throw }
+        $queueTamperBlocked = $true
+    }
+    if (-not $queueTamperBlocked) {
+        throw "Demo-kit verifier accepted altered queue-backpressure evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     [System.IO.File]::AppendAllText($wheel, "tamper", [System.Text.UTF8Encoding]::new($false))
     $tamperBlocked = $false
     try { & $verifier -KitRoot $resolvedRoot -PassThru }
@@ -143,6 +164,7 @@ try {
         machine_paths_redacted = $true
         dependency_audit_verified = $true
         dependency_license_tamper_blocked = $licenseTamperBlocked
+        queue_backpressure_tamper_blocked = $queueTamperBlocked
         wheel_tamper_blocked = $true
         autocad_launched = $false
         live_publish_proven = $false

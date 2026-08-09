@@ -23,3 +23,9 @@ The summary covers only the current page. A 300-job run is complete only after e
 read through `has_more=false` and every item is `complete`. Presence of a PDF alone is never
 execution evidence. To keep MCP responses bounded, at most 20 output issues are included per job;
 use `output_issue_count` and `output_issues_truncated` to detect a longer list.
+
+For a live large run, use the plug-in's `queueAvailable` value as the feed window. If
+`queue_publish_batch` returns schema v2 `deferred` items, retain their exact manifest paths, plan
+IDs, and manifest digests and retry them after slots reopen. After an AutoCAD restart, live status
+is intentionally empty; regenerate this report and use only fresh `awaiting_execution`
+`queue_approval` objects.
