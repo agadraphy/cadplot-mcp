@@ -20,6 +20,7 @@ try {
     $demoRunbook = Join-Path $resolvedRoot "pazartesi-demo-tr.md"
     $tunnelHandoff = Join-Path $resolvedRoot "secure-tunnel-handoff.md"
     $chatgptEvaluation = Join-Path $resolvedRoot "chatgpt-evaluation.md"
+    $sbomPath = Join-Path $resolvedRoot "cadplot-mcp.cdx.json"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") -Destination $verifier
     [System.IO.File]::WriteAllText($wheel, "synthetic wheel", [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($source, "synthetic source", [System.Text.UTF8Encoding]::new($false))
@@ -34,8 +35,74 @@ try {
         "synthetic ChatGPT evaluation guide",
         [System.Text.UTF8Encoding]::new($false)
     )
+    $wheelHash = (Get-FileHash -LiteralPath $wheel -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+    $rootRef = "pkg:pypi/cadplot-mcp@0.1.0"
+    $runtimeRef = "pkg:pypi/fixture@1.0"
+    $sourceRef = "urn:cadplot:artifact:source-archive"
+    $wheelRef = "urn:cadplot:artifact:wheel"
+    $sbom = [ordered]@{
+        '$schema' = "https://cyclonedx.org/schema/bom-1.7.schema.json"
+        bomFormat = "CycloneDX"
+        specVersion = "1.7"
+        serialNumber = "urn:uuid:00000000-0000-5000-8000-000000000000"
+        version = 1
+        metadata = [ordered]@{
+            timestamp = [DateTime]::UtcNow.ToString("o")
+            tools = [ordered]@{ components = @([ordered]@{
+                type = "application"; name = "cadplot-sbom"; version = "0.1.0"
+            }) }
+            component = [ordered]@{
+                type = "application"; 'bom-ref' = $rootRef; name = "cadplot-mcp"
+                version = "0.1.0"; purl = $rootRef
+                licenses = @([ordered]@{ license = [ordered]@{ id = "MIT" } })
+                properties = @(
+                    [ordered]@{ name = "cadplot:repository-commit"; value = "0" * 40 },
+                    [ordered]@{ name = "cadplot:uv-lock-sha256"; value = "e" * 64 },
+                    [ordered]@{ name = "cadplot:dependency-requirements-sha256"; value = "f" * 64 },
+                    [ordered]@{ name = "cadplot:autodesk-binaries-included"; value = "false" },
+                    [ordered]@{ name = "cadplot:company-assets-included"; value = "false" },
+                    [ordered]@{ name = "cadplot:autocad-launched"; value = "false" },
+                    [ordered]@{ name = "cadplot:live-publish-proven"; value = "false" }
+                )
+            }
+        }
+        components = @(
+            [ordered]@{
+                type = "library"; 'bom-ref' = $runtimeRef; name = "fixture"; version = "1.0"
+                purl = $runtimeRef
+                licenses = @([ordered]@{ license = [ordered]@{ name = "MIT" } })
+                properties = @(
+                    [ordered]@{ name = "cadplot:ecosystem"; value = "python" },
+                    [ordered]@{ name = "cadplot:scope"; value = "runtime" }
+                )
+            },
+            [ordered]@{
+                type = "file"; 'bom-ref' = $sourceRef; name = "source-archive"
+                hashes = @([ordered]@{ alg = "SHA-256"; content = $sourceHash })
+                properties = @([ordered]@{ name = "cadplot:release-artifact"; value = "true" })
+            },
+            [ordered]@{
+                type = "file"; 'bom-ref' = $wheelRef; name = "wheel"
+                hashes = @([ordered]@{ alg = "SHA-256"; content = $wheelHash })
+                properties = @([ordered]@{ name = "cadplot:release-artifact"; value = "true" })
+            }
+        )
+        dependencies = @(
+            [ordered]@{ ref = $rootRef; dependsOn = @($runtimeRef, $sourceRef, $wheelRef) },
+            [ordered]@{ ref = $runtimeRef; dependsOn = @() },
+            [ordered]@{ ref = $sourceRef; dependsOn = @() },
+            [ordered]@{ ref = $wheelRef; dependsOn = @() }
+        )
+        compositions = @([ordered]@{ aggregate = "incomplete"; assemblies = @($rootRef) })
+    }
+    [System.IO.File]::WriteAllText(
+        $sbomPath,
+        ($sbom | ConvertTo-Json -Depth 10),
+        [System.Text.UTF8Encoding]::new($false)
+    )
     $files = @(@(
-        $verifier, $wheel, $source, $demoRunbook, $tunnelHandoff, $chatgptEvaluation
+        $verifier, $wheel, $source, $demoRunbook, $tunnelHandoff, $chatgptEvaluation, $sbomPath
     ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
@@ -45,9 +112,18 @@ try {
     $manifest = [ordered]@{
         schema_version = 2
         exact_commit = "0" * 40
+        package_version = "0.1.0"
         created_utc = [DateTime]::UtcNow.ToString("o")
         source_archive = [ordered]@{ file = [System.IO.Path]::GetFileName($source); sha256 = $files[2].sha256 }
         wheel = [ordered]@{ file = [System.IO.Path]::GetFileName($wheel); sha256 = $files[1].sha256 }
+        sbom = [ordered]@{
+            file = "cadplot-mcp.cdx.json"
+            sha256 = $files[6].sha256
+            spec_version = "1.7"
+            component_count = 3
+            runtime_dependency_count = 1
+            artifact_count = 2
+        }
         files = $files
         local_demo_ready = $true
         licensed_live_pilot_ready = $false
@@ -115,6 +191,7 @@ try {
             tunnel_preflight_tool_surface_sha256 = "a" * 64
             chatgpt_eval_plan_prepared = $true
             chatgpt_eval_case_count = 13
+            sbom_cli_verified = $true
             isolated_install = $true
             locked_dependencies = $true
             dependency_hashes_required = $true
@@ -175,7 +252,8 @@ try {
     if (
         $result.Passed -ne $true -or
         $result.MachinePathsIncluded -ne $false -or
-        $result.DependencyAuditPassed -ne $true
+        $result.DependencyAuditPassed -ne $true -or
+        $result.SbomVerified -ne $true
     ) {
         throw "Demo-kit verifier did not accept the exact path-redacted fixture."
     }
@@ -248,6 +326,37 @@ try {
         throw "Demo-kit verifier accepted altered local-target probe evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $sbomBytes = [System.IO.File]::ReadAllBytes($sbomPath)
+    $sbomTamper = [System.Text.Encoding]::UTF8.GetString($sbomBytes) | ConvertFrom-Json
+    $liveProperty = @($sbomTamper.metadata.component.properties | Where-Object {
+        $_.name -ceq "cadplot:live-publish-proven"
+    })
+    $liveProperty[0].value = "true"
+    [System.IO.File]::WriteAllText(
+        $sbomPath,
+        ($sbomTamper | ConvertTo-Json -Depth 10),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $semanticTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $semanticHash = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $semanticTamper.sbom.sha256 = $semanticHash
+    @($semanticTamper.files | Where-Object { $_.path -ceq "cadplot-mcp.cdx.json" })[0].sha256 = $semanticHash
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($semanticTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $sbomSemanticTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*SBOM release binding or evidence boundaries*") { throw }
+        $sbomSemanticTamperBlocked = $true
+    }
+    if (-not $sbomSemanticTamperBlocked) {
+        throw "Demo-kit verifier accepted altered SBOM evidence boundaries."
+    }
+    [System.IO.File]::WriteAllBytes($sbomPath, $sbomBytes)
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     [System.IO.File]::AppendAllText($wheel, "tamper", [System.Text.UTF8Encoding]::new($false))
     $tamperBlocked = $false
     try { & $verifier -KitRoot $resolvedRoot -PassThru }
@@ -262,6 +371,8 @@ try {
         exact_tree_and_hashes_verified = $true
         machine_paths_redacted = $true
         dependency_audit_verified = $true
+        sbom_verified = $true
+        sbom_semantic_tamper_blocked = $sbomSemanticTamperBlocked
         dependency_license_tamper_blocked = $licenseTamperBlocked
         queue_backpressure_tamper_blocked = $queueTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked

@@ -38,6 +38,9 @@ $orchestratedPilotRoot = Join-Path $orchestratedRoot "pilot"
 $requirementsAuditPath = Join-Path (
     [System.IO.Path]::GetTempPath()
 ) ("cadplot-requirements-audit-{0}.txt" -f [Guid]::NewGuid().ToString("N"))
+$dependencyAuditInputPath = Join-Path (
+    [System.IO.Path]::GetTempPath()
+) ("cadplot-dependency-audit-{0}.json" -f [Guid]::NewGuid().ToString("N"))
 
 function Write-SmokeJson {
     param([string]$Path, $Value)
@@ -120,7 +123,7 @@ try {
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
         "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md",
         "secure-tunnel-handoff.md", "chatgpt-evaluation.md",
-        "autodesk-sdk-prerequisites.md"
+        "autodesk-sdk-prerequisites.md", "software-bill-of-materials.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")
@@ -190,6 +193,7 @@ try {
         tunnel_preflight_tool_surface_sha256 = "a" * 64
         chatgpt_eval_plan_prepared = $true
         chatgpt_eval_case_count = 13
+        sbom_cli_verified = $true
         isolated_install = $true
         locked_dependencies = $true
         dependency_hashes_required = $true
@@ -223,6 +227,30 @@ try {
         live_publish_proven = $false
         evidence_scope = "production-core-net45+net8-with-synthetic-files"
     }
+    Write-SmokeJson -Path $dependencyAuditInputPath -Value $dependencyAudit
+    $sbomPath = Join-Path $kitRoot "cadplot-mcp.cdx.json"
+    Invoke-SmokeNativeQuiet -FilePath "uv" -Arguments @(
+        "run", "cadplot-sbom", "generate",
+        "--dependency-audit", $dependencyAuditInputPath,
+        "--commit", $bundleEvidence.ExactCommit,
+        "--version", $bundleEvidence.PackageVersion,
+        "--artifact", "python-wheel=$wheelPath",
+        "--artifact", "source-archive=$sourcePath",
+        "--artifact", "autocad-bundle=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle.zip')",
+        "--artifact", "autocad-2016-adapter=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2016\CadPlotMcp.AutoCAD2016.dll')",
+        "--artifact", "autocad-2016-core=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2016\CadPlotMcp.Core.dll')",
+        "--artifact", "autocad-2025-adapter=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2025\CadPlotMcp.AutoCAD2025.dll')",
+        "--artifact", "autocad-2025-core=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2025\CadPlotMcp.Core.dll')",
+        "--output", $sbomPath
+    ) -FailureMessage "Release-kit smoke SBOM generation failed."
+    $sbomManifestEvidence = [ordered]@{
+        file = "cadplot-mcp.cdx.json"
+        sha256 = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        spec_version = "1.7"
+        component_count = 8
+        runtime_dependency_count = 1
+        artifact_count = 7
+    }
     $files = @(Get-ChildItem -LiteralPath $kitRoot -File -Recurse | Sort-Object FullName | ForEach-Object {
         [ordered]@{
             path = $_.FullName.Substring($kitRoot.Length + 1).Replace('\', '/')
@@ -240,6 +268,7 @@ try {
             sha256 = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
         }
         source_archive = "source/$sourceName"
+        sbom = $sbomManifestEvidence
         files = $files
         dependency_audit_ran = $true
         dependency_audit = $dependencyAudit
@@ -297,6 +326,7 @@ try {
         kit_archive_sha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
         dependency_audit_ran = $true
         dependency_audit = $dependencyAudit
+        sbom = $sbomManifestEvidence
         wheel_install_smoke = $wheelSmoke
         durable_queue_recovery = $durableQueue
         matching_sdk_bundle_built = $false
@@ -747,6 +777,41 @@ try {
     }
     [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
 
+    $manifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    $sbomBytes = [System.IO.File]::ReadAllBytes($sbomPath)
+    $sbomTamper = Get-Content -LiteralPath $sbomPath -Raw | ConvertFrom-Json
+    @($sbomTamper.metadata.component.properties | Where-Object {
+        $_.name -ceq "cadplot:live-publish-proven"
+    })[0].value = "true"
+    [System.IO.File]::WriteAllText(
+        $sbomPath,
+        ($sbomTamper | ConvertTo-Json -Depth 10),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $semanticHash = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $semanticManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $semanticManifest.sbom.sha256 = $semanticHash
+    @($semanticManifest.files | Where-Object { $_.path -ceq "cadplot-mcp.cdx.json" })[0].sha256 = $semanticHash
+    Write-SmokeJson -Path $manifestPath -Value $semanticManifest
+    $semanticOuter = [System.Text.Encoding]::UTF8.GetString($outerBytes) | ConvertFrom-Json
+    $semanticOuter.sbom.sha256 = $semanticHash
+    $semanticOuter.kit_manifest_sha256 = (
+        Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    Write-SmokeJson -Path $outerPath -Value $semanticOuter
+    $sbomSemanticTamperBlocked = $false
+    try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
+    catch {
+        if ($_.Exception.Message -notlike "*SBOM release binding or evidence boundaries*") { throw }
+        $sbomSemanticTamperBlocked = $true
+    }
+    if (-not $sbomSemanticTamperBlocked) {
+        throw "Release-kit verifier accepted altered SBOM evidence boundaries."
+    }
+    [System.IO.File]::WriteAllBytes($sbomPath, $sbomBytes)
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
+
     $durableTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
     $durableTamper.durable_queue_recovery.authentication_scheme = "unsigned"
     Write-SmokeJson -Path $outerPath -Value $durableTamper
@@ -793,6 +858,8 @@ try {
         exact_tree_and_hashes_verified = $true
         embedded_self_verification_passed = $true
         dependency_audit_verified = $true
+        sbom_verified = $true
+        sbom_semantic_tamper_blocked = $sbomSemanticTamperBlocked
         dependency_license_tamper_blocked = $licenseTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
@@ -838,5 +905,8 @@ finally {
     }
     if (Test-Path -LiteralPath $requirementsAuditPath -PathType Leaf) {
         Remove-Item -LiteralPath $requirementsAuditPath -Force
+    }
+    if (Test-Path -LiteralPath $dependencyAuditInputPath -PathType Leaf) {
+        Remove-Item -LiteralPath $dependencyAuditInputPath -Force
     }
 }

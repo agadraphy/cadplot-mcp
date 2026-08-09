@@ -20,6 +20,9 @@ Use this checklist for every alpha release.
 - [ ] Dependency evidence matches the current `uv.lock`, covers every locked production Python
       package and all four .NET projects, reports zero known vulnerabilities and zero unknown Python
       license declarations, and records the scan timestamp. Treat it as point-in-time evidence.
+- [ ] `cadplot-mcp.cdx.json` validates as the strict CycloneDX 1.7 profile, matches the exact commit,
+      package, lock, runtime dependency count, and every kit artifact SHA-256, and contains no local
+      paths, Autodesk binaries, company assets, or upgraded live-publish claims.
 - [ ] `uv run ruff check .` passes.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run python scripts/smoke-mcp-stdio.py` passes real subprocess initialize/list-tools and
@@ -64,7 +67,11 @@ Use this checklist for every alpha release.
       300-drawing rehearsal digest, durable-queue recovery evidence, dependency/license evidence,
       lock data, source archive, install scripts, and runbooks to the same clean commit.
 - [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
-      and every outer ZIP entry without extraction; its live/public readiness flags remained false.
+      SBOM component/artifact hashes, and every outer ZIP entry without extraction; its live/public
+      readiness flags remained false.
+- [ ] If production policy requires Authenticode, an authorized organization certificate and
+      timestamp service signed the final DLLs and the signed hashes were re-piloted. Unsigned local
+      builds are never described as signed.
 - [ ] `install-release-kit.ps1 -WhatIf` previewed three non-overlapping destinations; the real run
       created/reused pilot then Python and made the exact verified AutoCAD bundle visible last.
 - [ ] AutoCAD was closed and bundle mutation guards observed no `acad.exe`; the no-overwrite local

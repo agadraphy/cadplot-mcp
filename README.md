@@ -23,10 +23,16 @@ The repository now provides:
   PlotEngine operation is never force-aborted;
 - in-memory layout/page-setup/viewport creation and one PDF per sheet;
 - structural and physical-size PDF auditing.
+- deterministic CycloneDX 1.7 SBOM generation bound to the exact commit, lock, runtime dependency
+  inventory, wheel/source archive, and release DLL hashes, with no workstation paths or Autodesk
+  binaries.
 
 The executor compiles against an installed AutoCAD 2024 managed API surface. AutoCAD 2016 and
 2025 release builds and live plotting still require the matching Autodesk SDK references and a
 licensed-workstation acceptance test. Compile-only evidence is not presented as live evidence.
+The repository and kit verifiers also do not claim Authenticode signing; an organization-owned
+signing certificate and timestamp policy remain an external release gate. See the
+[software bill of materials](docs/software-bill-of-materials.md).
 At load time the plug-in normalizes the real `ACADVER` value and refuses to enable publishing when
 the loaded adapter does not match the running AutoCAD release.
 

@@ -192,6 +192,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             "cadplot-validate-pilot",
             "cadplot-tunnel-preflight",
             "cadplot-chatgpt-eval",
+            "cadplot-sbom",
         )
         acceptance_commands = ("cadplot-acceptance",)
         for command_name in pilot_commands + acceptance_commands:
@@ -203,6 +204,84 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
                 cwd=temporary_root,
                 environment=environment,
             )
+
+        sbom_audit = temporary_root / "dependency-audit.json"
+        sbom_source = temporary_root / "source.zip"
+        sbom_output = temporary_root / "cadplot-mcp.cdx.json"
+        sbom_source.write_bytes(b"installed-wheel-sbom-smoke")
+        sbom_audit.write_text(
+            json.dumps(
+                {
+                    "generated_utc": "2026-08-09T00:00:00+00:00",
+                    "passed": True,
+                    "lock": {
+                        "file": "uv.lock",
+                        "sha256": "a" * 64,
+                        "requirements_sha256": "b" * 64,
+                    },
+                    "python": {"package_count": 1},
+                    "python_license_inventory": {
+                        "package_count": 1,
+                        "unknown_count": 0,
+                        "packages": [
+                            {"name": "fixture", "version": "1.0", "license": "MIT"}
+                        ],
+                    },
+                    "autocad_launched": False,
+                    "live_publish_proven": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        sbom_command = command_root / f"cadplot-sbom{command_suffix}"
+        sbom_generate = json.loads(
+            _run(
+                [
+                    str(sbom_command),
+                    "generate",
+                    "--dependency-audit",
+                    str(sbom_audit),
+                    "--commit",
+                    "0" * 40,
+                    "--version",
+                    package["version"],
+                    "--artifact",
+                    f"wheel={wheel}",
+                    "--artifact",
+                    f"source-archive={sbom_source}",
+                    "--output",
+                    str(sbom_output),
+                ],
+                cwd=temporary_root,
+                environment=environment,
+            )
+        )
+        sbom_validate = json.loads(
+            _run(
+                [
+                    str(sbom_command),
+                    "validate",
+                    str(sbom_output),
+                    "--commit",
+                    "0" * 40,
+                    "--version",
+                    package["version"],
+                ],
+                cwd=temporary_root,
+                environment=environment,
+            )
+        )
+        if (
+            sbom_generate.get("passed") is not True
+            or sbom_generate.get("runtime_dependency_count") != 1
+            or sbom_generate.get("artifact_count") != 2
+            or sbom_generate.get("machine_paths_included") is not False
+            or sbom_validate.get("passed") is not True
+            or sbom_validate.get("component_count") != 3
+            or sbom_validate.get("autocad_launched") is not False
+            or sbom_validate.get("live_publish_proven") is not False
+        ):
+            raise RuntimeError("Installed wheel failed the CycloneDX SBOM CLI smoke.")
 
         tunnel_input = temporary_root / "tunnel-input"
         tunnel_input.mkdir()
@@ -316,6 +395,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "http_transport_cleanup_retries": http_protocol["cleanup_retries"],
         "pilot_cli_commands": len(pilot_commands),
         "acceptance_cli_commands": len(acceptance_commands),
+        "sbom_cli_verified": True,
         "tunnel_preflight_redacted": True,
         "tunnel_preflight_target_probed": True,
         "tunnel_preflight_tool_surface_sha256": tunnel_report["target_probe"][

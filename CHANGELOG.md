@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Deterministic CycloneDX 1.7 JSON SBOM generation and strict offline validation, binding the clean
+  commit, package version, `uv.lock`, exported production requirements, licensed Python inventory,
+  wheel/source artifacts, AutoCAD bundle, and four shipped first-party DLLs. Demo/release manifests,
+  self-verifiers, archives, and semantic tamper smokes now require the path-redacted SBOM while
+  retaining false live-publish claims; Authenticode remains an external certificate gate.
+
 - Canonical, tool-surface-hash-bound 13-case ChatGPT tool-selection evaluation covering direct,
   indirect, follow-up, approval, adversarial, edge, pending-cancellation, and recovery behavior.
   The installed no-overwrite preparer/validator retains only sanitized tool-name attestations,

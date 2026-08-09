@@ -38,6 +38,10 @@ stable clean commit, binds the wheel hash, and writes a non-overwriting report t
 `report_path`. Its final JSON must show `passed=true`, `local_demo_ready=true`,
 `autocad_launched=false`, and `live_publish_proven=false`.
 
+The demo and combined release builders also create `cadplot-mcp.cdx.json`. Verify it through the
+embedded kit verifier before installation. It binds the dependency audit and release files but does
+not replace the licensed 2016/2025 pilot or prove Authenticode signing.
+
 Equivalent individual commands are:
 
 ```powershell

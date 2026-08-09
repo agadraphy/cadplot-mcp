@@ -232,6 +232,7 @@ try {
         [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
         $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
         $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
+        $wheelSmoke.sbom_cli_verified -ne $true -or
         $wheelSmoke.isolated_install -ne $true -or
         $wheelSmoke.locked_dependencies -ne $true -or
         $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -317,7 +318,7 @@ try {
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
         "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md",
         "secure-tunnel-handoff.md", "chatgpt-evaluation.md",
-        "autodesk-sdk-prerequisites.md"
+        "autodesk-sdk-prerequisites.md", "software-bill-of-materials.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")
@@ -328,6 +329,44 @@ try {
         "LICENSE", "README.md", "README.tr.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $fileName) -Destination $kitRoot
+    }
+
+    $sbomPath = Join-Path $kitRoot "cadplot-mcp.cdx.json"
+    $sbomOutput = @(& uv run cadplot-sbom generate `
+        --dependency-audit $resolvedReport `
+        --commit $commit `
+        --version $bundleEvidence.PackageVersion `
+        --artifact "python-wheel=$(Join-Path $kitRoot "python\$wheelName")" `
+        --artifact "source-archive=$sourcePath" `
+        --artifact "autocad-bundle=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle.zip')" `
+        --artifact "autocad-2016-adapter=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2016\CadPlotMcp.AutoCAD2016.dll')" `
+        --artifact "autocad-2016-core=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2016\CadPlotMcp.Core.dll')" `
+        --artifact "autocad-2025-adapter=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2025\CadPlotMcp.AutoCAD2025.dll')" `
+        --artifact "autocad-2025-core=$(Join-Path $kitRoot 'autocad\CadPlotMcp.bundle\Contents\Windows\2025\CadPlotMcp.Core.dll')" `
+        --output $sbomPath 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "CycloneDX release SBOM generation failed.`n$($sbomOutput -join [Environment]::NewLine)"
+    }
+    try { $sbomEvidence = ($sbomOutput -join [Environment]::NewLine) | ConvertFrom-Json }
+    catch { throw "CycloneDX release SBOM generator did not return valid JSON evidence." }
+    if (
+        $sbomEvidence.passed -ne $true -or
+        $sbomEvidence.spec_version -cne "1.7" -or
+        $sbomEvidence.exact_commit -cne $commit -or
+        $sbomEvidence.package_version -cne $bundleEvidence.PackageVersion -or
+        $sbomEvidence.runtime_dependency_count -ne $readiness.dependency_audit.python.package_count -or
+        $sbomEvidence.artifact_count -ne 7 -or
+        $sbomEvidence.machine_paths_included -ne $false -or
+        $sbomEvidence.autocad_launched -ne $false -or
+        $sbomEvidence.live_publish_proven -ne $false
+    ) { throw "CycloneDX release SBOM evidence crossed a required release boundary." }
+    $sbomManifestEvidence = [ordered]@{
+        file = "cadplot-mcp.cdx.json"
+        sha256 = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        spec_version = "1.7"
+        component_count = $sbomEvidence.component_count
+        runtime_dependency_count = $sbomEvidence.runtime_dependency_count
+        artifact_count = $sbomEvidence.artifact_count
     }
 
     $kitFiles = @(Get-ChildItem -LiteralPath $kitRoot -File -Recurse | Sort-Object FullName)
@@ -345,6 +384,7 @@ try {
         created_utc = [DateTime]::UtcNow.ToString("o")
         wheel = [ordered]@{ file = "python/$wheelName"; sha256 = $wheelHash }
         source_archive = "source/$sourceName"
+        sbom = $sbomManifestEvidence
         files = $fileEvidence
         dependency_audit_ran = $true
         dependency_audit = $readiness.dependency_audit
@@ -379,6 +419,7 @@ try {
         ).Hash.ToLowerInvariant()
         dependency_audit_ran = $true
         dependency_audit = $readiness.dependency_audit
+        sbom = $sbomManifestEvidence
         wheel_install_smoke = $wheelSmoke
         durable_queue_recovery = $durableQueue
         matching_sdk_bundle_built = $true

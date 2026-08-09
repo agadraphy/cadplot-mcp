@@ -138,8 +138,8 @@ try {
     ) {
         throw "Readiness report has invalid dependency-audit evidence."
     }
-    if ($readiness.dependency_audit_ran -ne $true -and $null -ne $readiness.dependency_audit) {
-        throw "Readiness report contains dependency evidence without a completed audit."
+    if ($readiness.dependency_audit_ran -ne $true -or $null -eq $readiness.dependency_audit) {
+        throw "Demo kit requires completed dependency-audit evidence for its SBOM."
     }
     if ($readiness.dependency_audit_ran -eq $true) {
         $licensePackages = @($readiness.dependency_audit.python_license_inventory.packages)
@@ -225,6 +225,7 @@ try {
         [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
         $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
         $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
+        $wheelSmoke.sbom_cli_verified -ne $true -or
         $wheelSmoke.isolated_install -ne $true -or
         $wheelSmoke.locked_dependencies -ne $true -or
         $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -280,13 +281,46 @@ try {
 
     $sourceHash = (Get-FileHash -LiteralPath $sourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
     $kitWheelHash = (Get-FileHash -LiteralPath $kitWheel -Algorithm SHA256).Hash.ToLowerInvariant()
+    $wheelMatch = [regex]::Match(
+        [System.IO.Path]::GetFileName($kitWheel),
+        '^cadplot_mcp-(?<version>[0-9]+(?:\.[0-9]+){2}(?:[A-Za-z0-9.+-]*))-py3-none-any\.whl$'
+    )
+    if (-not $wheelMatch.Success) { throw "Demo wheel version cannot be resolved." }
+    $packageVersion = $wheelMatch.Groups['version'].Value
+    $sbomPath = Join-Path $kitRoot "cadplot-mcp.cdx.json"
+    $sbomOutput = @(& uv run cadplot-sbom generate `
+        --dependency-audit $resolvedReport `
+        --commit $commit `
+        --version $packageVersion `
+        --artifact "wheel=$kitWheel" `
+        --artifact "source-archive=$sourceArchive" `
+        --output $sbomPath 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "CycloneDX SBOM generation failed.`n$($sbomOutput -join [Environment]::NewLine)"
+    }
+    try { $sbomEvidence = ($sbomOutput -join [Environment]::NewLine) | ConvertFrom-Json }
+    catch { throw "CycloneDX SBOM generator did not return valid JSON evidence." }
+    if (
+        $sbomEvidence.passed -ne $true -or
+        $sbomEvidence.spec_version -cne "1.7" -or
+        $sbomEvidence.exact_commit -cne $commit -or
+        $sbomEvidence.package_version -cne $packageVersion -or
+        $sbomEvidence.runtime_dependency_count -ne $readiness.dependency_audit.python.package_count -or
+        $sbomEvidence.artifact_count -ne 2 -or
+        $sbomEvidence.machine_paths_included -ne $false -or
+        $sbomEvidence.autocad_launched -ne $false -or
+        $sbomEvidence.live_publish_proven -ne $false
+    ) {
+        throw "CycloneDX SBOM evidence crossed a required release boundary."
+    }
+    $sbomHash = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $publicApiProbe = if ($readiness.api_probe_ran -eq $true) {
         Get-PublicApiProbeEvidence -Probe $readiness.api_probe
     }
     else { $null }
     $fileEvidence = @(@(
         $sourceArchive, $kitWheel, $kitVerifier, $demoRunbook, $tunnelHandoff,
-        $chatgptEvaluation
+        $chatgptEvaluation, $sbomPath
     ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
@@ -297,6 +331,7 @@ try {
     $manifest = [ordered]@{
         schema_version = 2
         exact_commit = $commit
+        package_version = $packageVersion
         created_utc = [DateTime]::UtcNow.ToString("o")
         source_archive = [ordered]@{
             file = [System.IO.Path]::GetFileName($sourceArchive)
@@ -305,6 +340,14 @@ try {
         wheel = [ordered]@{
             file = [System.IO.Path]::GetFileName($kitWheel)
             sha256 = $kitWheelHash
+        }
+        sbom = [ordered]@{
+            file = [System.IO.Path]::GetFileName($sbomPath)
+            sha256 = $sbomHash
+            spec_version = "1.7"
+            component_count = $sbomEvidence.component_count
+            runtime_dependency_count = $sbomEvidence.runtime_dependency_count
+            artifact_count = $sbomEvidence.artifact_count
         }
         files = $fileEvidence
         local_demo_ready = $true

@@ -122,6 +122,10 @@ if (
 ) {
     throw "Release-kit dependency-audit evidence is inconsistent."
 }
+if (
+    ($outer.sbom | ConvertTo-Json -Compress -Depth 4) -cne
+        ($manifest.sbom | ConvertTo-Json -Compress -Depth 4)
+) { throw "Release-kit SBOM evidence is inconsistent." }
 foreach ($evidence in @($outer, $manifest)) {
     $wheelSmoke = $evidence.wheel_install_smoke
     if (
@@ -135,6 +139,7 @@ foreach ($evidence in @($outer, $manifest)) {
         [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch $shaPattern -or
         $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
         $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
+        $wheelSmoke.sbom_cli_verified -ne $true -or
         $wheelSmoke.isolated_install -ne $true -or
         $wheelSmoke.locked_dependencies -ne $true -or
         $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -252,6 +257,7 @@ if (
 
 $fixedFiles = @(
     "LICENSE", "README.md", "README.tr.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md",
+    "cadplot-mcp.cdx.json",
     "autocad/CadPlotMcp.bundle.zip", "autocad/bundle-build.json",
     "autocad/CadPlotMcp.bundle/PackageContents.xml", "autocad/CadPlotMcp.bundle/LICENSE",
     "autocad/CadPlotMcp.bundle/Contents/Windows/2016/CadPlotMcp.AutoCAD2016.dll",
@@ -273,7 +279,7 @@ $fixedFiles = @(
     "docs/release-kit-install.md", "docs/pilot-evidence.md", "docs/deployment-modes.md",
     "docs/release-acceptance.md", "docs/chatgpt-connection.md", "docs/loopback-http.md",
     "docs/secure-tunnel-handoff.md", "docs/chatgpt-evaluation.md",
-    "docs/autodesk-sdk-prerequisites.md",
+    "docs/autodesk-sdk-prerequisites.md", "docs/software-bill-of-materials.md",
     "config/config.inventory.example.yaml", "release-kit.json"
 )
 $wheelFiles = @(Get-ChildItem -LiteralPath (Join-Path $kitRoot "python") -File -Filter "*.whl")
@@ -335,6 +341,95 @@ if (
 if ($manifest.source_archive -cne "source/$($sourceFiles[0].Name)") {
     throw "Release-kit source archive evidence is invalid."
 }
+
+$sbomPath = Join-Path $kitRoot "cadplot-mcp.cdx.json"
+$sbomItem = Get-Item -LiteralPath $sbomPath -Force
+if ($sbomItem.Length -gt 2MB) { throw "Release-kit SBOM exceeds the 2 MiB safety limit." }
+try {
+    $sbomRaw = Get-Content -LiteralPath $sbomPath -Raw -Encoding UTF8
+    $sbom = $sbomRaw | ConvertFrom-Json
+}
+catch { throw "Release-kit SBOM is not valid UTF-8 JSON." }
+$rootRef = "pkg:pypi/cadplot-mcp@$($manifest.package_version)"
+if (
+    $sbom.'$schema' -cne "https://cyclonedx.org/schema/bom-1.7.schema.json" -or
+    $sbom.bomFormat -cne "CycloneDX" -or
+    $sbom.specVersion -cne "1.7" -or
+    $sbom.version -ne 1 -or
+    [string]$sbom.serialNumber -notmatch '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+    $sbom.metadata.component.type -cne "application" -or
+    $sbom.metadata.component.name -cne "cadplot-mcp" -or
+    $sbom.metadata.component.version -cne $manifest.package_version -or
+    $sbom.metadata.component.'bom-ref' -cne $rootRef -or
+    $sbom.metadata.component.purl -cne $rootRef -or
+    @($sbom.compositions).Count -ne 1 -or
+    $sbom.compositions[0].aggregate -cne "incomplete" -or
+    $sbom.compositions[0].assemblies[0] -cne $rootRef
+) { throw "Release-kit SBOM identity is invalid." }
+$sbomProperties = @{}
+foreach ($property in @($sbom.metadata.component.properties)) {
+    if (
+        [string]::IsNullOrWhiteSpace([string]$property.name) -or
+        $sbomProperties.ContainsKey([string]$property.name)
+    ) { throw "Release-kit SBOM contains an invalid or duplicate property." }
+    $sbomProperties[[string]$property.name] = [string]$property.value
+}
+if (
+    $sbomProperties['cadplot:repository-commit'] -cne $manifest.exact_commit -or
+    $sbomProperties['cadplot:uv-lock-sha256'] -cne $manifest.dependency_audit.lock.sha256 -or
+    $sbomProperties['cadplot:dependency-requirements-sha256'] -cne
+        $manifest.dependency_audit.lock.requirements_sha256 -or
+    $sbomProperties['cadplot:autodesk-binaries-included'] -cne "false" -or
+    $sbomProperties['cadplot:company-assets-included'] -cne "false" -or
+    $sbomProperties['cadplot:autocad-launched'] -cne "false" -or
+    $sbomProperties['cadplot:live-publish-proven'] -cne "false"
+) { throw "Release-kit SBOM release binding or evidence boundaries are invalid." }
+$sbomComponents = @($sbom.components)
+$runtimeComponents = @($sbomComponents | Where-Object { $_.type -ceq "library" })
+$artifactComponents = @($sbomComponents | Where-Object { $_.type -ceq "file" })
+$componentRefs = @($sbomComponents | ForEach-Object { [string]$_.'bom-ref' })
+if (
+    $sbomComponents.Count -ne ($manifest.dependency_audit.python.package_count + 7) -or
+    $runtimeComponents.Count -ne $manifest.dependency_audit.python.package_count -or
+    $artifactComponents.Count -ne 7 -or
+    @($componentRefs | Group-Object | Where-Object Count -ne 1).Count -ne 0 -or
+    @($sbom.dependencies).Count -ne ($sbomComponents.Count + 1) -or
+    $sbom.dependencies[0].ref -cne $rootRef -or
+    @($sbom.dependencies[0].dependsOn).Count -ne $sbomComponents.Count
+) { throw "Release-kit SBOM component inventory or dependency graph is invalid." }
+$expectedArtifactPaths = [ordered]@{
+    "python-wheel" = $wheelFiles[0].FullName
+    "source-archive" = $sourceFiles[0].FullName
+    "autocad-bundle" = (Join-Path $kitRoot "autocad\CadPlotMcp.bundle.zip")
+    "autocad-2016-adapter" = (Join-Path $kitRoot "autocad\CadPlotMcp.bundle\Contents\Windows\2016\CadPlotMcp.AutoCAD2016.dll")
+    "autocad-2016-core" = (Join-Path $kitRoot "autocad\CadPlotMcp.bundle\Contents\Windows\2016\CadPlotMcp.Core.dll")
+    "autocad-2025-adapter" = (Join-Path $kitRoot "autocad\CadPlotMcp.bundle\Contents\Windows\2025\CadPlotMcp.AutoCAD2025.dll")
+    "autocad-2025-core" = (Join-Path $kitRoot "autocad\CadPlotMcp.bundle\Contents\Windows\2025\CadPlotMcp.Core.dll")
+}
+foreach ($artifactName in $expectedArtifactPaths.Keys) {
+    $matches = @($artifactComponents | Where-Object {
+        $_.'bom-ref' -ceq "urn:cadplot:artifact:$artifactName" -and $_.name -ceq $artifactName
+    })
+    $actualArtifactHash = (
+        Get-FileHash -LiteralPath $expectedArtifactPaths[$artifactName] -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    if (
+        $matches.Count -ne 1 -or
+        @($matches[0].hashes).Count -ne 1 -or
+        $matches[0].hashes[0].alg -cne "SHA-256" -or
+        $matches[0].hashes[0].content -cne $actualArtifactHash
+    ) { throw "Release-kit SBOM artifact hash is invalid: $artifactName" }
+}
+$sbomHash = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if (
+    $manifest.sbom.file -cne "cadplot-mcp.cdx.json" -or
+    $manifest.sbom.sha256 -cne $sbomHash -or
+    $manifest.sbom.spec_version -cne "1.7" -or
+    $manifest.sbom.component_count -ne $sbomComponents.Count -or
+    $manifest.sbom.runtime_dependency_count -ne $runtimeComponents.Count -or
+    $manifest.sbom.artifact_count -ne $artifactComponents.Count -or
+    $sbomRaw -match '(?i)(?:^|[\s"''=])(?:[a-z]:[\\/]|\\\\|/users/|/home/)'
+) { throw "Release-kit SBOM manifest evidence or path-redaction boundary is invalid." }
 
 $bundleReleaseRoot = Join-Path $kitRoot "autocad"
 $bundleVerifierArguments = @{
@@ -405,6 +500,7 @@ $result = [pscustomobject]@{
     MatchingSdkBundleBuilt = $manifest.matching_sdk_bundle_built -eq $true
     ProtocolOnlyFixture = $protocolOnlyFixture
     DependencyAuditPassed = $true
+    SbomVerified = $true
     LocalDemoReady = $true
     AutoCADLaunched = $false
     LivePublishProven = $false

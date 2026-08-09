@@ -37,11 +37,14 @@ catch { throw "Demo-kit manifest is not valid UTF-8 JSON." }
 
 $wheelFiles = @(Get-ChildItem -LiteralPath $root -File -Filter "*.whl")
 $sourceFiles = @(Get-ChildItem -LiteralPath $root -File -Filter "*.zip")
+$sbomFiles = @(Get-ChildItem -LiteralPath $root -File -Filter "*.cdx.json")
 if (
     $wheelFiles.Count -ne 1 -or
     $wheelFiles[0].Name -notmatch '^cadplot_mcp-[0-9A-Za-z.]+-py3-none-any\.whl$' -or
     $sourceFiles.Count -ne 1 -or
-    $sourceFiles[0].Name -notmatch '^cadplot-mcp-source-[0-9a-f]{7}\.zip$'
+    $sourceFiles[0].Name -notmatch '^cadplot-mcp-source-[0-9a-f]{7}\.zip$' -or
+    $sbomFiles.Count -ne 1 -or
+    $sbomFiles[0].Name -cne "cadplot-mcp.cdx.json"
 ) {
     throw "Demo kit must contain exactly one conventionally named wheel and source archive."
 }
@@ -50,6 +53,7 @@ $expectedFiles = @(
     "pazartesi-demo-tr.md",
     "secure-tunnel-handoff.md",
     "chatgpt-evaluation.md",
+    "cadplot-mcp.cdx.json",
     "verify-demo-kit.ps1",
     $wheelFiles[0].Name,
     $sourceFiles[0].Name
@@ -65,6 +69,7 @@ if (
 if (
     $manifest.schema_version -ne 2 -or
     $manifest.exact_commit -notmatch '^[0-9a-f]{40}$' -or
+    $manifest.package_version -notmatch '^[0-9]+(?:\.[0-9]+){2}(?:[A-Za-z0-9.+-]*)?$' -or
     $manifest.local_demo_ready -ne $true -or
     $manifest.licensed_live_pilot_ready -ne $false -or
     $manifest.public_release_ready -ne $false -or
@@ -117,6 +122,7 @@ if (
     [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
     $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
     $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
+    $wheelSmoke.sbom_cli_verified -ne $true -or
     $wheelSmoke.isolated_install -ne $true -or
     $wheelSmoke.locked_dependencies -ne $true -or
     $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -241,6 +247,79 @@ elseif ($manifest.dependency_audit_ran -ne $false -or $null -ne $manifest.depend
     throw "Demo-kit dependency-audit evidence is inconsistent."
 }
 
+$sbomPath = $sbomFiles[0].FullName
+$sbomItem = Get-Item -LiteralPath $sbomPath -Force
+if ($sbomItem.Length -gt 2MB) { throw "Demo-kit SBOM exceeds the 2 MiB safety limit." }
+try {
+    $sbomRaw = Get-Content -LiteralPath $sbomPath -Raw -Encoding UTF8
+    $sbom = $sbomRaw | ConvertFrom-Json
+}
+catch { throw "Demo-kit SBOM is not valid UTF-8 JSON." }
+if (
+    $sbom.'$schema' -cne "https://cyclonedx.org/schema/bom-1.7.schema.json" -or
+    $sbom.bomFormat -cne "CycloneDX" -or
+    $sbom.specVersion -cne "1.7" -or
+    $sbom.version -ne 1 -or
+    [string]$sbom.serialNumber -notmatch '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+    $sbom.metadata.component.type -cne "application" -or
+    $sbom.metadata.component.name -cne "cadplot-mcp" -or
+    $sbom.metadata.component.version -cne $manifest.package_version -or
+    $sbom.metadata.component.'bom-ref' -cne "pkg:pypi/cadplot-mcp@$($manifest.package_version)" -or
+    $sbom.metadata.component.purl -cne "pkg:pypi/cadplot-mcp@$($manifest.package_version)" -or
+    @($sbom.compositions).Count -ne 1 -or
+    $sbom.compositions[0].aggregate -cne "incomplete"
+) {
+    throw "Demo-kit SBOM identity is invalid."
+}
+$sbomProperties = @{}
+foreach ($property in @($sbom.metadata.component.properties)) {
+    if (
+        [string]::IsNullOrWhiteSpace([string]$property.name) -or
+        $sbomProperties.ContainsKey([string]$property.name)
+    ) { throw "Demo-kit SBOM contains an invalid or duplicate property." }
+    $sbomProperties[[string]$property.name] = [string]$property.value
+}
+if (
+    $sbomProperties['cadplot:repository-commit'] -cne $manifest.exact_commit -or
+    $sbomProperties['cadplot:uv-lock-sha256'] -cne $audit.lock.sha256 -or
+    $sbomProperties['cadplot:dependency-requirements-sha256'] -cne $audit.lock.requirements_sha256 -or
+    $sbomProperties['cadplot:autodesk-binaries-included'] -cne "false" -or
+    $sbomProperties['cadplot:company-assets-included'] -cne "false" -or
+    $sbomProperties['cadplot:autocad-launched'] -cne "false" -or
+    $sbomProperties['cadplot:live-publish-proven'] -cne "false"
+) { throw "Demo-kit SBOM release binding or evidence boundaries are invalid." }
+$sbomComponents = @($sbom.components)
+$runtimeComponents = @($sbomComponents | Where-Object { $_.type -ceq "library" })
+$artifactComponents = @($sbomComponents | Where-Object { $_.type -ceq "file" })
+$componentRefs = @($sbomComponents | ForEach-Object { [string]$_.'bom-ref' })
+if (
+    $sbomComponents.Count -ne ($audit.python.package_count + 2) -or
+    $runtimeComponents.Count -ne $audit.python.package_count -or
+    $artifactComponents.Count -ne 2 -or
+    @($componentRefs | Group-Object | Where-Object Count -ne 1).Count -ne 0 -or
+    @($sbom.dependencies).Count -ne ($sbomComponents.Count + 1)
+) { throw "Demo-kit SBOM component inventory or dependency graph is invalid." }
+$wheelSbom = @($artifactComponents | Where-Object { $_.'bom-ref' -ceq "urn:cadplot:artifact:wheel" })
+$sourceSbom = @($artifactComponents | Where-Object { $_.'bom-ref' -ceq "urn:cadplot:artifact:source-archive" })
+if (
+    $wheelSbom.Count -ne 1 -or
+    $sourceSbom.Count -ne 1 -or
+    $wheelSbom[0].hashes[0].alg -cne "SHA-256" -or
+    $wheelSbom[0].hashes[0].content -cne $manifest.wheel.sha256 -or
+    $sourceSbom[0].hashes[0].alg -cne "SHA-256" -or
+    $sourceSbom[0].hashes[0].content -cne $manifest.source_archive.sha256 -or
+    $sbomRaw -match '(?i)(?:^|[\s"''=])(?:[a-z]:[\\/]|\\\\|/users/|/home/)'
+) { throw "Demo-kit SBOM artifact hashes or path-redaction boundary are invalid." }
+$sbomHash = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if (
+    $manifest.sbom.file -cne "cadplot-mcp.cdx.json" -or
+    $manifest.sbom.sha256 -cne $sbomHash -or
+    $manifest.sbom.spec_version -cne "1.7" -or
+    $manifest.sbom.component_count -ne $sbomComponents.Count -or
+    $manifest.sbom.runtime_dependency_count -ne $runtimeComponents.Count -or
+    $manifest.sbom.artifact_count -ne $artifactComponents.Count
+) { throw "Demo-kit SBOM manifest evidence is invalid." }
+
 $manifestFiles = @($manifest.files)
 $filesWithoutManifest = @($expectedFiles | Where-Object { $_ -cne "demo-kit.json" })
 if ($manifestFiles.Count -ne $filesWithoutManifest.Count) {
@@ -282,6 +361,7 @@ $result = [pscustomobject]@{
     SourceSha256 = $sourceHash
     MachinePathsIncluded = $false
     DependencyAuditPassed = $manifest.dependency_audit_ran -eq $true
+    SbomVerified = $true
     LocalDemoReady = $true
     AutoCADLaunched = $false
     LivePublishProven = $false
