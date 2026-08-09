@@ -100,6 +100,8 @@ All notable changes to this project are documented in this file.
   install/verify/uninstall smoke that never launches AutoCAD.
 - Managed API identity checking that binds real adapter builds to consistent `R20.1` (AutoCAD
   2016) and `R25.0` (AutoCAD 2025) Autodesk assembly series instead of trusting DLL filenames.
+- Clean-commit, no-overwrite bundle release directories with source/archive audits, exact build
+  manifests, and independent ZIP-entry/hash verification that remains explicitly non-live evidence.
 
 ### Notes
 

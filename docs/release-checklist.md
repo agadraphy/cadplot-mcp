@@ -35,6 +35,8 @@ Use this checklist for every alpha release.
 - [ ] `check-autocad-api-series.ps1` reports one consistent `R20.1` set for the 2016 build and one
       consistent `R25.0` set for the 2025 build; directory names alone were not accepted.
 - [ ] `scripts/verify-bundle.ps1` passes on the extracted bundle and its printed hashes are retained.
+- [ ] The matching-SDK build used a clean commit, created a new no-overwrite release root, and
+      `verify-bundle-release.ps1` matched `bundle-build.json`, ZIP entries, and all file hashes.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/

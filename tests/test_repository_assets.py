@@ -119,6 +119,7 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "uv build",
         "audit-release-artifacts.py",
         "smoke-wheel-install.py",
+        "smoke-bundle-install.ps1",
         "dotnet\\CadPlotMcp.sln",
         "probe-autocad-api.ps1",
         "autocad_launched = $false",
@@ -240,6 +241,47 @@ def test_build_and_install_require_exact_bundle_verification() -> None:
     assert "Remove-Item" not in installer
 
 
+def test_bundle_build_is_commit_bound_no_overwrite_and_release_verified() -> None:
+    builder = (REPOSITORY_ROOT / "scripts" / "build-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+    release_verifier = (
+        REPOSITORY_ROOT / "scripts" / "verify-bundle-release.ps1"
+    ).read_text(encoding="utf-8")
+
+    for required in (
+        '"rev-parse", "HEAD"',
+        '"status"',
+        "Real bundle build requires a clean worktree",
+        "build never overwrites",
+        "audit-source-tree.py",
+        "audit-release-artifacts.py",
+        "bundle-build.json",
+        "[System.IO.FileMode]::CreateNew",
+        "matching_sdk_bundle_built = $true",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+        "verify-bundle-release.ps1",
+    ):
+        assert required in builder
+    assert "Remove-Item" not in builder
+
+    for required in (
+        "$expectedTopLevel",
+        "verify-bundle.ps1",
+        "R20.1",
+        "R25.0",
+        "matching-SDK build",
+        "archive_sha256",
+        "ZipFile]::OpenRead",
+        "archive entry hash mismatch",
+        "LivePublishProven = $false",
+    ):
+        assert required in release_verifier
+    assert "Expand-Archive" not in release_verifier
+    assert "Start-Process" not in release_verifier
+
+
 def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "uninstall-bundle.ps1").read_text(encoding="utf-8")
 
@@ -262,6 +304,9 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "verify-bundle.ps1",
         "-WhatIf",
         "protocol_only_fixture = $true",
+        "protocol_only_rejected_as_real = $protocolOnlyRejected",
+        "bundle_release_verified = $true",
+        "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
         "copied_hashes_verified = $true",
         "existing_install_blocked = $overwriteBlocked",
         "unexpected_file_uninstall_blocked = $unexpectedFileBlocked",

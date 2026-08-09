@@ -214,6 +214,13 @@ assemblies are development inputs and are not committed or copied into the publi
 compilation, all three managed assemblies must expose one consistent release series and the build
 requires exactly `R20.1` for the 2016 adapter and `R25.0` for the 2025 adapter; a folder from another
 installed AutoCAD release is rejected even when it contains the same DLL filenames.
+
+A real build also requires a clean Git worktree and never replaces an earlier artifact. Its default
+output is `artifacts/cadplot-bundle-<version>-<commit>/`, containing the extracted bundle, bundle
+ZIP, and `bundle-build.json`. That manifest binds the exact commit, package version, redacted SDK
+assembly identities/hashes, verified bundle file hashes, and archive hash while retaining
+`autocad_launched=false` and `live_publish_proven=false`. `verify-bundle-release.ps1` independently
+checks the directory, manifest, ZIP entry set, and every inner file hash without extracting it.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.
@@ -229,7 +236,8 @@ launches AutoCAD and is not a matching-SDK or live-publish result.
 
 The installer never overwrites an existing bundle. For an upgrade, close AutoCAD, preview the
 exact removal with `scripts/uninstall-bundle.ps1 -WhatIf`, run it only after checking the target,
-then install the newly verified bundle. The uninstaller rejects junctions and any directory whose
+then pass the new build JSON's `bundle` path explicitly as `install-bundle.ps1 -SourceBundle ...`.
+The uninstaller rejects junctions and any directory whose
 package name/ProductCode does not match CadPlot MCP. It also requires the exact verified bundle
 contents before recursively removing the package directory.
 

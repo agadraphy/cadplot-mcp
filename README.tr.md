@@ -169,6 +169,10 @@ iş başlamadan hata verir.
 Gerçek bundle build'i yalnız dosya adlarına güvenmez: `AcMgd.dll`, `AcDbMgd.dll` ve
 `AcCoreMgd.dll` assembly kimliklerinin aynı seride olmasını; 2016 için tam `R20.1`, 2025 için tam
 `R25.0` gelmesini zorunlu tutar. Yanlış AutoCAD sürümünün klasörü erken reddedilir.
+Build temiz Git commit'i ister, eski artifact'i silmez ve
+`artifacts/cadplot-bundle-<sürüm>-<commit>/` altında bundle klasörü, ZIP ve `bundle-build.json`
+üretir. Bu manifest commit/sürüm/API kimliği/dosya+ZIP hash'lerini bağlar;
+`verify-bundle-release.ps1` ZIP'i çıkarmadan tüm girişleri yeniden doğrular.
 
 Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
 Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini

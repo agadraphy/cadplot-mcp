@@ -37,11 +37,13 @@ taşınmaz.
 - bir paftalık yetkili DWG kopyası ve elle kabul edilmiş referans PDF;
 - gerçek page setup, plotter, plot style ve canonical media adlarının yazıldığı yerel `config.yaml`;
 - kaynaklardan tamamen ayrı yerel `workspace_root`;
-- `scripts/build-bundle.ps1` çıktısı ve `scripts/verify-bundle.ps1` hash listesi.
+- temiz commit'ten yeni klasöre üretilmiş `scripts/build-bundle.ps1` çıktısı,
+  `bundle-build.json` ve geçen `scripts/verify-bundle-release.ps1` raporu.
 
 ## 10 dakikalık gösterim
 
-1. AutoCAD kapalıyken bundle kurulum hedefini `scripts/install-bundle.ps1 -WhatIf` ile gösterin.
+1. AutoCAD kapalıyken build JSON'daki tam bundle yolunu
+   `scripts/install-bundle.ps1 -SourceBundle "<tam yol>" -WhatIf` ile gösterin.
 2. İlk açılışta publish kapalı kalsın. `get_autocad_plugin_status` ile doğru adapter, `ACADVER`,
    `workspaceConfigured=true` ve `publishEnabled=false` değerlerini gösterin.
 3. `inspect_drawing` çalıştırıp bulunan çerçeve, mevcut layout, page setup, plotter, media ve stili

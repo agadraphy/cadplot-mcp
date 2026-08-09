@@ -3,6 +3,9 @@
 The build script copies each adapter DLL together with `CadPlotMcp.Core.dll` into its matching
 `Contents/Windows/<release>` folder.
 The package loader selects the 2016 adapter for AutoCAD R20.1 and the 2025 adapter for R25.0 through R25.1.
+Each matching-SDK build is emitted into a new commit-bound release directory and accompanied by a
+no-overwrite `bundle-build.json`. `verify-bundle-release.ps1` binds that manifest to the extracted
+bundle and ZIP hashes; this is build evidence, not licensed plotting evidence.
 
 The plug-in opens the current-user-only local `cadplot-mcp` named pipe. Its size-limited,
 newline-delimited JSON boundary has a positive command whitelist:

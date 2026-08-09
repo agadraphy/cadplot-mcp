@@ -44,19 +44,23 @@ dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --conf
 
 ## Gate 2: build the real bundle
 
-Run `scripts/build-bundle.ps1` with both Autodesk SDK/reference folders. The script must fail if an
-AutoCAD reference is missing. The public repository and release archive must not contain Autodesk
-reference assemblies.
+Run `scripts/build-bundle.ps1` with both Autodesk SDK/reference folders. It requires a clean commit,
+refuses an existing output root, and must fail if a reference is missing or not exactly `R20.1`/
+`R25.0`. Retain its `bundle-build.json`, then run `scripts/verify-bundle-release.ps1` on the returned
+release root. The public repository and release archive must not contain Autodesk assemblies.
 
 ## Gate 3: install without overwrite
 
 First preview the copy:
 
 ```powershell
-.\scripts\install-bundle.ps1 -WhatIf
+.\scripts\install-bundle.ps1 `
+  -SourceBundle "<build JSON bundle path>" `
+  -WhatIf
 ```
 
-Then run without `-WhatIf`. Start AutoCAD and call MCP tool `get_autocad_plugin_status`. Required
+Then run the same exact source without `-WhatIf`. Start AutoCAD and call MCP tool
+`get_autocad_plugin_status`. Required
 result: `connected=true`, correct adapter/release, `readOnly=true`, and `publishEnabled=false`.
 The product field must include the live `ACADVER`; record it with the pilot evidence.
 

@@ -19,6 +19,7 @@ $fixtureBundle = Join-Path $resolvedSmokeRoot "fixture\CadPlotMcp.bundle"
 $destinationRoot = Join-Path $resolvedSmokeRoot "plugins"
 $installedBundle = Join-Path $destinationRoot "CadPlotMcp.bundle"
 $verifier = Join-Path $PSScriptRoot "verify-bundle.ps1"
+$releaseVerifier = Join-Path $PSScriptRoot "verify-bundle-release.ps1"
 $installer = Join-Path $PSScriptRoot "install-bundle.ps1"
 $uninstaller = Join-Path $PSScriptRoot "uninstall-bundle.ps1"
 
@@ -45,7 +46,105 @@ try {
         Join-Path $repoRoot "src\dotnet\CadPlotMcp.Core\bin\Release\net8.0\CadPlotMcp.Core.dll"
     ) -Destination $fixture2025
 
-    $null = & $verifier -BundlePath $fixtureBundle -PassThru
+    $bundleVerification = & $verifier -BundlePath $fixtureBundle -PassThru
+
+    $fixtureRelease = Split-Path -Parent $fixtureBundle
+    $fixtureArchive = Join-Path $fixtureRelease "CadPlotMcp.bundle.zip"
+    Compress-Archive `
+        -LiteralPath $fixtureBundle `
+        -DestinationPath $fixtureArchive `
+        -CompressionLevel Optimal
+    & uv run python (Join-Path $PSScriptRoot "audit-release-artifacts.py") $fixtureRelease
+    if ($LASTEXITCODE -ne 0) { throw "Protocol-only bundle archive audit failed." }
+
+    $fixtureApiNames = @("AcMgd.dll", "AcDbMgd.dll", "AcCoreMgd.dll")
+    $fixtureManifest = [ordered]@{
+        schema_version = 1
+        exact_commit = ("0" * 40) -join ""
+        package_version = "0.1.0"
+        created_utc = [DateTime]::UtcNow.ToString("o")
+        api_identity = [ordered]@{
+            autocad_2016 = [ordered]@{
+                detected_series = "R20.1"
+                assemblies = @($fixtureApiNames | ForEach-Object {
+                    [ordered]@{
+                        name = $_
+                        assembly_version = "20.1.0.0"
+                        sha256 = ("a" * 64) -join ""
+                    }
+                })
+            }
+            autocad_2025 = [ordered]@{
+                detected_series = "R25.0"
+                assemblies = @($fixtureApiNames | ForEach-Object {
+                    [ordered]@{
+                        name = $_
+                        assembly_version = "25.0.0.0"
+                        sha256 = ("b" * 64) -join ""
+                    }
+                })
+            }
+        }
+        bundle = [ordered]@{
+            directory = "CadPlotMcp.bundle"
+            archive = "CadPlotMcp.bundle.zip"
+            archive_sha256 = (
+                Get-FileHash -LiteralPath $fixtureArchive -Algorithm SHA256
+            ).Hash.ToLowerInvariant()
+            files = @($bundleVerification.Hashes | ForEach-Object {
+                [ordered]@{ path = $_.Path; sha256 = $_.Sha256 }
+            })
+        }
+        source_tree_audit_passed = $true
+        bundle_verification_passed = $true
+        archive_audit_passed = $true
+        matching_sdk_bundle_built = $false
+        protocol_only_fixture = $true
+        company_assets_copied = $false
+        autodesk_binaries_included = $false
+        autocad_launched = $false
+        live_publish_proven = $false
+    }
+    $fixtureManifestPath = Join-Path $fixtureRelease "bundle-build.json"
+    [System.IO.File]::WriteAllText(
+        $fixtureManifestPath,
+        ($fixtureManifest | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+
+    $protocolOnlyRejected = $false
+    try {
+        & $releaseVerifier -ReleaseRoot $fixtureRelease -PassThru
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*not a matching-SDK build*") { throw }
+        $protocolOnlyRejected = $true
+    }
+    if (-not $protocolOnlyRejected) {
+        throw "Release verifier accepted a protocol-only fixture as a real SDK build."
+    }
+    $null = & $releaseVerifier `
+        -ReleaseRoot $fixtureRelease `
+        -PassThru `
+        -AllowProtocolOnlyFixture
+
+    $archiveBytes = [System.IO.File]::ReadAllBytes($fixtureArchive)
+    $archiveBytes[0] = $archiveBytes[0] -bxor 1
+    [System.IO.File]::WriteAllBytes($fixtureArchive, $archiveBytes)
+    $archiveTamperBlocked = $false
+    try {
+        & $releaseVerifier `
+            -ReleaseRoot $fixtureRelease `
+            -PassThru `
+            -AllowProtocolOnlyFixture
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*archive hash does not match*") { throw }
+        $archiveTamperBlocked = $true
+    }
+    if (-not $archiveTamperBlocked) {
+        throw "Release verifier accepted a modified bundle archive."
+    }
 
     & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -WhatIf
     if (Test-Path -LiteralPath $installedBundle) {
@@ -94,6 +193,9 @@ try {
     [ordered]@{
         passed = $true
         protocol_only_fixture = $true
+        protocol_only_rejected_as_real = $protocolOnlyRejected
+        bundle_release_verified = $true
+        bundle_release_archive_tamper_blocked = $archiveTamperBlocked
         what_if_install_mutated = $false
         copied_hashes_verified = $true
         existing_install_blocked = $overwriteBlocked
