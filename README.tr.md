@@ -235,6 +235,20 @@ iş başlamadan hata verir.
 Gerçek bundle build'i yalnız dosya adlarına güvenmez: `AcMgd.dll`, `AcDbMgd.dll` ve
 `AcCoreMgd.dll` assembly kimliklerinin aynı seride olmasını; 2016 için tam `R20.1`, 2025 için tam
 `R25.0` gelmesini zorunlu tutar. Yanlış AutoCAD sürümünün klasörü erken reddedilir.
+
+Yetkili operatör; yerel prova, bağımlılık taraması, iki tam-SDK derlemesi, bundle doğrulama,
+birleşik release-kit üretimi ve son doğrulamayı tek komutla çalıştırabilir:
+
+```powershell
+.\scripts\build-complete-release.ps1 `
+  -AutoCAD2016SdkDir "C:\ObjectARX2016\inc" `
+  -AutoCAD2025SdkDir "C:\ObjectARX2025\inc" `
+  -DotNet "$env:USERPROFILE\.dotnet\dotnet.exe"
+```
+
+Bkz. [Autodesk SDK önkoşulları](docs/autodesk-sdk-prerequisites.md). SDK sözleşmesi yetkili
+operatöre ait harici bir kapıdır; proje Autodesk geliştirme dosyalarını indirmez, kurmaz, kabul
+etmez veya yeniden dağıtmaz.
 Build temiz Git commit'i ister, eski artifact'i silmez ve
 `artifacts/cadplot-bundle-<sürüm>-<commit>/` altında bundle klasörü, ZIP ve `bundle-build.json`
 üretir. Bu manifest commit/sürüm/API kimliği/dosya+ZIP hash'lerini bağlar;

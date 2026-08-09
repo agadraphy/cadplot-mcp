@@ -19,6 +19,12 @@ veritabanlarının o andaki sonucudur; AutoCAD veya canlı yayın kanıtı deği
 `-WriteReport`, aynı son JSON'u yeni ve üzerine yazılmayan bir geçici dosyada saklar; ekrandaki
 `report_path` değerini demo kaydı olarak koruyun.
 
+Tam Autodesk 2016 `R20.1` ve 2025 `R25.0` SDK klasörleri yetkili makinede hazırsa,
+`scripts/build-complete-release.ps1` aynı provayı, iki adapter derlemesini, bundle/release-kit
+üretimini ve iki bağımsız doğrulamayı tek komutta yapar. SDK indirme/lisans kabulü otomatik değildir;
+`docs/autodesk-sdk-prerequisites.md` belgesindeki resmi Autodesk kapısı operatör tarafından
+tamamlanmalıdır.
+
 Preflight içinde 300 sentetik kaynak da 20'lik sayfalama/staging batch'leriyle uçtan uca prova edilir.
 Readiness raporunda `synthetic_batch_rehearsal.target_drawings=300`, `staged=300`,
 `outputs_complete=300`, `execution_verified=0`, `publish_verified=0` ve

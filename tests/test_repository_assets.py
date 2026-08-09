@@ -188,9 +188,64 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "target_drawings -ne 300",
         "publish_verified -ne 0",
         "[System.IO.FileMode]::CreateNew",
+        "ReportPath",
+        "Readiness report target already exists",
+        "Readiness report parent must not be a symlink or junction",
     ):
         assert required in script
     assert "Start-Process" not in script
+
+
+def test_complete_release_builder_is_single_command_fail_closed_orchestration() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "build-complete-release.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "AutoCAD2016SdkDir",
+        "AutoCAD2025SdkDir",
+        "Complete release build requires a clean worktree",
+        "Assert-SeparateRoots",
+        "build never overwrites",
+        "run-demo-rehearsal.ps1",
+        "ReportPath = $ReadinessReport",
+        "AuditDependencies = $true",
+        "build-bundle.ps1",
+        "verify-bundle-release.ps1",
+        "build-release-kit.ps1",
+        "verify-release-kit.ps1",
+        "MatchingSdkBundleBuilt -ne $true",
+        "matching_sdk_bundle_built = $true",
+        "self_verification_passed = $true",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+        "licensed_live_pilot_ready = $false",
+        "public_release_ready = $false",
+    ):
+        assert required in script
+    assert "Remove-Item" not in script
+    assert "Start-Process" not in script
+
+
+def test_autodesk_sdk_guide_keeps_licensed_inputs_external() -> None:
+    guide = (REPOSITORY_ROOT / "docs" / "autodesk-sdk-prerequisites.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "R20.1",
+        "R25.0",
+        "AcMgd.dll",
+        "AcDbMgd.dll",
+        "AcCoreMgd.dll",
+        "ObjectARX SDK `inc` directory",
+        "does not redistribute Autodesk DLLs",
+        "never downloads, installs, or accepts it",
+        "build-complete-release.ps1",
+        "autocad_launched=false",
+        "live_publish_proven=false",
+    ):
+        assert required in guide
 
 
 def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
@@ -600,6 +655,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "new-local-pilot.ps1",
         "pilot-evidence.md",
         "release-acceptance.md",
+        "autodesk-sdk-prerequisites.md",
         "self_verification_passed = $verification.Passed",
         "Readiness report has invalid compile-only API evidence",
         "current lock-bound dependency-audit evidence",
@@ -632,6 +688,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         '"scripts/release-acceptance.py"',
         '"docs/pilot-evidence.md"',
         '"docs/release-acceptance.md"',
+        '"docs/autodesk-sdk-prerequisites.md"',
     ):
         assert required in verifier
     assert "Expand-Archive" not in verifier

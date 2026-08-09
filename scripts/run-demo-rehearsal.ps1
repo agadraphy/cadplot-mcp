@@ -2,6 +2,7 @@
 param(
     [string]$DotNet = "",
     [string]$AutoCADApiDir = "",
+    [string]$ReportPath = "",
     [switch]$SkipSync,
     [switch]$AuditDependencies,
     [switch]$WriteReport
@@ -159,18 +160,33 @@ try {
         )
     }
 
-    if ($WriteReport) {
-        $reportPath = Join-Path `
-            ([System.IO.Path]::GetTempPath()) `
-            ("cadplot-demo-readiness-{0}.json" -f [Guid]::NewGuid().ToString("N"))
-        $report["report_path"] = $reportPath
+    $writeReportRequested = $WriteReport -or -not [string]::IsNullOrWhiteSpace($ReportPath)
+    if ($writeReportRequested) {
+        if ([string]::IsNullOrWhiteSpace($ReportPath)) {
+            $ReportPath = Join-Path `
+                ([System.IO.Path]::GetTempPath()) `
+                ("cadplot-demo-readiness-{0}.json" -f [Guid]::NewGuid().ToString("N"))
+        }
+        $resolvedReportPath = [System.IO.Path]::GetFullPath($ReportPath)
+        if (Test-Path -LiteralPath $resolvedReportPath) {
+            throw "Readiness report target already exists; evidence is never overwritten: $resolvedReportPath"
+        }
+        $reportParent = Split-Path -Parent $resolvedReportPath
+        if (-not (Test-Path -LiteralPath $reportParent -PathType Container)) {
+            throw "Readiness report parent does not exist: $reportParent"
+        }
+        $reportParentItem = Get-Item -LiteralPath $reportParent -Force
+        if (($reportParentItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Readiness report parent must not be a symlink or junction: $reportParent"
+        }
+        $report["report_path"] = $resolvedReportPath
     }
     $reportJson = $report | ConvertTo-Json -Depth 6
 
-    if ($WriteReport) {
+    if ($writeReportRequested) {
         $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($reportJson)
         $stream = [System.IO.File]::Open(
-            $reportPath,
+            $resolvedReportPath,
             [System.IO.FileMode]::CreateNew,
             [System.IO.FileAccess]::Write,
             [System.IO.FileShare]::Read

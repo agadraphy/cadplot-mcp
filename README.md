@@ -269,6 +269,20 @@ compilation, all three managed assemblies must expose one consistent release ser
 requires exactly `R20.1` for the 2016 adapter and `R25.0` for the 2025 adapter; a folder from another
 installed AutoCAD release is rejected even when it contains the same DLL filenames.
 
+An authorized operator can run the rehearsal, dependency audit, both exact-SDK builds, bundle
+verification, combined release-kit build, and final verification with one no-overwrite command:
+
+```powershell
+.\scripts\build-complete-release.ps1 `
+  -AutoCAD2016SdkDir "C:\ObjectARX2016\inc" `
+  -AutoCAD2025SdkDir "C:\ObjectARX2025\inc" `
+  -DotNet "$env:USERPROFILE\.dotnet\dotnet.exe"
+```
+
+See [Autodesk SDK prerequisites](docs/autodesk-sdk-prerequisites.md). The SDK agreement remains an
+external operator gate; the project does not download, install, accept, or redistribute Autodesk
+development files.
+
 A real build also requires a clean Git worktree and never replaces an earlier artifact. Its default
 output is `artifacts/cadplot-bundle-<version>-<commit>/`, containing the extracted bundle, bundle
 ZIP, and `bundle-build.json`. That manifest binds the exact commit, package version, redacted SDK

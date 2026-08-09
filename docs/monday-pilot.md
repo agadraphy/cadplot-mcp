@@ -53,6 +53,11 @@ refuses an existing output root, and must fail if a reference is missing or not 
 `R25.0`. Retain its `bundle-build.json`, then run `scripts/verify-bundle-release.ps1` on the returned
 release root. The public repository and release archive must not contain Autodesk assemblies.
 
+For the complete handoff path, `scripts/build-complete-release.ps1` performs Gate 1, the current
+dependency audit, Gate 2, combined release-kit assembly, and both independent verifications in one
+no-overwrite command. The SDKs must already have been obtained by an authorized operator; see
+`docs/autodesk-sdk-prerequisites.md`.
+
 ## Gate 3: install without overwrite
 
 First preview the copy:
