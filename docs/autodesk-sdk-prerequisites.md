@@ -15,6 +15,11 @@ setting those references not to copy locally. CadPlot's build independently read
 versions and SHA-256 hashes, rejects a mixed or wrong release, and never copies Autodesk assemblies
 into the public bundle.
 
+The matching-SDK compiler always uses new release-specific `obj` and `bin` trees under the current
+user's temporary directory, disables incremental and shared compilation, verifies all four required
+CadPlot DLL outputs, and removes only that exact non-redirected temporary tree. Repository `bin` or
+`obj` files from an earlier SDK, compile probe, or protocol-only build are never packaging inputs.
+
 Official references:
 
 - [AutoCAD 2025 managed .NET project setup](https://help.autodesk.com/cloudhelp/2025/PLK/OARX-DevGuide-Managed/files/GUID-8657D153-0120-4881-A3C8-E00ED139E0D3.htm)

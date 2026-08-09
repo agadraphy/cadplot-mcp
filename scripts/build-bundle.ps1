@@ -7,6 +7,7 @@ param(
     [string]$AutoCAD2025SdkDir,
 
     [string]$DotNet = "dotnet",
+    [ValidateSet("Release")]
     [string]$Configuration = "Release",
     [string]$Uv = "uv",
     [string]$OutputRoot = ""
@@ -64,6 +65,45 @@ function Get-PublicApiIdentity {
     }
 }
 
+function New-IsolatedBuildRoot {
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+    $leaf = "cadplot-matching-sdk-build-{0}" -f ([Guid]::NewGuid().ToString("N"))
+    $candidate = Join-Path $tempRoot $leaf
+    if (Test-Path -LiteralPath $candidate) {
+        throw "Isolated matching-SDK build root already exists: $candidate"
+    }
+    $created = New-Item -ItemType Directory -Path $candidate
+    if (($created.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Isolated matching-SDK build root must not be redirected: $candidate"
+    }
+    return $created.FullName
+}
+
+function Remove-IsolatedBuildRoot {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+    $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+    $leaf = Split-Path -Leaf $resolved
+    if (
+        (Split-Path -Parent $resolved) -cne $tempRoot -or
+        $leaf -notmatch '^cadplot-matching-sdk-build-[0-9a-f]{32}$'
+    ) {
+        throw "Refusing to delete an unexpected build root: $resolved"
+    }
+    if (-not (Test-Path -LiteralPath $resolved)) { return }
+    $items = @((Get-Item -LiteralPath $resolved -Force)) + @(
+        Get-ChildItem -LiteralPath $resolved -Force -Recurse
+    )
+    foreach ($item in $items) {
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Refusing to delete a redirected build tree; inspect manually: $($item.FullName)"
+        }
+    }
+    [System.IO.Directory]::Delete($resolved, $true)
+}
+
+$isolatedBuildRoot = $null
 Push-Location $repoRoot
 try {
     $commitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
@@ -120,15 +160,41 @@ try {
     $project2016 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2016\CadPlotMcp.AutoCAD2016.csproj"
     $project2025 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2025\CadPlotMcp.AutoCAD2025.csproj"
 
-    & $DotNet build $project2016 --configuration $Configuration `
+    # Never package an ignored bin/obj artifact from an earlier SDK or protocol-only build. Each
+    # supported release is compiled into a fresh, release-specific tree outside the repository.
+    $isolatedBuildRoot = New-IsolatedBuildRoot
+    $build2016Root = Join-Path $isolatedBuildRoot "2016"
+    $build2025Root = Join-Path $isolatedBuildRoot "2025"
+    $configurationPivot = $Configuration.ToLowerInvariant()
+    $bin2016 = Join-Path $build2016Root "bin\CadPlotMcp.AutoCAD2016\$configurationPivot"
+    $bin2025 = Join-Path $build2025Root "bin\CadPlotMcp.AutoCAD2025\$configurationPivot"
+
+    & $DotNet build $project2016 --configuration $Configuration --no-incremental `
+        --artifacts-path $build2016Root `
         "-p:BuildAutoCADPlugin=true" "-p:AutoCAD2016SdkDir=$AutoCAD2016SdkDir" `
-        "-p:RepositoryCommit=$commit"
+        "-p:RepositoryCommit=$commit" "-p:UseSharedCompilation=false"
     if ($LASTEXITCODE -ne 0) { throw "AutoCAD 2016 plug-in build failed." }
 
-    & $DotNet build $project2025 --configuration $Configuration `
+    & $DotNet build $project2025 --configuration $Configuration --no-incremental `
+        --artifacts-path $build2025Root `
         "-p:BuildAutoCADPlugin=true" "-p:AutoCAD2025SdkDir=$AutoCAD2025SdkDir" `
-        "-p:RepositoryCommit=$commit"
+        "-p:RepositoryCommit=$commit" "-p:UseSharedCompilation=false"
     if ($LASTEXITCODE -ne 0) { throw "AutoCAD 2025 plug-in build failed." }
+
+    foreach ($output in @(
+        (Join-Path $bin2016 "CadPlotMcp.AutoCAD2016.dll"),
+        (Join-Path $bin2016 "CadPlotMcp.Core.dll"),
+        (Join-Path $bin2025 "CadPlotMcp.AutoCAD2025.dll"),
+        (Join-Path $bin2025 "CadPlotMcp.Core.dll")
+    )) {
+        if (-not (Test-Path -LiteralPath $output -PathType Leaf)) {
+            throw "Isolated matching-SDK build did not produce a required DLL: $output"
+        }
+        $outputItem = Get-Item -LiteralPath $output -Force
+        if (($outputItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Isolated matching-SDK output must not be redirected: $output"
+        }
+    }
 
     $commitAfterBuild = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))[0].Trim()
     $changesAfterBuild = @(Invoke-GitReadOnly -Arguments @(
@@ -152,8 +218,6 @@ try {
     $dest2025 = Join-Path $outputBundle "Contents\Windows\2025"
     $null = New-Item -ItemType Directory -Path $dest2016,$dest2025
 
-    $bin2016 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2016\bin\$Configuration\net45"
-    $bin2025 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2025\bin\$Configuration\net8.0-windows"
     Copy-Item -LiteralPath (Join-Path $bin2016 "CadPlotMcp.AutoCAD2016.dll") -Destination $dest2016
     Copy-Item -LiteralPath (Join-Path $bin2016 "CadPlotMcp.Core.dll") -Destination $dest2016
     Copy-Item -LiteralPath (Join-Path $bin2025 "CadPlotMcp.AutoCAD2025.dll") -Destination $dest2025
@@ -231,4 +295,7 @@ try {
 }
 finally {
     Pop-Location
+    if (-not [string]::IsNullOrWhiteSpace($isolatedBuildRoot)) {
+        Remove-IsolatedBuildRoot -Path $isolatedBuildRoot
+    }
 }

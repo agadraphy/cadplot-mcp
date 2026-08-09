@@ -163,6 +163,43 @@ def test_autocad_api_series_checker_binds_bundle_build_to_exact_releases() -> No
     assert "check-autocad-api-series.ps1" in builder
 
 
+def test_matching_sdk_bundle_build_isolated_from_stale_repository_outputs() -> None:
+    builder = (REPOSITORY_ROOT / "scripts" / "build-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "New-IsolatedBuildRoot",
+        "Remove-IsolatedBuildRoot",
+        "cadplot-matching-sdk-build-",
+        '[ValidateSet("Release")]',
+        "--no-incremental",
+        "--artifacts-path $build2016Root",
+        "--artifacts-path $build2025Root",
+        '"bin\\CadPlotMcp.AutoCAD2016\\$configurationPivot"',
+        '"bin\\CadPlotMcp.AutoCAD2025\\$configurationPivot"',
+        "-p:UseSharedCompilation=false",
+        "Isolated matching-SDK build did not produce a required DLL",
+        "[System.IO.Directory]::Delete($resolved, $true)",
+    ):
+        assert required in builder
+    assert "CadPlotMcp.AutoCAD2016\\bin\\$Configuration" not in builder
+    assert "CadPlotMcp.AutoCAD2025\\bin\\$Configuration" not in builder
+    assert "Remove-Item" not in builder
+
+
+def test_shared_autocad_runtime_has_explicit_cross_version_nullable_context() -> None:
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+
+    assert runtime.startswith("#nullable disable\n")
+
+
 def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1").read_text(encoding="utf-8")
 

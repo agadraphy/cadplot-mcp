@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Matching R20.1/R25.0 bundles now compile in fresh release-specific temporary trees with
+  incremental/shared compilation disabled, so stale ignored repository outputs can never be
+  packaged as production adapters. The cross-version Autodesk runtime also has an explicit
+  nullable context so enabling the 2025 SDK path compiles under the repository's warnings-as-errors
+  policy.
 - Symmetric `CADPLOT_PIPE_NAME` selection in the Python client and both AutoCAD adapters, plus
   bounded version-specific `CADPLOT_AUTOCAD_PROGID` inspection. Safe pipe names are validated by
   the shared .NET protocol; COM selection accepts only approved AutoCAD identities and verifies the
