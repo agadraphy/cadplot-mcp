@@ -3,12 +3,17 @@
 ## Sunum öncesi tek komut kontrol
 
 ```powershell
-.\scripts\run-local-preflight.ps1 `
+.\scripts\run-demo-rehearsal.ps1 `
   -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2025"
 ```
 
-Bu komut AutoCAD'i açmaz ve canlı plot kanıtı üretmez. Son JSON'da `passed=true` görülmeden demoya
-başlamayın; `live_publish_proven=false` değeri canlı pilot yapılana kadar doğru kalmalıdır.
+Bu komut tüm yerel preflight zincirini çalıştırır, ardından temiz Git commit'ini ve üretilen wheel'in
+SHA-256 hash'ini rapora bağlar. AutoCAD'i açmaz ve canlı plot kanıtı üretmez. Son JSON'da
+`passed=true`, `local_demo_ready=true`, `worktree_clean=true` görülmeden demoya başlamayın;
+`live_publish_proven=false` değeri canlı pilot yapılana kadar doğru kalmalıdır.
+
+`licensed_live_pilot_ready=false` hata değildir: lisanslı hedef makine, yetkili şirket plot kaynakları
+ve tek-pafta görsel kanıtı olmadan canlı başarı iddiası üretilmesini özellikle engeller.
 
 Bu demo yalnız lisanslı şirket iş istasyonunda, sorumlunun izin verdiği anonim veya üretim dışı bir
 DWG kopyasıyla yapılır. Şirket DWG/PC3/PMP/CTB/STB/DWT dosyaları kişisel bilgisayara veya GitHub'a

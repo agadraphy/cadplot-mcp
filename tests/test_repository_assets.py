@@ -103,6 +103,28 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
     assert "Start-Process" not in script
 
 
+def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "run-demo-rehearsal.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "run-local-preflight.ps1",
+        '"rev-parse", "HEAD"',
+        '"status"',
+        '"--porcelain=v1"',
+        "Get-FileHash",
+        "local_demo_ready = $true",
+        "licensed_live_pilot_ready = $false",
+        "public_release_ready = $false",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+        "company_assets_copied = $false",
+    ):
+        assert required in script
+    assert "Start-Process" not in script
+
+
 def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "smoke-wheel-install.py").read_text(
         encoding="utf-8"
