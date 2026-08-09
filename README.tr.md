@@ -109,11 +109,26 @@ açılmamalıdır. Ayrıntılar: [loopback Streamable HTTP](docs/loopback-http.m
 bilgi içermeyen yönetici devir raporu üretilebilir:
 
 ```powershell
-uv run cadplot-tunnel-preflight --transport stdio --probe-target
+uv run cadplot-tunnel-preflight --transport stdio --probe-target `
+  --output C:\CadPlotPilot\chatgpt\tunnel-preflight.json
 ```
 
 Ayrıntılar: [Secure MCP Tunnel yönetici devri](docs/secure-tunnel-handoff.md). Platform tüneli,
 runtime anahtarı, workspace yetkileri ve canlı uygulama taraması şirket yöneticisinin kapılarıdır.
+
+Bu dış kapılar geçtikten sonra, exact araç yüzeyi hashine bağlı 13 vakalık ChatGPT araç-seçimi
+değerlendirmesini hazırlayın:
+
+```powershell
+uv run cadplot-chatgpt-eval prepare `
+  --preflight C:\CadPlotPilot\chatgpt\tunnel-preflight.json `
+  --output-dir C:\CadPlotPilot\chatgpt\evaluation-001
+```
+
+Sanitize sonuç doğrulayıcısı doğrudan, dolaylı, takip, onay, adversarial, edge, iptal ve recovery
+davranışlarını sınar; şirket yolu veya ham sohbet içeriği saklamaz. Bu kayıt yalnız ChatGPT araç
+sözleşmesini kanıtlar, lisanslı AutoCAD 2016/2025 pilotunun yerine geçmez. Ayrıntılar:
+[ChatGPT araç-seçimi değerlendirmesi](docs/chatgpt-evaluation.md).
 
 MCP istemcisini bağlamadan önce salt-okunur kurulum teşhisini çalıştırabilirsiniz:
 

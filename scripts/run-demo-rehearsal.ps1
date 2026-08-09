@@ -107,6 +107,8 @@ try {
         $preflightSummary.wheel_install_smoke.tunnel_preflight_target_probed -ne $true -or
         [string]$preflightSummary.wheel_install_smoke.tunnel_preflight_tool_surface_sha256 `
             -notmatch '^[0-9a-f]{64}$' -or
+        $preflightSummary.wheel_install_smoke.chatgpt_eval_plan_prepared -ne $true -or
+        $preflightSummary.wheel_install_smoke.chatgpt_eval_case_count -ne 13 -or
         $preflightSummary.wheel_install_smoke.isolated_install -ne $true -or
         $preflightSummary.wheel_install_smoke.autocad_launched -ne $false -or
         $preflightSummary.wheel_install_smoke.live_tunnel_proven -ne $false -or

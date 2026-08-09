@@ -19,6 +19,7 @@ try {
     $source = Join-Path $resolvedRoot "cadplot-mcp-source-0000000.zip"
     $demoRunbook = Join-Path $resolvedRoot "pazartesi-demo-tr.md"
     $tunnelHandoff = Join-Path $resolvedRoot "secure-tunnel-handoff.md"
+    $chatgptEvaluation = Join-Path $resolvedRoot "chatgpt-evaluation.md"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") -Destination $verifier
     [System.IO.File]::WriteAllText($wheel, "synthetic wheel", [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($source, "synthetic source", [System.Text.UTF8Encoding]::new($false))
@@ -28,7 +29,14 @@ try {
     [System.IO.File]::WriteAllText(
         $tunnelHandoff, "synthetic tunnel handoff", [System.Text.UTF8Encoding]::new($false)
     )
-    $files = @(@($verifier, $wheel, $source, $demoRunbook, $tunnelHandoff) | ForEach-Object {
+    [System.IO.File]::WriteAllText(
+        $chatgptEvaluation,
+        "synthetic ChatGPT evaluation guide",
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $files = @(@(
+        $verifier, $wheel, $source, $demoRunbook, $tunnelHandoff, $chatgptEvaluation
+    ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
             sha256 = (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -105,6 +113,8 @@ try {
             tunnel_preflight_redacted = $true
             tunnel_preflight_target_probed = $true
             tunnel_preflight_tool_surface_sha256 = "a" * 64
+            chatgpt_eval_plan_prepared = $true
+            chatgpt_eval_case_count = 13
             isolated_install = $true
             locked_dependencies = $true
             dependency_hashes_required = $true

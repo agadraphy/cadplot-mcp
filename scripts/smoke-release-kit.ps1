@@ -119,7 +119,7 @@ try {
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
         "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md",
-        "secure-tunnel-handoff.md",
+        "secure-tunnel-handoff.md", "chatgpt-evaluation.md",
         "autodesk-sdk-prerequisites.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
@@ -188,6 +188,8 @@ try {
         tunnel_preflight_redacted = $true
         tunnel_preflight_target_probed = $true
         tunnel_preflight_tool_surface_sha256 = "a" * 64
+        chatgpt_eval_plan_prepared = $true
+        chatgpt_eval_case_count = 13
         isolated_install = $true
         locked_dependencies = $true
         dependency_hashes_required = $true

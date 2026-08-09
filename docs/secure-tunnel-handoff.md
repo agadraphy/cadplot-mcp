@@ -32,6 +32,11 @@ publish. `tool_surface_sha256` fingerprints the probed local contract for retain
 workspace association, ChatGPT app scan, AutoCAD 2016/2025 execution, or PDF output.
 `local_target_proven=true` means the local protocol probe passed in this invocation.
 
+Use `--output <new-file.json>` when retaining this report. The command writes BOM-free UTF-8 and
+refuses an existing target. After the administrator finishes the external tunnel/app setup, run the
+separate [ChatGPT tool-selection evaluation](chatgpt-evaluation.md); its plan is bound to this
+report's `tool_surface_sha256` and does not replace licensed AutoCAD acceptance.
+
 ## Administrator-owned steps
 
 The workspace and Platform administrators must separately:
@@ -61,6 +66,11 @@ Keep `run` healthy while creating the ChatGPT developer-mode app and choose **Tu
 connection. The administrator must retain the successful doctor result, workspace association, app
 scan, and a one-sheet approval-gated CadPlot pilot as separate evidence. Do not interpret tunnel
 health as plot success; CadPlot completion still requires `publish_verified=true`.
+
+Then prepare and complete the 13-case evaluation in
+[ChatGPT tool-selection evaluation](chatgpt-evaluation.md). It exercises direct, indirect,
+follow-up, approval, adversarial, edge, cancellation, and recovery behavior while retaining only a
+sanitized tool-name/result record.
 
 For the optional local HTTP target, start `cadplot-mcp-http --port 8765`, rerun preflight with
 `--transport http --port 8765 --probe-target`, and initialize with

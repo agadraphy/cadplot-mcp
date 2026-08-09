@@ -52,6 +52,11 @@ probe while reporting tunnel IDs and runtime keys only as booleans. It never cal
 starts a tunnel, prints a secret, checks admin permissions, or launches AutoCAD. See
 [Secure MCP Tunnel handoff](secure-tunnel-handoff.md).
 
+The installed `cadplot-chatgpt-eval` command turns that probed surface fingerprint into a canonical
+13-case tool-selection plan and validates a sanitized external result record. See
+[ChatGPT tool-selection evaluation](chatgpt-evaluation.md). This proves ChatGPT selection and
+confirmation behavior, not AutoCAD output.
+
 CadPlot also ships `cadplot-mcp-http --port 8765` as a loopback-only target. It binds only
 `127.0.0.1`, enforces exact Host headers, rejects browser Origin headers, and caps requests at 1 MiB.
 It has no public listener or application-level OAuth and must not be placed behind a generic public

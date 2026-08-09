@@ -10,6 +10,7 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
@@ -59,6 +60,7 @@ WRITE_TOOLS = {
     "stage_publish_job",
 }
 DESTRUCTIVE_TOOLS = {"cancel_publish_job"}
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 
 
 def _configured(value: str | None) -> bool:
@@ -70,6 +72,28 @@ def _plausible_tunnel_id(value: str | None) -> bool:
         return False
     assert value is not None
     return re.fullmatch(r"tunnel_[A-Za-z0-9_-]{8,152}", value) is not None
+
+
+def _assert_no_redirected_ancestor(value: Path) -> None:
+    current = value.absolute()
+    while not current.exists():
+        parent = current.parent
+        if parent == current:
+            raise ValueError("No existing output ancestor was found.")
+        current = parent
+    while True:
+        try:
+            redirected = current.is_symlink() or bool(
+                current.lstat().st_file_attributes & FILE_ATTRIBUTE_REPARSE_POINT
+            )
+        except AttributeError:
+            redirected = current.is_symlink()
+        if redirected:
+            raise ValueError("Tunnel preflight output must not pass through a filesystem redirect.")
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
 
 
 def build_tunnel_preflight(
@@ -298,6 +322,10 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--profile", default="cadplot-local")
     parser.add_argument(
+        "--output",
+        help="Optional new UTF-8 JSON report file; existing files are never overwritten.",
+    )
+    parser.add_argument(
         "--probe-target",
         action="store_true",
         help=(
@@ -306,6 +334,34 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+    output = None
+    if args.output:
+        try:
+            output_candidate = Path(args.output).expanduser()
+            _assert_no_redirected_ancestor(output_candidate)
+            output = output_candidate.resolve(strict=False)
+        except (OSError, ValueError):
+            print(
+                json.dumps(
+                    {
+                        "local_handoff_ready": False,
+                        "error": "Tunnel preflight output path is not safe.",
+                    },
+                    indent=2,
+                )
+            )
+            return 2
+    if output is not None and output.exists():
+        print(
+            json.dumps(
+                {
+                    "local_handoff_ready": False,
+                    "error": "Output already exists; tunnel preflight never overwrites.",
+                },
+                indent=2,
+            )
+        )
+        return 2
     try:
         report = build_tunnel_preflight(
             config=args.config,
@@ -348,7 +404,25 @@ def main() -> int:
                 "live_tunnel_proven": False,
                 "live_publish_proven": False,
             }
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    rendered = json.dumps(report, ensure_ascii=False, indent=2)
+    if output is not None:
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with output.open("x", encoding="utf-8") as stream:
+                stream.write(rendered)
+                stream.write("\n")
+        except OSError:
+            print(
+                json.dumps(
+                    {
+                        "local_handoff_ready": False,
+                        "error": "Tunnel preflight output could not be written safely.",
+                    },
+                    indent=2,
+                )
+            )
+            return 2
+    print(rendered)
     return 0 if report["local_handoff_ready"] else 1
 
 

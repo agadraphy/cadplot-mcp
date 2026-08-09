@@ -191,6 +191,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             "cadplot-assemble-pilot",
             "cadplot-validate-pilot",
             "cadplot-tunnel-preflight",
+            "cadplot-chatgpt-eval",
         )
         acceptance_commands = ("cadplot-acceptance",)
         for command_name in pilot_commands + acceptance_commands:
@@ -234,12 +235,15 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         tunnel_environment["PATH"] = (
             str(command_root) + os.pathsep + tunnel_environment.get("PATH", "")
         )
+        preflight_path = temporary_root / "tunnel-preflight.json"
         tunnel_output = _run(
             [
                 str(command_root / f"cadplot-tunnel-preflight{command_suffix}"),
                 "--transport",
                 "stdio",
                 "--probe-target",
+                "--output",
+                str(preflight_path),
             ],
             cwd=temporary_root,
             environment=tunnel_environment,
@@ -260,8 +264,40 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             or tunnel_report.get("live_publish_proven") is not False
             or "runtime-secret-sentinel" in tunnel_output
             or str(tunnel_config) in tunnel_output
+            or not preflight_path.is_file()
+            or json.loads(preflight_path.read_text(encoding="utf-8")) != tunnel_report
         ):
             raise RuntimeError("Installed wheel failed the secret-free tunnel preflight smoke.")
+
+        evaluation_root = temporary_root / "chatgpt-evaluation"
+        evaluation_output = _run(
+            [
+                str(command_root / f"cadplot-chatgpt-eval{command_suffix}"),
+                "prepare",
+                "--preflight",
+                str(preflight_path),
+                "--output-dir",
+                str(evaluation_root),
+            ],
+            cwd=temporary_root,
+            environment=tunnel_environment,
+        )
+        evaluation_report = json.loads(evaluation_output)
+        if (
+            evaluation_report.get("prepared") is not True
+            or evaluation_report.get("case_count") != 13
+            or evaluation_report.get("tool_surface_sha256")
+            != tunnel_report["target_probe"]["tool_surface_sha256"]
+            or evaluation_report.get("company_data_included") is not False
+            or evaluation_report.get("raw_chat_content_included") is not False
+            or evaluation_report.get("machine_paths_included") is not False
+            or evaluation_report.get("autocad_launched") is not False
+            or evaluation_report.get("live_tunnel_proven") is not False
+            or evaluation_report.get("live_publish_proven") is not False
+            or not (evaluation_root / "chatgpt-eval-plan.json").is_file()
+            or not (evaluation_root / "chatgpt-eval-results.template.json").is_file()
+        ):
+            raise RuntimeError("Installed wheel failed the ChatGPT evaluation preparation smoke.")
 
     return {
         "passed": True,
@@ -285,6 +321,8 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "tunnel_preflight_tool_surface_sha256": tunnel_report["target_probe"][
             "tool_surface_sha256"
         ],
+        "chatgpt_eval_plan_prepared": True,
+        "chatgpt_eval_case_count": evaluation_report["case_count"],
         "inspector_worker_protocol": True,
         "isolated_install": True,
         "locked_dependencies": True,

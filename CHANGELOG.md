@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Canonical, tool-surface-hash-bound 13-case ChatGPT tool-selection evaluation covering direct,
+  indirect, follow-up, approval, adversarial, edge, pending-cancellation, and recovery behavior.
+  The installed no-overwrite preparer/validator retains only sanitized tool-name attestations,
+  fails closed on forbidden writes or reordered calls, and never upgrades its evidence into live
+  publish or licensed AutoCAD acceptance. Tunnel preflight now writes optional BOM-free UTF-8
+  evidence with `--output`.
 - Exact, idempotent pending-job cancellation with an authenticated durable tombstone, restart
   non-replay, `Cancelled` live state, cancellation telemetry, fail-safe operations-report hold, and
   explicit refusal to interrupt a running PlotEngine job. Fifteen exact queue scenarios now bind

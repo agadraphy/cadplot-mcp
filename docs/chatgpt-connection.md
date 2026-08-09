@@ -54,6 +54,8 @@ Implemented in this repository:
 - local Python/AutoCAD named-pipe protocol;
 - approval-bound staging and publishing;
 - immutable receipt and PDF audit evidence.
+- a canonical, hash-bound 13-case ChatGPT tool-selection evaluation plan and sanitized result
+  validator.
 
 Not implemented or claimed:
 
@@ -65,6 +67,11 @@ Not implemented or claimed:
 
 Those are separate delivery gates. A successful local synthetic test or compile probe must never be
 presented as proof of any of them.
+
+After the external tunnel and ChatGPT app scan pass, use the
+[ChatGPT tool-selection evaluation](chatgpt-evaluation.md) to retain direct, indirect, follow-up,
+approval, adversarial, and edge-case evidence. A passing evaluation proves the connected model/tool
+contract only; it deliberately keeps live publish and licensed AutoCAD acceptance claims false.
 
 The recommended tunnel target is installed `cadplot-mcp` over STDIO. The alternative loopback
 endpoint is started with `cadplot-mcp-http --port 8765`. It is not a hosted gateway:

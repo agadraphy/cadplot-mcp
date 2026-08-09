@@ -161,6 +161,8 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "audit-release-artifacts.py",
         "smoke-wheel-install.py",
         "tunnel_preflight_target_probed -ne $true",
+        "chatgpt_eval_plan_prepared -ne $true",
+        "chatgpt_eval_case_count -ne 13",
         "wheel_install_smoke = [ordered]@{",
         "smoke-demo-kit.ps1",
         "smoke-bundle-install.ps1",
@@ -204,6 +206,8 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "wheel_install_smoke = $preflightSummary.wheel_install_smoke",
         "durable_queue_recovery = $preflightSummary.durable_queue_recovery",
         "Installed wheel smoke hash no longer matches",
+        "chatgpt_eval_plan_prepared -ne $true",
+        "chatgpt_eval_case_count -ne 13",
         "api_probe = $preflightSummary.api_probe",
         "unexpectedly contains API evidence",
         "target_drawings -ne 300",
@@ -366,12 +370,15 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"cadplot-assemble-pilot"',
         '"cadplot-validate-pilot"',
         '"cadplot-tunnel-preflight"',
+        '"cadplot-chatgpt-eval"',
         '"pilot_cli_commands": len(pilot_commands)',
         '"cadplot-acceptance"',
         '"acceptance_cli_commands": len(acceptance_commands)',
         '"tunnel_preflight_redacted": True',
         '"tunnel_preflight_target_probed": True',
         '"tunnel_preflight_tool_surface_sha256"',
+        '"chatgpt_eval_plan_prepared": True',
+        '"chatgpt_eval_case_count"',
         'or "runtime-secret-sentinel" in tunnel_output',
         '"inspector_worker_protocol": True',
     ):
@@ -1050,6 +1057,8 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "Not implemented or claimed" in architecture
     assert "loopback-only Streamable HTTP" in architecture
     assert "cadplot-tunnel-preflight" in architecture
+    assert "chatgpt-evaluation.md" in deployment
+    assert "ChatGPT tool-selection evaluation" in architecture
 
 
 def test_secure_tunnel_handoff_is_secret_free_and_keeps_live_gates_external() -> None:
@@ -1064,6 +1073,8 @@ def test_secure_tunnel_handoff_is_secret_free_and_keeps_live_gates_external() ->
         "cadplot-tunnel-preflight --transport stdio --probe-target",
         "local_target_proven=true",
         "tool_surface_sha256",
+        "--output <new-file.json>",
+        "chatgpt-evaluation.md",
         "tunnel-client doctor --profile cadplot-local --explain",
         "--mcp-command \"cadplot-mcp\"",
         "Platform tunnel creation",
@@ -1080,6 +1091,7 @@ def test_secure_tunnel_handoff_is_secret_free_and_keeps_live_gates_external() ->
         '"autocad_launched": False',
         '"live_tunnel_proven": False',
         '"live_publish_proven": False',
+        '"--output"',
     ):
         assert required in preflight
 
@@ -1133,6 +1145,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "cadplot-doctor.cmd",
         "cadplot-mcp-http.cmd",
         "cadplot-tunnel-preflight.cmd",
+        "cadplot-chatgpt-eval.cmd",
         "PYTHONDONTWRITEBYTECODE",
         "[System.IO.File]::Delete($inventoryScript)",
         "[Environment]::SetEnvironmentVariable",
@@ -1158,6 +1171,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "uninstall-release-kit.ps1",
         "loopback-http.md",
         "secure-tunnel-handoff.md",
+        "chatgpt-evaluation.md",
     ):
         assert name in kit_builder
         assert name in kit_verifier

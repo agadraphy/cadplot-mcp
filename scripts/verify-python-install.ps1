@@ -88,7 +88,7 @@ if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
 }
 $expectedCommands = @(
     "cadplot-acceptance.cmd", "cadplot-assemble-pilot.cmd", "cadplot-collect-pilot.cmd",
-    "cadplot-doctor.cmd", "cadplot-mcp-http.cmd", "cadplot-mcp.cmd",
+    "cadplot-chatgpt-eval.cmd", "cadplot-doctor.cmd", "cadplot-mcp-http.cmd", "cadplot-mcp.cmd",
     "cadplot-tunnel-preflight.cmd", "cadplot-validate-pilot.cmd"
 )
 $commandRoot = Join-Path $root "bin"
@@ -165,6 +165,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Installed HTTP launcher smoke failed." }
     & (Join-Path $commandRoot "cadplot-tunnel-preflight.cmd") --help 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Installed tunnel preflight launcher smoke failed." }
+    & (Join-Path $commandRoot "cadplot-chatgpt-eval.cmd") --help 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Installed ChatGPT evaluation launcher smoke failed." }
 }
 finally {
     [Environment]::SetEnvironmentVariable(

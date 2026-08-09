@@ -85,12 +85,26 @@ For the recommended private ChatGPT pilot target over STDIO, generate a secret-f
 handoff report without contacting OpenAI or launching AutoCAD:
 
 ```powershell
-uv run cadplot-tunnel-preflight --transport stdio --probe-target
+uv run cadplot-tunnel-preflight --transport stdio --probe-target `
+  --output C:\CadPlotPilot\chatgpt\tunnel-preflight.json
 ```
 
 See [Secure MCP Tunnel administrator handoff](docs/secure-tunnel-handoff.md). Platform tunnel
 creation, runtime credentials, workspace permissions, and the live app scan remain administrator
 gates.
+
+After those external gates pass, prepare the hash-bound 13-case ChatGPT tool-selection evaluation:
+
+```powershell
+uv run cadplot-chatgpt-eval prepare `
+  --preflight C:\CadPlotPilot\chatgpt\tunnel-preflight.json `
+  --output-dir C:\CadPlotPilot\chatgpt\evaluation-001
+```
+
+The sanitized validator tests direct, indirect, follow-up, approval, adversarial, edge,
+cancellation, and recovery behavior without retaining company paths or raw chat content. It proves
+the ChatGPT tool contract only and cannot replace licensed AutoCAD 2016/2025 evidence. See
+[ChatGPT tool-selection evaluation](docs/chatgpt-evaluation.md).
 
 Before connecting an MCP client, diagnose the local installation without launching AutoCAD:
 

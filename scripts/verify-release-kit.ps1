@@ -133,6 +133,8 @@ foreach ($evidence in @($outer, $manifest)) {
         $wheelSmoke.tunnel_preflight_redacted -ne $true -or
         $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
         [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch $shaPattern -or
+        $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
+        $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
         $wheelSmoke.isolated_install -ne $true -or
         $wheelSmoke.locked_dependencies -ne $true -or
         $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -270,7 +272,7 @@ $fixedFiles = @(
     "docs/monday-pilot.md", "docs/pazartesi-demo-tr.md", "docs/release-checklist.md",
     "docs/release-kit-install.md", "docs/pilot-evidence.md", "docs/deployment-modes.md",
     "docs/release-acceptance.md", "docs/chatgpt-connection.md", "docs/loopback-http.md",
-    "docs/secure-tunnel-handoff.md",
+    "docs/secure-tunnel-handoff.md", "docs/chatgpt-evaluation.md",
     "docs/autodesk-sdk-prerequisites.md",
     "config/config.inventory.example.yaml", "release-kit.json"
 )

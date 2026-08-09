@@ -145,3 +145,41 @@ def test_cli_failure_is_machine_readable_and_does_not_leak_config_path(tmp_path:
     assert report["prerequisites"]["cadplot_config_valid"] is False
     assert str(secret_named_path) not in result.stdout
     assert report["autocad_launched"] is False
+
+
+def test_cli_output_is_utf8_no_overwrite_and_matches_stdout(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    output = tmp_path / "evidence" / "tunnel-preflight.json"
+    environment = os.environ.copy()
+    environment["CADPLOT_CONFIG"] = str(config)
+    environment["PATH"] = str(Path(sys.executable).parent) + os.pathsep + environment.get(
+        "PATH", ""
+    )
+    command = [
+        sys.executable,
+        "-m",
+        "cadplot_mcp.tunnel_preflight",
+        "--config",
+        str(config),
+        "--transport",
+        "stdio",
+        "--probe-target",
+        "--output",
+        str(output),
+    ]
+
+    completed = subprocess.run(
+        command, capture_output=True, text=True, check=False, env=environment
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert output.read_bytes()[:3] != b"\xef\xbb\xbf"
+    assert json.loads(output.read_text(encoding="utf-8")) == json.loads(completed.stdout)
+
+    repeated = subprocess.run(
+        command, capture_output=True, text=True, check=False, env=environment
+    )
+    assert repeated.returncode == 2
+    assert json.loads(repeated.stdout) == {
+        "local_handoff_ready": False,
+        "error": "Output already exists; tunnel preflight never overwrites.",
+    }

@@ -223,6 +223,8 @@ try {
         $wheelSmoke.tunnel_preflight_redacted -ne $true -or
         $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
         [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
+        $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
         $wheelSmoke.isolated_install -ne $true -or
         $wheelSmoke.locked_dependencies -ne $true -or
         $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -272,6 +274,9 @@ try {
     $tunnelHandoff = Join-Path $kitRoot "secure-tunnel-handoff.md"
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\secure-tunnel-handoff.md") `
         -Destination $tunnelHandoff
+    $chatgptEvaluation = Join-Path $kitRoot "chatgpt-evaluation.md"
+    Copy-Item -LiteralPath (Join-Path $repoRoot "docs\chatgpt-evaluation.md") `
+        -Destination $chatgptEvaluation
 
     $sourceHash = (Get-FileHash -LiteralPath $sourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
     $kitWheelHash = (Get-FileHash -LiteralPath $kitWheel -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -280,7 +285,8 @@ try {
     }
     else { $null }
     $fileEvidence = @(@(
-        $sourceArchive, $kitWheel, $kitVerifier, $demoRunbook, $tunnelHandoff
+        $sourceArchive, $kitWheel, $kitVerifier, $demoRunbook, $tunnelHandoff,
+        $chatgptEvaluation
     ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)

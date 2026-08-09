@@ -107,6 +107,13 @@ Use this checklist for every alpha release.
 
 - [ ] The change has focused test coverage and a documented safety impact.
 - [ ] At least one dry-run transcript or equivalent manual result is reviewed.
+- [ ] `cadplot-tunnel-preflight --probe-target --output <new-file>` produced a secret-free exact
+      20-tool report for the installed release.
+- [ ] `cadplot-chatgpt-eval prepare` produced the canonical 13-case plan bound to that report's
+      `tool_surface_sha256` without overwriting existing evidence.
+- [ ] An authorized workspace evaluator completed all direct, indirect, follow-up, approval,
+      adversarial, edge, cancellation, and recovery cases; the sanitized validator returned
+      `valid=true`, `passed_case_count=13`, and kept live publish/licensed AutoCAD claims false.
 - [ ] Synthetic demo evidence is labelled synthetic and is not presented as AutoCAD evidence.
 - [ ] Known limitations and incompatible changes are stated in release notes.
 - [ ] A maintainer has reviewed the release artifacts before publication.

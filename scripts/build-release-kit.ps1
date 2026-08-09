@@ -230,6 +230,8 @@ try {
         $wheelSmoke.tunnel_preflight_redacted -ne $true -or
         $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
         [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
+        $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
         $wheelSmoke.isolated_install -ne $true -or
         $wheelSmoke.locked_dependencies -ne $true -or
         $wheelSmoke.dependency_hashes_required -ne $true -or
@@ -314,7 +316,7 @@ try {
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
         "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md",
-        "secure-tunnel-handoff.md",
+        "secure-tunnel-handoff.md", "chatgpt-evaluation.md",
         "autodesk-sdk-prerequisites.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
