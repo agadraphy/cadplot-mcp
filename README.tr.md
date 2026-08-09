@@ -98,6 +98,9 @@ kâğıt etiketiyle eşleşmeyen `examples/config.inventory.example.yaml` kullan
 harf kullanılarak girilmelidir.
 `pdf_page_tolerance_mm`, üretilen PDF'nin fiziksel sayfa ölçüsü kontrolünü belirler ve güvenlik
 nedeniyle 10 mm'yi geçemez.
+Named page setup ayrıca doğrulanmış 1:1 paper-space plot ölçeği kullanmalıdır. `Scale to fit` veya
+okunamayan/custom ama 1:1 olmayan setup planı bloklar; model ölçeği yalnız kilitli viewport'ta
+uygulanır.
 `minimum_frame_confidence` varsayılan olarak `0.85` değerindedir; nested veya belirsiz çerçeveler
 bu eşiğin altında otomatik yayına alınmaz.
 Ofisin güvenilir bir çerçeve layer standardı varsa `frame_layers` listesi doldurulabilir; diğer

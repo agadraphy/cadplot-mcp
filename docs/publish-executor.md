@@ -11,8 +11,10 @@ For every job the plug-in:
 1. requires the trusted `CADPLOT_WORKSPACE_ROOT` configured outside the MCP request;
 2. revalidates the approved manifest SHA-256, paths, exact plan ID, sheet metadata, source size,
    and staged-DWG SHA-256;
-3. refuses existing output PDFs, existing target layouts, unsupported paper units, missing page
-   setups, plotter/style/media mismatches, and a busy PlotEngine;
+3. independently replays the manifest's window/paper/orientation/scale math and refuses existing
+   output PDFs, existing target layouts, unsupported paper units, missing page setups,
+   plotter/style/media mismatches, any layout plot scale other than verified 1:1, and a busy
+   PlotEngine;
 4. opens only the staged DWG copy and makes it the current locked document;
 5. creates a unique paper-space layout or clones the explicitly approved in-drawing template,
    copies the approved named page setup, and configures a locked viewport centered on the approved
@@ -73,6 +75,7 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 
 - [Layouts (.NET)](https://help.autodesk.com/cloudhelp/2017/ENU/AutoCAD-NET/files/GUID-5FA86EF3-DEFD-4256-BB1C-56DAC32BD868.htm)
 - [Plot settings and page setups (.NET)](https://help.autodesk.com/cloudhelp/2021/ENU/OARX-DevGuide-Managed/files/GUID-56BD3247-471C-4471-A238-FFDFDC3BD2E4.htm)
+- [Standard plot scale (ActiveX)](https://help.autodesk.com/cloudhelp/2025/ENU/AutoCAD-LT-ActiveX-Reference/files/GUID-E8D9D4F5-24C1-4C89-924E-DF57C7F0CF5F.htm)
 - [Create paper-space viewports (.NET)](https://help.autodesk.com/cloudhelp/2016/ENU/AutoCAD-NET/files/GUID-61C22902-F63B-4204-86EC-FA37312D1B6E.htm)
 - [Viewport custom scale](https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_Viewport_CustomScale.html)
 - [PlotEngine lifecycle](https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_PlottingServices_PlotEngine.html)

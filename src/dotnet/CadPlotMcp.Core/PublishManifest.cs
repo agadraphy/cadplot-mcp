@@ -49,6 +49,8 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "window")] public PublishPlotWindow Window { get; set; }
         [DataMember(Name = "rotation_degrees")] public int RotationDegrees { get; set; }
         [DataMember(Name = "scale_denominator")] public double ScaleDenominator { get; set; }
+        [DataMember(Name = "derived_scale_denominator")] public double DerivedScaleDenominator { get; set; }
+        [DataMember(Name = "scale_tolerance_ratio")] public double ScaleToleranceRatio { get; set; }
         [DataMember(Name = "drawing_unit_mm")] public double DrawingUnitMillimetres { get; set; }
         [DataMember(Name = "paper_width_mm")] public double PaperWidthMillimetres { get; set; }
         [DataMember(Name = "paper_height_mm")] public double PaperHeightMillimetres { get; set; }
@@ -197,23 +199,8 @@ namespace CadPlotMcp.Core
 
         private static string ValidateGeometry(PublishPlotGeometry geometry)
         {
-            if (geometry == null || geometry.Window == null) return "invalid_plot_geometry";
-            if (geometry.RotationDegrees != 0 && geometry.RotationDegrees != 90)
-                return "invalid_plot_rotation";
-            if (!PositiveFinite(geometry.ScaleDenominator)
-                || !PositiveFinite(geometry.DrawingUnitMillimetres)
-                || !PositiveFinite(geometry.PaperWidthMillimetres)
-                || !PositiveFinite(geometry.PaperHeightMillimetres))
-                return "invalid_plot_scale";
-            var window = geometry.Window;
-            if (!Finite(window.MinX) || !Finite(window.MinY) || !Finite(window.MaxX) || !Finite(window.MaxY)
-                || window.MaxX <= window.MinX || window.MaxY <= window.MinY)
-                return "invalid_plot_window";
-            return null;
+            return PublishGeometryContract.Validate(geometry);
         }
-
-        private static bool PositiveFinite(double value) { return value > 0 && Finite(value); }
-        private static bool Finite(double value) { return !Double.IsNaN(value) && !Double.IsInfinity(value); }
 
         private static bool SafeResourceName(string value)
         {

@@ -30,6 +30,8 @@ def test_office_inventory_reports_exact_names_without_approving_mapping() -> Non
                 plotter="OFFICE PDF.pc3",
                 media_name="UserDefinedMetric (700.00 x 1000.00MM)",
                 plot_style="OFFICE.ctb",
+                use_standard_scale=True,
+                standard_scale=16,
             ),
         ],
         page_setups=[
@@ -39,6 +41,8 @@ def test_office_inventory_reports_exact_names_without_approving_mapping() -> Non
                 plotter="OFFICE PDF.pc3",
                 media_name="UserDefinedMetric (700.00 x 1000.00MM)",
                 plot_style="OFFICE.ctb",
+                use_standard_scale=True,
+                standard_scale=16,
             )
         ],
     )
@@ -74,3 +78,21 @@ def test_office_inventory_exposes_missing_inputs_as_warnings() -> None:
     assert len(report["warnings"]) == 3
     assert report["resource_names"]["page_setups"] == []
     assert report["template_layout_candidates"] == []
+
+
+def test_office_inventory_warns_about_non_one_to_one_page_setup() -> None:
+    report = build_office_inventory_report(
+        DrawingInspection(
+            path="scale-to-fit.dwg",
+            page_setups=[
+                PageSetupSummary(
+                    name="FIT_TO_PAPER",
+                    model_type=False,
+                    use_standard_scale=True,
+                    standard_scale=0,
+                )
+            ],
+        )
+    )
+
+    assert any("not verified at 1:1" in warning for warning in report["warnings"])

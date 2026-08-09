@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Independent manifest geometry replay for paper orientation, derived/selected scale, tolerance,
+  and frame aspect, plus read-only and plug-in-side enforcement that named paper-space page setups
+  plot at exactly 1:1 rather than multiplying viewport scale with scale-to-fit/custom scaling.
+- Fail-closed rejection of legacy staged manifests without the complete geometry replay contract;
+  affected jobs must be planned and staged again after upgrade.
 - Lock-bound, network-backed Python and .NET dependency vulnerability evidence, including a complete
   transitive Python license inventory. CI and release kits fail closed on known vulnerabilities,
   missing license declarations, incomplete project coverage, or a changed `uv.lock`.

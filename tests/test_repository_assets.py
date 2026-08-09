@@ -434,6 +434,44 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
     assert "--repository-commit" not in assembler
 
 
+def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> None:
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+    contract = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "PublishGeometryContract.cs"
+    ).read_text(encoding="utf-8")
+    planner = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "planner.py").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "settings.UseStandardScale",
+        "StdScaleType.StdScale1To1",
+        "settings.CustomPrintScale",
+        "page_setup_scale_not_one_to_one",
+    ):
+        assert required in runtime
+    for required in (
+        "plot_geometry_rotation_mismatch",
+        "plot_geometry_aspect_mismatch",
+        "derived_scale_mismatch",
+        "plot_scale_mismatch",
+        "IsOneToOneCustomScale",
+    ):
+        assert required in contract
+    assert '"scale_tolerance_ratio": config.scale_tolerance_ratio' in planner
+    assert "has_verified_one_to_one_scale" in planner
+
+
 def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
     builder = (REPOSITORY_ROOT / "scripts" / "build-release-kit.ps1").read_text(
         encoding="utf-8"

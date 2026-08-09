@@ -241,6 +241,8 @@ def _build_plan(path: str, index: int, config: CadPlotConfig) -> dict[str, Any]:
                 plotter="DWG To PDF.pc3",
                 media_name="ISO_A4",
                 plot_style="monochrome.ctb",
+                use_standard_scale=True,
+                standard_scale=16,
             )
         ],
         frames=[

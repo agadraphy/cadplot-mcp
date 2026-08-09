@@ -129,6 +129,7 @@ def _read_layouts(document: Any) -> list[LayoutSummary]:
 def _read_page_setups(document: Any) -> list[PageSetupSummary]:
     page_setups: list[PageSetupSummary] = []
     for setup in document.PlotConfigurations:
+        custom_numerator, custom_denominator = _read_custom_scale(setup)
         page_setups.append(
             PageSetupSummary(
                 name=str(_safe(setup, "Name", "")),
@@ -136,9 +137,26 @@ def _read_page_setups(document: Any) -> list[PageSetupSummary]:
                 plotter=_safe(setup, "ConfigName"),
                 media_name=_safe(setup, "CanonicalMediaName"),
                 plot_style=_safe(setup, "StyleSheet"),
+                use_standard_scale=_safe(setup, "UseStandardScale"),
+                standard_scale=_safe(setup, "StandardScale"),
+                custom_scale_numerator=custom_numerator,
+                custom_scale_denominator=custom_denominator,
             )
         )
     return sorted(page_setups, key=lambda item: (item.model_type, item.name.casefold()))
+
+
+def _read_custom_scale(setup: Any) -> tuple[float | None, float | None]:
+    try:
+        value = setup.GetCustomScale()
+    except Exception:
+        return None, None
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None, None
+    try:
+        return float(value[0]), float(value[1])
+    except (TypeError, ValueError):
+        return None, None
 
 
 def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str]]:

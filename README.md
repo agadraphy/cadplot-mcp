@@ -161,7 +161,9 @@ and the detected paper label are used to derive rotation and scale. Only values 
 remain blockers in the dry-run plan.
 
 With `require_page_setup_match: true` (the default), a sheet is ready only when the named page
-setup exists and its plotter and plot style match the configured profile. Planned layout names use
+setup exists, its plotter and plot style match the configured profile, and its paper-space plot
+scale is verifiably 1:1. Scale-to-fit is rejected because viewport scale already carries the
+approved model-to-paper ratio. Planned layout names use
 `layout_prefix` plus a deterministic index and frame handle; any existing-name collision blocks
 the plan instead of overwriting a layout.
 

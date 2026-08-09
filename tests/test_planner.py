@@ -60,6 +60,8 @@ def _inspection(
                 plotter="DWG To PDF.pc3",
                 media_name="OFFICE_700X1000",
                 plot_style="monochrome.ctb",
+                use_standard_scale=True,
+                standard_scale=16,
             )
         ],
     )
@@ -182,6 +184,8 @@ def test_publish_plan_blocks_page_setup_plotter_mismatch(tmp_path: Path) -> None
         plotter="Wrong Printer.pc3",
         media_name="OFFICE_700X1000",
         plot_style="monochrome.ctb",
+        use_standard_scale=True,
+        standard_scale=16,
     )
 
     plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
@@ -203,6 +207,52 @@ def test_publish_plan_blocks_model_space_page_setup(tmp_path: Path) -> None:
     assert "model-space" in plan["warnings"][0]
 
 
+def test_publish_plan_blocks_scale_to_fit_page_setup(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = _inspection([_frame("70x100")])
+    inspection.page_setups[0] = replace(
+        inspection.page_setups[0],
+        standard_scale=0,
+    )
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is False
+    assert plan["sheets"][0]["status"] == "page_setup_mismatch"
+    assert "required 1:1" in plan["warnings"][0]
+
+
+def test_publish_plan_accepts_exact_custom_one_to_one_page_setup(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = _inspection([_frame("70x100")])
+    inspection.page_setups[0] = replace(
+        inspection.page_setups[0],
+        use_standard_scale=False,
+        standard_scale=None,
+        custom_scale_numerator=25.4,
+        custom_scale_denominator=25.4,
+    )
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is True
+
+
+def test_publish_plan_blocks_unverifiable_page_setup_scale(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = _inspection([_frame("70x100")])
+    inspection.page_setups[0] = replace(
+        inspection.page_setups[0],
+        use_standard_scale=None,
+        standard_scale=None,
+    )
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is False
+    assert "could not be verified" in plan["warnings"][0]
+
+
 def test_publish_plan_requires_exact_canonical_media_case(tmp_path: Path) -> None:
     config = _config(tmp_path)
     inspection = _inspection([_frame("70x100")])
@@ -212,6 +262,8 @@ def test_publish_plan_requires_exact_canonical_media_case(tmp_path: Path) -> Non
         plotter="DWG To PDF.pc3",
         media_name="office_700x1000",
         plot_style="monochrome.ctb",
+        use_standard_scale=True,
+        standard_scale=16,
     )
 
     plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())

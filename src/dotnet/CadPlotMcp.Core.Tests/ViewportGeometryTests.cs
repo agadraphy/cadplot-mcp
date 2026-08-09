@@ -55,6 +55,65 @@ public sealed class ViewportGeometryTests
         Assert.False(result.QuarterTurn);
     }
 
+    [Fact]
+    public void GeometryContractAcceptsApprovedRotatedScaleMath()
+    {
+        var geometry = Geometry(0, 0, 297, 210, denominator: 1);
+        geometry.RotationDegrees = 90;
+        geometry.PaperWidthMillimetres = 210;
+        geometry.PaperHeightMillimetres = 297;
+        geometry.DerivedScaleDenominator = 1;
+        geometry.ScaleToleranceRatio = 0.02;
+
+        Assert.Null(PublishGeometryContract.Validate(geometry));
+    }
+
+    [Fact]
+    public void GeometryContractRejectsRotationThatContradictsWindowAndPaper()
+    {
+        var geometry = Geometry(0, 0, 297, 210, denominator: 1);
+        geometry.RotationDegrees = 0;
+        geometry.PaperWidthMillimetres = 210;
+        geometry.PaperHeightMillimetres = 297;
+        geometry.DerivedScaleDenominator = 1;
+        geometry.ScaleToleranceRatio = 0.02;
+
+        Assert.Equal(
+            "plot_geometry_rotation_mismatch",
+            PublishGeometryContract.Validate(geometry)
+        );
+    }
+
+    [Fact]
+    public void GeometryContractRejectsChangedSelectedScale()
+    {
+        var geometry = Geometry(0, 0, 35000, 50000, denominator: 100);
+        geometry.RotationDegrees = 0;
+        geometry.PaperWidthMillimetres = 700;
+        geometry.PaperHeightMillimetres = 1000;
+        geometry.DerivedScaleDenominator = 50;
+        geometry.ScaleToleranceRatio = 0.02;
+
+        Assert.Equal("plot_scale_mismatch", PublishGeometryContract.Validate(geometry));
+    }
+
+    [Theory]
+    [InlineData(1.0, 1.0, true)]
+    [InlineData(25.4, 25.4, true)]
+    [InlineData(1.0, 2.0, false)]
+    [InlineData(0.0, 0.0, false)]
+    public void CustomLayoutPlotScaleMustBeOneToOne(
+        double numerator,
+        double denominator,
+        bool expected
+    )
+    {
+        Assert.Equal(
+            expected,
+            PublishGeometryContract.IsOneToOneCustomScale(numerator, denominator)
+        );
+    }
+
     private static PublishPlotGeometry Geometry(
         double minX,
         double minY,
@@ -66,6 +125,8 @@ public sealed class ViewportGeometryTests
         Window = new PublishPlotWindow { MinX = minX, MinY = minY, MaxX = maxX, MaxY = maxY },
         DrawingUnitMillimetres = 1,
         ScaleDenominator = denominator,
+        DerivedScaleDenominator = denominator,
+        ScaleToleranceRatio = 0.02,
         PaperWidthMillimetres = 1,
         PaperHeightMillimetres = 1,
     };

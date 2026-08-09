@@ -39,6 +39,8 @@ Record from the structured inspection result:
 - exact plotter/PC3 name;
 - exact CTB/STB plot-style name;
 - exact case-sensitive canonical media name.
+- `UseStandardScale`/`StandardScale` or custom numerator/denominator evidence proving the named
+  page setup plots paper space at 1:1. Scale-to-fit must remain a blocker.
 
 Do not infer a missing name from a filename or copy company PC3/PMP/CTB/STB/DWT/DWG assets into
 the public repository.
@@ -51,8 +53,8 @@ PC3 paper when the office requires exact media validation. Add `template_layout`
 source DWG contains the accepted paper-space layout and it has exactly one floating viewport.
 
 Run `match_paper_profile` for every observed label, then `create_publish_plan`. Any unmatched label,
-missing/mismatched page setup, ambiguous frame, nonstandard scale, missing template, or layout-name
-collision must remain a blocker.
+missing/mismatched/non-1:1 page setup, ambiguous frame, nonstandard scale, missing template, or
+layout-name collision must remain a blocker.
 
 ## 3. Freeze and approve the local profile
 

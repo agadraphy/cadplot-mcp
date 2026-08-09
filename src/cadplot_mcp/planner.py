@@ -251,6 +251,7 @@ def _derive_plot_geometry(frame: FrameCandidate, config: CadPlotConfig) -> dict[
         "rotation_degrees": best[2],
         "scale_denominator": denominator,
         "derived_scale_denominator": round(derived, 6),
+        "scale_tolerance_ratio": config.scale_tolerance_ratio,
         "drawing_unit_mm": config.drawing_unit_mm,
         "paper_width_mm": paper.width_mm,
         "paper_height_mm": paper.height_mm,
@@ -298,6 +299,20 @@ def _page_setup_error(
             f"page setup {profile.page_setup!r} uses canonical media {setup.media_name!r}, "
             f"expected exact case-sensitive value {profile.canonical_media!r}."
         )
+    if setup.use_standard_scale is True:
+        if not setup.has_verified_one_to_one_scale():
+            return (
+                f"page setup {profile.page_setup!r} does not use the required 1:1 layout "
+                "plot scale."
+            )
+    elif setup.use_standard_scale is False:
+        if not setup.has_verified_one_to_one_scale():
+            return (
+                f"page setup {profile.page_setup!r} does not use the required 1:1 custom "
+                "layout plot scale."
+            )
+    else:
+        return f"page setup {profile.page_setup!r} plot scale could not be verified."
     return None
 
 

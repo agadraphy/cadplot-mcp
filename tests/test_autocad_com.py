@@ -1,4 +1,8 @@
-from cadplot_mcp.backends.autocad_com import _read_labelled_frames, _read_layouts
+from cadplot_mcp.backends.autocad_com import (
+    _read_labelled_frames,
+    _read_layouts,
+    _read_page_setups,
+)
 
 
 class FakeLayout:
@@ -10,6 +14,19 @@ class FakeLayout:
     PlotType = 5
     UseStandardScale = True
     StandardScale = 0
+
+
+class FakePlotConfiguration:
+    Name = "OFFICE_A3"
+    ModelType = False
+    ConfigName = "DWG To PDF.pc3"
+    CanonicalMediaName = "ISO_A3_(420.00_x_297.00_MM)"
+    StyleSheet = "monochrome.ctb"
+    UseStandardScale = True
+    StandardScale = 16
+
+    def GetCustomScale(self):
+        return 1.0, 1.0
 
 
 class FakePolyline:
@@ -31,6 +48,7 @@ class FakeText:
 
 class FakeDocument:
     Layouts = [FakeLayout()]
+    PlotConfigurations = [FakePlotConfiguration()]
     ModelSpace = [FakePolyline(), FakeText()]
 
 
@@ -80,6 +98,17 @@ def test_read_layouts_collects_plot_properties() -> None:
     assert layouts[0].name == "PAFTA-01"
     assert layouts[0].plotter == "DWG To PDF.pc3"
     assert layouts[0].plot_style == "monochrome.ctb"
+
+
+def test_read_page_setups_collects_exact_layout_plot_scale() -> None:
+    setups = _read_page_setups(FakeDocument())
+
+    assert len(setups) == 1
+    assert setups[0].name == "OFFICE_A3"
+    assert setups[0].use_standard_scale is True
+    assert setups[0].standard_scale == 16
+    assert setups[0].custom_scale_numerator == 1.0
+    assert setups[0].custom_scale_denominator == 1.0
 
 
 def test_read_labelled_frames_requires_label_inside_closed_polyline() -> None:

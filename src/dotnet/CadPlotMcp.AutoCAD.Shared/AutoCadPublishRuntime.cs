@@ -513,6 +513,20 @@ namespace CadPlotMcp.AutoCAD
                 throw new CadPlotPublishException("canonical_media_mismatch");
             if (settings.PlotType != Autodesk.AutoCAD.DatabaseServices.PlotType.Layout)
                 throw new CadPlotPublishException("page_setup_not_layout_plot");
+            if (settings.UseStandardScale)
+            {
+                if (settings.StdScaleType != StdScaleType.StdScale1To1)
+                    throw new CadPlotPublishException("page_setup_scale_not_one_to_one");
+            }
+            else
+            {
+                var customScale = settings.CustomPrintScale;
+                if (!PublishGeometryContract.IsOneToOneCustomScale(
+                    customScale.Numerator,
+                    customScale.Denominator
+                ))
+                    throw new CadPlotPublishException("page_setup_scale_not_one_to_one");
+            }
 
             var paper = EffectivePaper(settings);
             var expectedWidth = output.PlotGeometry.PaperWidthMillimetres;

@@ -30,10 +30,16 @@ this exact digest. The plug-in verifies the manifest digest when queueing and ag
 before execution, closing the staging-to-execution time-of-check/time-of-use gap.
 
 Each expected output also carries the immutable execution specification copied from the approved
-plan: target layout, named page setup, plotter, plot style, plot window, rotation, scale
-denominator, drawing-unit conversion, and optional in-drawing template layout. The .NET queue
-rereads this manifest and cross-checks it
-against the queue request before accepting a job.
+plan: target layout, named page setup, plotter, plot style, plot window, rotation, selected and
+derived scale denominators, scale tolerance, drawing-unit conversion, and optional in-drawing
+template layout. The .NET queue rereads this manifest, cross-checks it against the queue request,
+and independently replays the window/paper/orientation/scale math before accepting a job. A changed
+rotation, distorted aspect, inconsistent derived scale, or selected denominator outside the
+approved tolerance fails closed before AutoCAD plotting.
+
+Jobs staged by an earlier build that do not contain the complete replay fields must be planned and
+staged again after upgrading. The queue deliberately rejects those legacy manifests rather than
+guessing missing geometry or tolerance values.
 The plot geometry includes the expected physical paper width and height. PDF auditing compares
 those values to the parsed PDF MediaBox independent of orientation, using configured
 `pdf_page_tolerance_mm`.

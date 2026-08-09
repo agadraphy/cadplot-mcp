@@ -1,6 +1,7 @@
 using CadPlotMcp.Core;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Xunit;
 
 namespace CadPlotMcp.Core.Tests;
@@ -158,6 +159,44 @@ public sealed class PublishJobTests : IDisposable
 
         Assert.True(queue.TryEnqueue(_request, out var error));
         Assert.Null(error);
+    }
+
+    [Fact]
+    public void ManifestRejectsRotationThatContradictsApprovedGeometry()
+    {
+        WriteManifest(rotationDegrees: 0);
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("plot_geometry_rotation_mismatch", error);
+    }
+
+    [Fact]
+    public void ManifestRejectsSelectedScaleThatContradictsDerivedScale()
+    {
+        WriteManifest(scaleDenominator: 2);
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("plot_scale_mismatch", error);
+    }
+
+    [Fact]
+    public void LegacyManifestWithoutReplayFieldsFailsClosed()
+    {
+        var root = JsonNode.Parse(File.ReadAllText(_request.ManifestPath))!.AsObject();
+        foreach (var output in root["outputs"]!.AsArray())
+        {
+            var geometry = output!["plot_geometry"]!.AsObject();
+            geometry.Remove("derived_scale_denominator");
+            geometry.Remove("scale_tolerance_ratio");
+        }
+        File.WriteAllText(_request.ManifestPath, root.ToJsonString());
+        RefreshManifestHash();
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("invalid_plot_scale", error);
     }
 
     [Fact]
@@ -512,7 +551,12 @@ public sealed class PublishJobTests : IDisposable
             write(request, execution);
     }
 
-    private void WriteManifest(string? firstPdf = null, string? templateLayout = null)
+    private void WriteManifest(
+        string? firstPdf = null,
+        string? templateLayout = null,
+        int rotationDegrees = 90,
+        double scaleDenominator = 1
+    )
     {
         var outputs = Enumerable.Range(1, 2).Select(index => new
         {
@@ -530,8 +574,10 @@ public sealed class PublishJobTests : IDisposable
             plot_geometry = new
             {
                 window = new { min_x = 0.0, min_y = 0.0, max_x = 297.0, max_y = 210.0 },
-                rotation_degrees = 90,
-                scale_denominator = 1.0,
+                rotation_degrees = rotationDegrees,
+                scale_denominator = scaleDenominator,
+                derived_scale_denominator = 1.0,
+                scale_tolerance_ratio = 0.02,
                 drawing_unit_mm = 1.0,
                 paper_width_mm = 210.0,
                 paper_height_mm = 297.0,
@@ -554,6 +600,11 @@ public sealed class PublishJobTests : IDisposable
             outputs,
         };
         File.WriteAllText(_request.ManifestPath, JsonSerializer.Serialize(manifest));
+        RefreshManifestHash();
+    }
+
+    private void RefreshManifestHash()
+    {
         _request.ManifestSha256 = Convert.ToHexString(
             SHA256.HashData(File.ReadAllBytes(_request.ManifestPath))
         ).ToLowerInvariant();

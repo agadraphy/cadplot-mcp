@@ -11,15 +11,20 @@ During read-only inspection the AutoCAD COM adapter lists named `PlotConfigurati
 - plot device matches `plotter`;
 - plot style matches `plot_style`;
 - canonical media matches `canonical_media` exactly, including case, when configured.
+- layout plot scale is verifiably 1:1, either as the standard 1:1 scale or an exact custom 1:1
+  numerator/denominator pair; scale-to-fit and unavailable scale evidence are rejected.
 
-A missing setup or mismatched device/style/media produces `page_setup_mismatch` and keeps the plan
-blocked. `canonical_media` is optional because some offices treat the approved named page setup as
-the sole source of media configuration; when supplied, exact comparison is mandatory.
+A missing setup or mismatched device/style/media/scale produces `page_setup_mismatch` and keeps the
+plan blocked. `canonical_media` is optional because some offices treat the approved named page setup
+as the sole source of media configuration; when supplied, exact comparison is mandatory. The 1:1
+layout scale is not optional: the approved viewport carries the model-to-paper scale, so applying
+scale-to-fit or another page-setup scale would silently multiply the final drawing scale.
 
 Autodesk references:
 
 - <https://help.autodesk.com/cloudhelp/2024/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_PlotSettingsValidator_SetCanonicalMediaName_PlotSettings_string.html>
 - <https://help.autodesk.com/cloudhelp/2022/ENU/OARX-ManagedRefGuide/files/OARX-ManagedRefGuide-Autodesk_AutoCAD_DatabaseServices_PlotSettingsValidator_SetPlotConfigurationName_PlotSettings_string_string.html>
+- <https://help.autodesk.com/cloudhelp/2025/ENU/AutoCAD-LT-ActiveX-Reference/files/GUID-E8D9D4F5-24C1-4C89-924E-DF57C7F0CF5F.htm>
 
 New layout targets use:
 
