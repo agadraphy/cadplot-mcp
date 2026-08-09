@@ -432,7 +432,10 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
         "running plug-in binary mismatch",
-        '"schema_version": 2',
+        '"schema_version": 3',
+        '"template_assets"',
+        "source_sha256_after",
+        "staged_sha256_after",
     ):
         assert required in pilot
     assert "--bundle-build-manifest" in assembler

@@ -83,6 +83,9 @@ Use this checklist for every alpha release.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.
+- [ ] Each schema-v3 licensed pilot run contains a path-redacted `template_assets` list; every used
+      asset's approved, post-pilot source, and staged-copy SHA-256 values are identical, or the list
+      is explicitly empty when that run used no external template.
 - [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.
 - [ ] Dependency lock data has been reviewed for intended versions.
 

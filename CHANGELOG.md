@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 - Explicit hash-pinned external DWG/DWT layout templates with separate read-only roots, isolated
   copy-only job staging, manifest-bound asset identities, dual Python/plug-in hash replay, verified
   single-viewport planning, and cross-database import that never replaces source definitions.
+- Pilot-evidence schema v3 now records path-redacted external-template identity, size, approved hash,
+  and post-pilot source/staged hashes for each licensed AutoCAD version.
 - Job-level PDF output transactions that plot every sheet to owned same-directory partial files,
   discard the staged DWG, then no-overwrite-promote complete outputs; ordinary mid-job failures now
   clean partials without exposing earlier sheets as final PDFs, and mid-promotion failures attempt

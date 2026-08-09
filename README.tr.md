@@ -251,6 +251,8 @@ lisans envanterini ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kur
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
 bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.
+Pilot şeması v3, harici template kullanılmışsa yol bilgisini dışarı vermeden profil/layout/page setup
+kimliğini ve onaylı, pilot-sonrası şirket kaynağı, staged-kopya SHA-256 değerlerini birbirine bağlar.
 Kitteki `install-release-kit.ps1`, `-WhatIf` destekli ve kaldığı yerden devam edebilen tek-komut ilk
 kurulum sağlar: yalnız doğrulanan eş bileşenleri yeniden kullanır, pilot/Python'u önce hazırlar ve
 bundle'ı en son görünür yapar; AutoCAD'i açmaz, global PATH'i veya publish bayrağını değiştirmez.

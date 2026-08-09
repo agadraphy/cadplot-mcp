@@ -40,12 +40,22 @@ RUN_FIELDS = {
     "source_sha256_after",
     "staged_sha256_before",
     "staged_sha256_after",
+    "template_assets",
     "pdf_sha256",
     "publish_verified",
     "restart_receipt_verified",
     "visual_checks",
     "approved_by",
     "completed_utc",
+}
+TEMPLATE_ASSET_FIELDS = {
+    "id",
+    "layout",
+    "page_setup",
+    "size_bytes",
+    "approved_sha256",
+    "source_sha256_after",
+    "staged_sha256_after",
 }
 EXPECTED = {
     "2016": {"adapter": "autocad-2016-net45", "acadver": "R20.1"},
@@ -135,6 +145,7 @@ def build_pilot_run_evidence(
         "source_sha256_after": _sha256(source),
         "staged_sha256_before": source_before,
         "staged_sha256_after": _sha256(staged),
+        "template_assets": _collect_template_asset_evidence(manifest, config),
         "pdf_sha256": report["outputs"][0]["sha256"],
         "publish_verified": report["publish_verified"],
         "restart_receipt_verified": restart_receipt_verified,
@@ -168,7 +179,7 @@ def assemble_pilot_evidence(
     if validated_2025["autocad_release"] != "2025":
         raise ValueError("run_2025 must contain AutoCAD 2025 evidence.")
     raw = {
-        "schema_version": 2,
+        "schema_version": 3,
         "repository_commit": repository_commit,
         "package_version": package_version,
         "bundle_sha256": bundle_sha256,
@@ -192,7 +203,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
         "runs",
     }:
         raise ValueError("Pilot evidence must contain exactly the documented top-level fields.")
-    if raw["schema_version"] != 2:
+    if raw["schema_version"] != 3:
         raise ValueError("Unsupported pilot evidence schema.")
     if not isinstance(raw["repository_commit"], str) or not COMMIT.fullmatch(
         raw["repository_commit"]
@@ -226,7 +237,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             raise ValueError(f"AutoCAD {release} running plug-in binary mismatch.")
     return {
         "valid": True,
-        "schema_version": 2,
+        "schema_version": 3,
         "repository_commit": raw["repository_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": raw["bundle_sha256"],
@@ -295,6 +306,7 @@ def _validate_run(run: Any) -> dict[str, Any]:
         raise ValueError(f"AutoCAD {release} source DWG changed during the pilot.")
     if run["staged_sha256_before"] != run["staged_sha256_after"]:
         raise ValueError(f"AutoCAD {release} staged DWG changed during the pilot.")
+    _validate_template_assets(run["template_assets"], release)
     if run["receipt_state"] != "succeeded":
         raise ValueError(f"AutoCAD {release} receipt_state must be succeeded.")
     checks = run["visual_checks"]
@@ -313,6 +325,102 @@ def _validate_run(run: Any) -> dict[str, Any]:
     if parsed.tzinfo is None:
         raise ValueError(f"AutoCAD {release} completed_utc must include a timezone.")
     return run
+
+
+def _collect_template_asset_evidence(
+    manifest: dict[str, Any], config: CadPlotConfig
+) -> list[dict[str, Any]]:
+    assets = manifest.get("template_assets", [])
+    if not assets:
+        return []
+    if config.template_path_policy is None:
+        raise ValueError("Pilot template assets require configured template_roots.")
+    profiles = {profile.id: profile for profile in config.paper_profiles}
+    evidence: list[dict[str, Any]] = []
+    for asset in sorted(assets, key=lambda item: item["id"]):
+        profile = profiles.get(asset["id"])
+        source_value = asset.get("source_template")
+        if not isinstance(source_value, str) or not source_value.strip():
+            raise ValueError(f"Pilot template asset {asset['id']!r} has no source identity.")
+        source = config.template_path_policy.require_allowed(source_value)
+        if (
+            profile is None
+            or profile.template_drawing != source
+            or profile.template_sha256 != asset["sha256"]
+            or profile.template_layout != asset["layout"]
+            or profile.page_setup != asset["page_setup"]
+        ):
+            raise ValueError(
+                f"Pilot template asset {asset['id']!r} does not match the active office profile."
+            )
+        staged = Path(asset["staged_template"]).resolve(strict=True)
+        source_hash = _sha256(source)
+        staged_hash = _sha256(staged)
+        if source.stat().st_size != asset["size_bytes"] or source_hash != asset["sha256"]:
+            raise ValueError(
+                f"Pilot template asset {asset['id']!r} source changed after approval."
+            )
+        if staged.stat().st_size != asset["size_bytes"] or staged_hash != asset["sha256"]:
+            raise ValueError(
+                f"Pilot template asset {asset['id']!r} staged copy changed after approval."
+            )
+        evidence.append(
+            {
+                "id": asset["id"],
+                "layout": asset["layout"],
+                "page_setup": asset["page_setup"],
+                "size_bytes": asset["size_bytes"],
+                "approved_sha256": asset["sha256"],
+                "source_sha256_after": source_hash,
+                "staged_sha256_after": staged_hash,
+            }
+        )
+    return evidence
+
+
+def _validate_template_assets(value: Any, release: str) -> None:
+    if not isinstance(value, list) or len(value) > 100:
+        raise ValueError(f"AutoCAD {release} template_assets collection is invalid.")
+    ids: set[str] = set()
+    layouts: set[str] = set()
+    for asset in value:
+        if not isinstance(asset, dict) or set(asset) != TEMPLATE_ASSET_FIELDS:
+            raise ValueError(f"AutoCAD {release} template asset fields are invalid.")
+        asset_id = asset["id"]
+        if (
+            not isinstance(asset_id, str)
+            or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", asset_id) is None
+            or asset_id in ids
+        ):
+            raise ValueError(f"AutoCAD {release} template asset id is invalid or duplicate.")
+        ids.add(asset_id)
+        for field in ("layout", "page_setup"):
+            name = asset[field]
+            if (
+                not isinstance(name, str)
+                or not 1 <= len(name) <= 255
+                or name.isspace()
+                or any(ord(character) < 32 or ord(character) == 127 for character in name)
+            ):
+                raise ValueError(f"AutoCAD {release} template asset metadata is invalid.")
+        layout_key = asset["layout"].casefold()
+        if layout_key in layouts:
+            raise ValueError(f"AutoCAD {release} template asset layout is duplicate.")
+        layouts.add(layout_key)
+        size = asset["size_bytes"]
+        if not isinstance(size, int) or isinstance(size, bool) or size < 1:
+            raise ValueError(f"AutoCAD {release} template asset size is invalid.")
+        for field in (
+            "approved_sha256",
+            "source_sha256_after",
+            "staged_sha256_after",
+        ):
+            _require_digest(asset[field], f"template_assets.{field}")
+        if (
+            asset["approved_sha256"] != asset["source_sha256_after"]
+            or asset["approved_sha256"] != asset["staged_sha256_after"]
+        ):
+            raise ValueError(f"AutoCAD {release} template asset changed during the pilot.")
 
 
 def validate_bundle_build_evidence(

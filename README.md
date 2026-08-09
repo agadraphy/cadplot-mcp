@@ -344,7 +344,9 @@ a source-checkout wrapper); its completed company
 evidence file stays outside the public repository. Live status exposes the embedded build commit
 and running adapter DLL SHA-256. The pilot assembler derives the release commit from the verified
 `bundle-build.json`, re-hashes every bundle ZIP entry, and refuses either version when its running
-binary does not match the corresponding adapter artifact.
+binary does not match the corresponding adapter artifact. Pilot schema v3 also derives a
+path-redacted external-template record from each immutable job manifest and requires the approved,
+post-pilot company-source, and staged-copy hashes to remain identical.
 After both runs pass, the installed `cadplot-acceptance` finalizer binds that evidence to the exact
 release-kit directory/ZIP, wheel, bundle, build manifest, commit, and package version. Its sanitized
 report excludes company-run details and keeps `public_release_ready=false` until separate company

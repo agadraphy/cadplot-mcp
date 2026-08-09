@@ -53,6 +53,7 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
         "source_sha256_after": source,
         "staged_sha256_before": staged,
         "staged_sha256_after": staged,
+        "template_assets": [],
         "pdf_sha256": ("e" if release == "2016" else "f") * 64,
         "publish_verified": True,
         "restart_receipt_verified": True,

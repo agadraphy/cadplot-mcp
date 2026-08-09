@@ -57,7 +57,7 @@ input, and requires each live `pluginSha256` to equal the corresponding adapter 
 manifest. It revalidates both runs, requires distinct 2016/2025 evidence, and refuses to overwrite
 its output.
 
-The schema-v2 top level contains the full `repository_commit`, `package_version`, bundle and build
+The schema-v3 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`. Each run records:
 
 - `autocad_release`, live `product` including normalized and raw ACADVER, exact `adapter`, normalized
@@ -65,6 +65,9 @@ manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`.
 - explicit `licensed=true` and `authorized_test_asset=true` declarations;
 - approved `plan_id`, manifest digest, and matching receipt manifest digest;
 - source and staged DWG SHA-256 values before and after plotting;
+- a path-redacted `template_assets` list. For every external DWG/DWT import it binds the profile id,
+  layout, page setup, byte length, approved SHA-256, current company-source SHA-256, and current
+  staged-copy SHA-256; an empty list proves that run used no external template asset;
 - produced PDF SHA-256, successful receipt state, `publish_verified=true`, and proof that the
   receipt remained readable after restart;
 - seven explicit visual checks: orientation, crop, viewport scale, lineweights, plot style, fonts,
@@ -74,9 +77,14 @@ manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`.
 The validator rejects missing/extra fields, duplicate releases, incorrect adapter/runtime-series
 pairs, incorrect ACADVER product identity,
 running commit/binary mismatches, changed DWG hashes, a receipt bound to another manifest,
-incomplete visual acceptance, or a run that was not rechecked after AutoCAD restart. A valid report
+changed/mismatched/redirected template assets, incomplete visual acceptance, or a run that was not
+rechecked after AutoCAD restart. A valid report
 proves the recorded gates only; the actual evidence files and licensed workstation remain
 authoritative.
+
+Schema-v2 final pilot JSON and older run JSON files are intentionally not upgraded in place.
+Re-collect both runs with the schema-v3 wheel so external-template use or non-use is derived from
+the immutable job manifest instead of being supplied manually.
 
 After both runs validate, use the [release acceptance](release-acceptance.md) gate to bind this local
 evidence to the exact transferred release kit and produce a sanitized no-overwrite readiness report.

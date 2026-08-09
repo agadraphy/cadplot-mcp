@@ -69,6 +69,7 @@ def collect_main() -> int:
                 "plugin_sha256": run["plugin_sha256"],
                 "runtime_series": run["runtime_series"],
                 "plan_id": run["plan_id"],
+                "template_asset_count": len(run["template_assets"]),
                 "output": str(output),
             },
             ensure_ascii=False,

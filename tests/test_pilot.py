@@ -5,6 +5,7 @@ import subprocess
 import sys
 import zipfile
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,7 @@ def _run(
         "source_sha256_after": source,
         "staged_sha256_before": staged,
         "staged_sha256_after": staged,
+        "template_assets": [],
         "pdf_sha256": ("e" if release == "2016" else "f") * 64,
         "publish_verified": True,
         "restart_receipt_verified": True,
@@ -79,7 +81,7 @@ def _evidence() -> dict:
     run_2016 = _run("2016", "3")
     run_2025 = _run("2025", "4")
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "repository_commit": "1" * 40,
         "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
@@ -92,7 +94,9 @@ def _evidence() -> dict:
     }
 
 
-def _completed_job(tmp_path: Path) -> tuple[Path, object]:
+def _completed_job(
+    tmp_path: Path, *, external_template: bool = False
+) -> tuple[Path, object]:
     project = tmp_path / "project"
     source_dir = tmp_path / "work" / "job-live" / "source"
     output_dir = tmp_path / "work" / "job-live" / "output"
@@ -104,6 +108,36 @@ def _completed_job(tmp_path: Path) -> tuple[Path, object]:
     source.write_bytes(b"authorized synthetic pilot")
     staged.write_bytes(source.read_bytes())
     source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    template_assets = []
+    template_layout = None
+    template_asset_id = None
+    template_config = ""
+    if external_template:
+        templates = tmp_path / "templates"
+        staged_templates = source_dir / "templates"
+        templates.mkdir()
+        staged_templates.mkdir()
+        template = templates / "office.dwt"
+        staged_template = staged_templates / "office_a4.dwt"
+        template.write_bytes(b"authorized office template")
+        staged_template.write_bytes(template.read_bytes())
+        template_digest = hashlib.sha256(template.read_bytes()).hexdigest()
+        template_layout = "OFFICE_TEMPLATE"
+        template_asset_id = "office_a4"
+        template_assets = [
+            {
+                "id": template_asset_id,
+                "source_template": str(template),
+                "staged_template": str(staged_template),
+                "sha256": template_digest,
+                "size_bytes": template.stat().st_size,
+                "layout": template_layout,
+                "page_setup": "OFFICE_A4",
+            }
+        ]
+        template_config = """
+template_roots: [templates]
+"""
     pdf = output_dir / "0001-pilot-a4.pdf"
     writer = PdfWriter()
     writer.add_blank_page(width=595.276, height=841.89)
@@ -119,11 +153,15 @@ def _completed_job(tmp_path: Path) -> tuple[Path, object]:
         "source_fingerprint": {"sha256": source_digest},
         "staged_drawing": str(staged),
         "output_directory": str(output_dir),
+        "template_assets": template_assets,
         "outputs": [
             {
                 "sheet_index": 1,
                 "frame_handle": "A1",
                 "pdf": str(pdf),
+                "page_setup": "OFFICE_A4",
+                "template_layout": template_layout,
+                "template_asset_id": template_asset_id,
                 "plot_geometry": {"paper_width_mm": 210.0, "paper_height_mm": 297.0},
             }
         ],
@@ -140,9 +178,10 @@ def _completed_job(tmp_path: Path) -> tuple[Path, object]:
     (manifest_path.parent / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        """
+        f"""
 version: 1
 allowed_roots: [project]
+{template_config.rstrip()}
 workspace_root: work
 paper_profiles:
   - id: office_a4
@@ -150,6 +189,9 @@ paper_profiles:
     page_setup: OFFICE_A4
     plotter: DWG To PDF.pc3
     plot_style: monochrome.ctb
+{"    template_layout: OFFICE_TEMPLATE" if external_template else ""}
+{"    template_drawing: templates/office.dwt" if external_template else ""}
+{"    template_sha256: " + template_assets[0]["sha256"] if external_template else ""}
 """.strip(),
         encoding="utf-8",
     )
@@ -318,6 +360,84 @@ def test_build_pilot_run_detects_source_change_after_staging(tmp_path: Path) -> 
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
         )
+
+
+def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -> None:
+    manifest, config = _completed_job(tmp_path, external_template=True)
+
+    run = build_pilot_run_evidence(
+        manifest,
+        config,
+        autocad_release="2016",
+        plugin_status=_status("2016"),
+        approved_by="Authorized CAD manager",
+        licensed=True,
+        authorized_test_asset=True,
+        restart_receipt_verified=True,
+        visual_checks={name: True for name in VISUAL_CHECKS},
+    )
+
+    asset = run["template_assets"][0]
+    assert set(asset) == {
+        "id",
+        "layout",
+        "page_setup",
+        "size_bytes",
+        "approved_sha256",
+        "source_sha256_after",
+        "staged_sha256_after",
+    }
+    assert asset["id"] == "office_a4"
+    assert asset["approved_sha256"] == asset["source_sha256_after"]
+    assert asset["approved_sha256"] == asset["staged_sha256_after"]
+    assert str(tmp_path) not in json.dumps(run)
+
+    wrong_profile = replace(config.paper_profiles[0], template_layout="OTHER_LAYOUT")
+    with pytest.raises(ValueError, match="active office profile"):
+        build_pilot_run_evidence(
+            manifest,
+            replace(config, paper_profiles=(wrong_profile,)),
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+        )
+
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    Path(raw["template_assets"][0]["source_template"]).write_bytes(b"changed")
+    with pytest.raises(ValueError, match="source changed after approval"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+        )
+
+
+def test_pilot_validator_rejects_changed_template_asset() -> None:
+    evidence = _evidence()
+    evidence["runs"][0]["template_assets"] = [
+        {
+            "id": "office_a4",
+            "layout": "OFFICE_TEMPLATE",
+            "page_setup": "OFFICE_A4",
+            "size_bytes": 123,
+            "approved_sha256": "a" * 64,
+            "source_sha256_after": "a" * 64,
+            "staged_sha256_after": "b" * 64,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="template asset changed"):
+        validate_pilot_evidence(evidence)
 
 
 def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
