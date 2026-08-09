@@ -210,7 +210,10 @@ ObjectARX/AutoCAD managed reference folders:
 ```
 
 The script intentionally fails if the Autodesk reference assemblies are missing. Autodesk SDK
-assemblies are development inputs and are not committed or copied into the public bundle.
+assemblies are development inputs and are not committed or copied into the public bundle. Before
+compilation, all three managed assemblies must expose one consistent release series and the build
+requires exactly `R20.1` for the 2016 adapter and `R25.0` for the 2025 adapter; a folder from another
+installed AutoCAD release is rejected even when it contains the same DLL filenames.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.

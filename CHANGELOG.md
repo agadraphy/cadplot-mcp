@@ -98,6 +98,8 @@ All notable changes to this project are documented in this file.
 - Transactional AutoCAD bundle installation through a non-loadable staging directory, exact
   source/copy hash comparison, atomic final rename, redirected-file rejection, and a protocol-only
   install/verify/uninstall smoke that never launches AutoCAD.
+- Managed API identity checking that binds real adapter builds to consistent `R20.1` (AutoCAD
+  2016) and `R25.0` (AutoCAD 2025) Autodesk assembly series instead of trusting DLL filenames.
 
 ### Notes
 

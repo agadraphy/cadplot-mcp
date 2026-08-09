@@ -166,6 +166,10 @@ AutoCAD yeniden başlatılır.
 reddedilir. Yanlış yazılmış config alanları, boş AutoCAD kaynak adları ve `NaN/Infinity` değerleri
 iş başlamadan hata verir.
 
+Gerçek bundle build'i yalnız dosya adlarına güvenmez: `AcMgd.dll`, `AcDbMgd.dll` ve
+`AcCoreMgd.dll` assembly kimliklerinin aynı seride olmasını; 2016 için tam `R20.1`, 2025 için tam
+`R25.0` gelmesini zorunlu tutar. Yanlış AutoCAD sürümünün klasörü erken reddedilir.
+
 Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
 Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini
 eşleştirir ve ancak sonra atomik olarak `CadPlotMcp.bundle` adına taşır; mevcut kurulumu ezmez.

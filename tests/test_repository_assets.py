@@ -81,6 +81,32 @@ def test_api_probe_is_compile_only() -> None:
     assert "Start-Process" not in script
 
 
+def test_autocad_api_series_checker_binds_bundle_build_to_exact_releases() -> None:
+    checker = (REPOSITORY_ROOT / "scripts" / "check-autocad-api-series.ps1").read_text(
+        encoding="utf-8"
+    )
+    builder = (REPOSITORY_ROOT / "scripts" / "build-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "AcMgd.dll",
+        "AcDbMgd.dll",
+        "AcCoreMgd.dll",
+        "GetAssemblyName",
+        "AssemblyVersion",
+        "Get-FileHash",
+        "ExpectedSeries",
+        "AutoCADLaunched = $false",
+        "LivePublishProven = $false",
+    ):
+        assert required in checker
+    assert "Start-Process" not in checker
+    assert 'ExpectedSeries "R20.1"' in builder
+    assert 'ExpectedSeries "R25.0"' in builder
+    assert "check-autocad-api-series.ps1" in builder
+
+
 def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1").read_text(encoding="utf-8")
 

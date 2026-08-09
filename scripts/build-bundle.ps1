@@ -22,17 +22,17 @@ if (-not $resolvedArtifactsRoot.StartsWith($resolvedRepoRoot, [System.StringComp
     throw "Artifacts directory escaped the repository root."
 }
 
-foreach ($sdk in @(
-    @{ Name = "AutoCAD 2016"; Path = $AutoCAD2016SdkDir },
-    @{ Name = "AutoCAD 2025"; Path = $AutoCAD2025SdkDir }
-)) {
-    $resolved = [System.IO.Path]::GetFullPath($sdk.Path)
-    foreach ($assembly in @("AcMgd.dll", "AcDbMgd.dll", "AcCoreMgd.dll")) {
-        if (-not (Test-Path -LiteralPath (Join-Path $resolved $assembly) -PathType Leaf)) {
-            throw "$($sdk.Name) SDK is missing $assembly in $resolved"
-        }
-    }
-}
+$apiChecker = Join-Path $PSScriptRoot "check-autocad-api-series.ps1"
+$identity2016 = & $apiChecker `
+    -AutoCADApiDir $AutoCAD2016SdkDir `
+    -ExpectedSeries "R20.1" `
+    -PassThru
+$identity2025 = & $apiChecker `
+    -AutoCADApiDir $AutoCAD2025SdkDir `
+    -ExpectedSeries "R25.0" `
+    -PassThru
+$AutoCAD2016SdkDir = $identity2016.ApiDirectory
+$AutoCAD2025SdkDir = $identity2025.ApiDirectory
 
 $project2016 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2016\CadPlotMcp.AutoCAD2016.csproj"
 $project2025 = Join-Path $dotnetRoot "CadPlotMcp.AutoCAD2025\CadPlotMcp.AutoCAD2025.csproj"

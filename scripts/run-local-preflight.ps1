@@ -79,6 +79,10 @@ try {
     $apiProbeRan = $false
     if (-not [string]::IsNullOrWhiteSpace($AutoCADApiDir)) {
         $resolvedApiDir = [System.IO.Path]::GetFullPath($AutoCADApiDir)
+        Invoke-CheckedStep "installed AutoCAD API series identity" {
+            & (Join-Path $PSScriptRoot "check-autocad-api-series.ps1") `
+                -AutoCADApiDir $resolvedApiDir
+        }
         Invoke-CheckedStep "compile-only installed AutoCAD API probe" {
             & (Join-Path $PSScriptRoot "probe-autocad-api.ps1") `
                 -AutoCADApiDir $resolvedApiDir `
