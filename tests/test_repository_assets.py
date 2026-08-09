@@ -477,6 +477,38 @@ def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> 
     assert "has_verified_one_to_one_scale" in planner
 
 
+def test_publish_outputs_are_staged_until_all_plots_and_dwg_discard_succeed() -> None:
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+    transaction = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "PublishOutputTransaction.cs"
+    ).read_text(encoding="utf-8")
+
+    assert "outputTransaction.GetTemporaryPath(index)" in runtime
+    assert "outputTransaction.Commit()" in runtime
+    assert runtime.index("document.CloseAndDiscard();") < runtime.index(
+        "outputTransaction.Commit()"
+    )
+    for required in (
+        '".partial.pdf"',
+        "File.Move(entry.TemporaryPath, entry.FinalPath)",
+        '"temporary_output_missing"',
+        '"temporary_output_empty"',
+        '"output_commit_partial"',
+        "File.Delete(entry.TemporaryPath)",
+    ):
+        assert required in transaction
+
+
 def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
     builder = (REPOSITORY_ROOT / "scripts" / "build-release-kit.ps1").read_text(
         encoding="utf-8"

@@ -54,6 +54,8 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
 - Eklenti staged DWG'yi çalıştırmadan hemen önce tekrar hash'ler.
 - Layout ve viewport değişiklikleri yalnız bellekte tutulur; PDF'den sonra DWG kaydedilmeden
   kapatılır ve final audit için byte-byte aynı kalır.
+- Her pafta önce sahipliği belli geçici PDF'ye yazılır; bütün plotlar tamamlanıp staged DWG
+  kaydedilmeden kapandıktan sonra final adlar no-overwrite olarak görünür olur.
 - Var olan PDF'nin üstüne yazılmaz; meşgul PlotEngine veya hatalı sayfa ölçüsü işi durdurur.
 - `CADPLOT_ENABLE_PUBLISH=1` açıkça verilmedikçe gerçek yayın komutu kapalıdır.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.

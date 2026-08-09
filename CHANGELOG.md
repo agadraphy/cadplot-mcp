@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Job-level PDF output transactions that plot every sheet to owned same-directory partial files,
+  discard the staged DWG, then no-overwrite-promote complete outputs; ordinary mid-job failures now
+  clean partials without exposing earlier sheets as final PDFs.
 - Fail-closed post-pilot release acceptance finalizer/validator that binds the exact release kit,
   wheel, matching-SDK bundle, and separate licensed 2016/2025 evidence into a sanitized no-overwrite
   report while keeping public readiness behind explicit company and maintainer approvals.

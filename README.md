@@ -38,6 +38,8 @@ the loaded adapter does not match the running AutoCAD release.
 - The plug-in re-hashes the staged DWG immediately before execution.
 - Layouts and viewports are execution scaffolding: they are discarded after plotting, keeping the
   staged DWG byte-identical for the final audit.
+- Every sheet plots to an owned temporary PDF; final names appear only after every plot completes
+  and the staged DWG closes without saving.
 - Existing PDFs, layouts, or busy plot engines cause refusal; overwrite remains disabled.
 - Publish commands are disabled unless the AutoCAD process starts with
   `CADPLOT_ENABLE_PUBLISH=1` and a trusted workspace.

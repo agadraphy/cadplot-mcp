@@ -19,10 +19,12 @@ For every job the plug-in:
 5. creates a unique paper-space layout or clones the explicitly approved in-drawing template,
    copies the approved named page setup, and configures a locked viewport centered on the approved
    model window at the approved physical scale;
-6. temporarily forces foreground plotting (`BACKGROUNDPLOT=0`), plots each current layout through
-   the nested PlotEngine lifecycle to its explicit job PDF, and restores the user's prior value;
-7. closes the DWG without saving, so the staged file remains byte-identical;
-8. atomically writes an immutable, manifest-digest-bound terminal `receipt.json` and exposes only
+6. temporarily forces foreground plotting (`BACKGROUNDPLOT=0`) and plots every layout through the
+   nested PlotEngine lifecycle to a unique owned `.partial.pdf` in the same job output directory;
+7. closes the DWG without saving, so the staged file remains byte-identical, then rechecks every
+   final target and promotes all non-empty temporary PDFs without overwrite;
+8. restores the user's prior `BACKGROUNDPLOT` value;
+9. atomically writes an immutable, manifest-digest-bound terminal `receipt.json` and exposes only
    bounded error codes through job status. Raw exception messages are not returned.
 
 The executor does not run arbitrary AutoCAD commands or AutoLISP. It does not accept a source path,
@@ -63,8 +65,12 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 
 - The queue and live status history are process-local; restarting AutoCAD clears them. Terminal
   results survive in `receipt.json` and can be cross-checked through `read_publish_receipt`.
-- A mid-job failure can leave already-created PDFs in that job. They are never overwritten. Audit
-  the job, diagnose the bounded failure code, and stage a new job for a clean retry.
+- A plot, layout, or DWG-discard failure removes the executor-owned temporary PDFs and exposes no
+  final output names. Multi-file promotion is not a filesystem-wide atomic operation: a rare I/O or
+  external race during promotion can still leave already-promoted finals. The failed receipt and
+  no-overwrite rule remain authoritative; stage a new job instead of editing or retrying in place.
+- If Windows refuses cleanup of an owned `.partial.pdf`, the hidden partial may remain for manual
+  inspection, but it is never accepted as a manifest output or live success.
 - The first live gate is intentionally one sheet. Large batches are enabled only after both
   supported-version pilots accept scale, orientation, crop, fonts, and plot style.
 - Without `template_layout`, the generic executor creates an empty layout with one full-sheet

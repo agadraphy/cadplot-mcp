@@ -180,6 +180,7 @@ namespace CadPlotMcp.AutoCAD
                 return PublishExecutionResult.Failure("plot_engine_busy");
 
             Document document = null;
+            PublishOutputTransaction outputTransaction = null;
             var previousDocument = AcApplication.DocumentManager.MdiActiveDocument;
             object backgroundPlot = null;
             var backgroundPlotCaptured = false;
@@ -188,19 +189,47 @@ namespace CadPlotMcp.AutoCAD
                 backgroundPlot = AcApplication.GetSystemVariable("BACKGROUNDPLOT");
                 backgroundPlotCaptured = true;
                 AcApplication.SetSystemVariable("BACKGROUNDPLOT", 0);
+                var finalPaths = new List<string>();
+                foreach (var output in manifest.Outputs) finalPaths.Add(output.Pdf);
+                try
+                {
+                    outputTransaction = new PublishOutputTransaction(
+                        request.OutputDirectory,
+                        finalPaths
+                    );
+                }
+                catch (InvalidOperationException exception)
+                {
+                    if (String.Equals(
+                        exception.Message,
+                        "output_already_exists",
+                        StringComparison.Ordinal
+                    )) return PublishExecutionResult.Failure("output_already_exists");
+                    throw;
+                }
+                catch (ArgumentException)
+                {
+                    return PublishExecutionResult.Failure("output_transaction_invalid");
+                }
                 document = AcApplication.DocumentManager.Open(request.StagedDrawing, false);
                 AcApplication.DocumentManager.MdiActiveDocument = document;
                 using (document.LockDocument())
                 {
                     ConfigureLayouts(document.Database, manifest.Outputs);
                     document.Editor.Regen();
-                    foreach (var output in manifest.Outputs)
-                        PlotLayout(document, output);
+                    for (var index = 0; index < manifest.Outputs.Count; index++)
+                        PlotLayout(
+                            document,
+                            manifest.Outputs[index],
+                            outputTransaction.GetTemporaryPath(index)
+                        );
                 }
                 // Layouts are execution scaffolding only. Discarding them keeps the
                 // staged DWG byte-identical for the post-publish hash audit.
                 document.CloseAndDiscard();
                 document = null;
+                var outputError = outputTransaction.Commit();
+                if (outputError != null) return PublishExecutionResult.Failure(outputError);
                 return PublishExecutionResult.Success();
             }
             catch (CadPlotPublishException exception)
@@ -215,6 +244,10 @@ namespace CadPlotMcp.AutoCAD
             {
                 return PublishExecutionResult.Failure("job_access_denied");
             }
+            catch (SecurityException)
+            {
+                return PublishExecutionResult.Failure("job_access_denied");
+            }
             catch (IOException)
             {
                 return PublishExecutionResult.Failure("job_io_error");
@@ -226,6 +259,7 @@ namespace CadPlotMcp.AutoCAD
                     try { document.CloseAndDiscard(); }
                     catch { }
                 }
+                if (outputTransaction != null) outputTransaction.Dispose();
                 if (previousDocument != null && IsDocumentOpen(previousDocument))
                 {
                     try { AcApplication.DocumentManager.MdiActiveDocument = previousDocument; }
@@ -443,10 +477,14 @@ namespace CadPlotMcp.AutoCAD
             return found;
         }
 
-        private static void PlotLayout(Document document, PublishManifestOutput output)
+        private static void PlotLayout(
+            Document document,
+            PublishManifestOutput output,
+            string temporaryPdf
+        )
         {
-            if (File.Exists(output.Pdf))
-                throw new CadPlotPublishException("output_already_exists");
+            if (File.Exists(temporaryPdf) || Directory.Exists(temporaryPdf))
+                throw new CadPlotPublishException("temporary_output_exists");
             if (PlotFactory.ProcessPlotState != ProcessPlotState.NotPlotting)
                 throw new CadPlotPublishException("plot_engine_busy");
 
@@ -476,7 +514,7 @@ namespace CadPlotMcp.AutoCAD
                         null,
                         1,
                         true,
-                        output.Pdf
+                        temporaryPdf
                     );
                     using (var pageInfo = new PlotPageInfo())
                     {

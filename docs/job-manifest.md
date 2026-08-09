@@ -46,6 +46,10 @@ those values to the parsed PDF MediaBox independent of orientation, using config
 
 The manifest starts in `staged` state. The AutoCAD executor may operate only on the
 `staged_drawing` named in this manifest and may write PDFs only under its `output_directory`.
+Expected final PDF names stay absent while plotting. Every sheet is first written to a unique
+executor-owned `.partial.pdf` beside its final target; only after all plots finish and the staged
+DWG closes without saving are non-empty temporary files promoted with no-overwrite moves. A normal
+mid-job plot failure therefore leaves no final manifest output.
 
 After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
 rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,
