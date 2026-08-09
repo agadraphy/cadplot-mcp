@@ -353,8 +353,12 @@ ikisini bağlayan dış `demo-kit-build.json` manifestini üretir. Kitteki `veri
 canlı-kanıt bayraklarını denetler. `verify-demo-kit.ps1` de makineye özel API klasör yolunu taşımayan
 düz kitin bağımsız iç doğrulamasını yapar.
 
-Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
-Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini
+Kurucu yalnız tam release kökündeki exact `CadPlotMcp.bundle` altını kabul eder; kopyalamadan önce
+kardeş ZIP'i, `bundle-build.json` manifestini, exact commit'i ve matching-SDK kanıtını yeniden
+doğrular. Protokol-only fixture ancak açık test anahtarıyla kurulabilir ve gerçek kurulum gibi
+gösterilemez. Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam
+hedefi görün. Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar,
+kaynak/hedef hash'lerini
 eşleştirir ve ancak sonra atomik olarak `CadPlotMcp.bundle` adına taşır; mevcut kurulumu ezmez.
 Kopya/doğrulama hatasında staging klasörünü otomatik ve recursive silmez, inceleme için bırakır.
 `run-local-preflight.ps1`, protokol-only bir fixture ile `WhatIf → kur → doğrula → WhatIf kaldır →

@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Standalone bundle installation is now bound to the full verified release root: the exact sibling
+  ZIP, `bundle-build.json`, commit identity, and matching-SDK evidence are rechecked before any
+  copy. Protocol-only fixtures fail normal installation and require explicit test-only consent.
 - Matching R20.1/R25.0 bundles now compile in fresh release-specific temporary trees with
   incremental/shared compilation disabled, so stale ignored repository outputs can never be
   packaged as production adapters. The cross-version Autodesk runtime also has an explicit

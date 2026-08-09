@@ -541,6 +541,11 @@ def test_build_and_install_require_exact_bundle_verification() -> None:
         encoding="utf-8"
     )
     for required in (
+        "[Parameter(Mandatory = $true)]",
+        "verify-bundle-release.ps1",
+        "AllowProtocolOnlyFixture",
+        "Bundle source must be the exact CadPlotMcp.bundle child",
+        "not bound to a verified matching-SDK release",
         "Assert-NoRedirectedAncestor",
         "Assert-SameBundleHashes",
         ".CadPlotMcp.bundle.installing-",
@@ -549,6 +554,7 @@ def test_build_and_install_require_exact_bundle_verification() -> None:
         "non-loadable staging directory was retained",
     ):
         assert required in installer
+    assert r'artifacts\CadPlotMcp.bundle' not in installer
     assert "Remove-Item" not in installer
 
 
@@ -1301,6 +1307,8 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "-WhatIf",
         "protocol_only_fixture = $true",
         "protocol_only_rejected_as_real = $protocolOnlyRejected",
+        "protocol_only_install_rejected_without_test_consent = $protocolOnlyInstallRejected",
+        "AllowProtocolOnlyFixture",
         "bundle_release_verified = $true",
         "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
         "release_kit_self_verification_passed",

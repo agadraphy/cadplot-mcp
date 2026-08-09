@@ -412,9 +412,12 @@ retained for explicit inspection instead of being recursively deleted by the ins
 `-WhatIf` removal, and removal with a clearly labelled protocol-only fixture; this smoke never
 launches AutoCAD and is not a matching-SDK or live-publish result.
 
-The installer never overwrites an existing bundle. For an upgrade, close AutoCAD, preview the
-exact removal with `scripts/uninstall-bundle.ps1 -WhatIf`, run it only after checking the target,
-then pass the new build JSON's `bundle` path explicitly as `install-bundle.ps1 -SourceBundle ...`.
+The installer never overwrites an existing bundle. It accepts only the exact `CadPlotMcp.bundle`
+child of a full release root, then re-verifies the sibling ZIP, `bundle-build.json`, exact commit,
+and matching-SDK evidence before copying anything. Protocol-only fixtures require an explicit
+test-only switch and cannot pass as a real install. For an upgrade, close AutoCAD, preview the exact
+removal with `scripts/uninstall-bundle.ps1 -WhatIf`, run it only after checking the target, then pass
+the new build JSON's `bundle` path explicitly as `install-bundle.ps1 -SourceBundle ...`.
 The uninstaller rejects junctions and any directory whose
 package name/ProductCode does not match CadPlot MCP. It also requires the exact verified bundle
 contents and hashes twice, atomically renames the exact target to a unique non-`.bundle` quarantine,

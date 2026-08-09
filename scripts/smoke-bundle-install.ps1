@@ -198,9 +198,25 @@ try {
         throw "Protocol-only combined release-kit smoke failed."
     }
 
+    $protocolOnlyInstallRejected = $false
+    try {
+        & $installer `
+            -SourceBundle $fixtureBundle `
+            -DestinationRoot $destinationRoot `
+            -WhatIf
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*not a matching-SDK build*") { throw }
+        $protocolOnlyInstallRejected = $true
+    }
+    if (-not $protocolOnlyInstallRejected -or (Test-Path -LiteralPath $installedBundle)) {
+        throw "Standalone installer accepted a protocol-only bundle without explicit test consent."
+    }
+
     $archiveBytes = [System.IO.File]::ReadAllBytes($fixtureArchive)
-    $archiveBytes[0] = $archiveBytes[0] -bxor 1
-    [System.IO.File]::WriteAllBytes($fixtureArchive, $archiveBytes)
+    $tamperedArchiveBytes = [byte[]]$archiveBytes.Clone()
+    $tamperedArchiveBytes[0] = $tamperedArchiveBytes[0] -bxor 1
+    [System.IO.File]::WriteAllBytes($fixtureArchive, $tamperedArchiveBytes)
     $archiveTamperBlocked = $false
     try {
         & $releaseVerifier `
@@ -215,6 +231,7 @@ try {
     if (-not $archiveTamperBlocked) {
         throw "Release verifier accepted a modified bundle archive."
     }
+    [System.IO.File]::WriteAllBytes($fixtureArchive, $archiveBytes)
 
     $installProcessGuardBlocked = $false
     function Get-Process {
@@ -223,7 +240,11 @@ try {
         [pscustomobject]@{ ProcessName = $Name; Id = 4242 }
     }
     try {
-        & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -WhatIf
+        & $installer `
+            -SourceBundle $fixtureBundle `
+            -DestinationRoot $destinationRoot `
+            -AllowProtocolOnlyFixture `
+            -WhatIf
     }
     catch {
         if ($_.Exception.Message -notlike "*Close every AutoCAD process*") { throw }
@@ -234,11 +255,19 @@ try {
         throw "Bundle installer did not fail closed for a simulated running acad.exe."
     }
 
-    & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -WhatIf
+    & $installer `
+        -SourceBundle $fixtureBundle `
+        -DestinationRoot $destinationRoot `
+        -AllowProtocolOnlyFixture `
+        -WhatIf
     if (Test-Path -LiteralPath $installedBundle) {
         throw "Install -WhatIf created a destination bundle."
     }
-    & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -Confirm:$false
+    & $installer `
+        -SourceBundle $fixtureBundle `
+        -DestinationRoot $destinationRoot `
+        -AllowProtocolOnlyFixture `
+        -Confirm:$false
     $null = & $verifier -BundlePath $installedBundle -PassThru
 
     $uninstallProcessGuardBlocked = $false
@@ -261,7 +290,11 @@ try {
 
     $overwriteBlocked = $false
     try {
-        & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -Confirm:$false
+        & $installer `
+            -SourceBundle $fixtureBundle `
+            -DestinationRoot $destinationRoot `
+            -AllowProtocolOnlyFixture `
+            -Confirm:$false
     }
     catch {
         if ($_.Exception.Message -notlike "*will not overwrite*") { throw }
@@ -338,6 +371,7 @@ try {
         passed = $true
         protocol_only_fixture = $true
         protocol_only_rejected_as_real = $protocolOnlyRejected
+        protocol_only_install_rejected_without_test_consent = $protocolOnlyInstallRejected
         bundle_runtime_route_tamper_blocked = $routeTamperBlocked
         bundle_release_verified = $true
         bundle_release_archive_tamper_blocked = $archiveTamperBlocked

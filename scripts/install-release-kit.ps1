@@ -348,6 +348,7 @@ if ($bundleAction -eq "install") {
     & (Join-Path $kitRoot "scripts\install-bundle.ps1") `
         -SourceBundle $bundleSource `
         -DestinationRoot $resolvedBundleDestination `
+        -AllowProtocolOnlyFixture:$AllowProtocolOnlyFixture `
         -WhatIf | Out-Null
 }
 
@@ -409,6 +410,7 @@ if ($bundleAction -eq "install") {
     & (Join-Path $kitRoot "scripts\install-bundle.ps1") `
         -SourceBundle $bundleSource `
         -DestinationRoot $resolvedBundleDestination `
+        -AllowProtocolOnlyFixture:$AllowProtocolOnlyFixture `
         -Confirm:$false | Out-Null
 }
 $installedBundleEvidence = & $bundleVerifier -BundlePath $bundleTarget -PassThru

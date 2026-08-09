@@ -79,6 +79,8 @@ Then run the same exact source without `-WhatIf`. Start AutoCAD and call MCP too
 result: `connected=true`, correct adapter/release, `runtimeSupported=true`, `readOnly=true`, and
 `publishEnabled=false`. The product field must include normalized and raw live `ACADVER`; require
 `runtimeSeries=R20.1` for the 2016 adapter and `runtimeSeries=R25.0` for the 2025 adapter.
+The installer must first reverify the source bundle's sibling ZIP and `bundle-build.json` and report
+matching-SDK evidence; never use the protocol-only fixture switch on a licensed workstation.
 `buildCommit` must be the exact release commit,
 and `pluginSha256` must match that release's adapter DLL entry in `bundle-build.json`; record all of
 them with the pilot evidence.

@@ -84,7 +84,9 @@ taşınmaz.
 ## 10 dakikalık gösterim
 
 1. AutoCAD kapalıyken build JSON'daki tam bundle yolunu
-   `scripts/install-bundle.ps1 -SourceBundle "<tam yol>" -WhatIf` ile gösterin.
+   `scripts/install-bundle.ps1 -SourceBundle "<tam yol>" -WhatIf` ile gösterin. Kaynak, tam release
+   kökündeki `CadPlotMcp.bundle` olmalı; kurucu kardeş ZIP'i, `bundle-build.json` manifestini ve
+   matching-SDK kanıtını yeniden doğrulamalıdır. Protokol-only test anahtarını kullanmayın.
 2. İlk açılışta publish kapalı kalsın. `get_autocad_plugin_status` ile doğru adapter, `ACADVER`,
    `workspaceConfigured=true` ve `publishEnabled=false` değerlerini gösterin. `buildCommit` release
    commit'iyle, `pluginSha256` ise `bundle-build.json` içindeki ilgili adapter DLL hash'iyle aynı

@@ -97,7 +97,10 @@ $kit = "C:\CadPlotTransfer\cadplot-release-kit-0.1.0-abcdef0\CadPlotMcp.release"
 ```
 
 The installer never overwrites an existing `CadPlotMcp.bundle`. Use the verified uninstaller with
-AutoCAD closed before an upgrade.
+AutoCAD closed before an upgrade. The source must be the exact `CadPlotMcp.bundle` child of the
+verified release root; the installer rechecks the sibling archive, `bundle-build.json`, exact
+commit, and matching-SDK evidence before any copy. The protocol-only allowance is reserved for
+repository smoke fixtures and must never be used for a workstation install.
 
 ```powershell
 & "$kit\scripts\uninstall-bundle.ps1" -WhatIf

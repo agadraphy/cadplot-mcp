@@ -1,14 +1,12 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "Medium")]
 param(
-    [string]$SourceBundle = "",
-    [string]$DestinationRoot = ""
+    [Parameter(Mandatory = $true)]
+    [string]$SourceBundle,
+    [string]$DestinationRoot = "",
+    [switch]$AllowProtocolOnlyFixture
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = Split-Path -Parent $PSScriptRoot
-if ([string]::IsNullOrWhiteSpace($SourceBundle)) {
-    $SourceBundle = Join-Path $repoRoot "artifacts\CadPlotMcp.bundle"
-}
 if ([string]::IsNullOrWhiteSpace($DestinationRoot)) {
     $DestinationRoot = Join-Path ([Environment]::GetFolderPath("ApplicationData")) "Autodesk\ApplicationPlugins"
 }
@@ -17,6 +15,7 @@ $resolvedSource = [System.IO.Path]::GetFullPath($SourceBundle)
 $resolvedDestinationRoot = [System.IO.Path]::GetFullPath($DestinationRoot)
 $destinationBundle = Join-Path $resolvedDestinationRoot "CadPlotMcp.bundle"
 $verifier = Join-Path $PSScriptRoot "verify-bundle.ps1"
+$releaseVerifier = Join-Path $PSScriptRoot "verify-bundle-release.ps1"
 
 function Assert-NoRedirectedAncestor {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -69,6 +68,26 @@ if (-not (Test-Path -LiteralPath $resolvedSource -PathType Container)) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $resolvedSource "PackageContents.xml") -PathType Leaf)) {
     throw "Bundle source has no PackageContents.xml: $resolvedSource"
+}
+$sourceReleaseRoot = Split-Path -Parent $resolvedSource
+if ((Split-Path -Leaf $resolvedSource) -cne "CadPlotMcp.bundle") {
+    throw "Bundle source must be the exact CadPlotMcp.bundle child of a verified release root."
+}
+Assert-NoRedirectedAncestor -Path $sourceReleaseRoot
+$releaseArguments = @{
+    ReleaseRoot = $sourceReleaseRoot
+    PassThru = $true
+}
+if ($AllowProtocolOnlyFixture) { $releaseArguments.AllowProtocolOnlyFixture = $true }
+$releaseEvidence = & $releaseVerifier @releaseArguments
+if (
+    $releaseEvidence.ReleaseRoot -cne $sourceReleaseRoot -or
+    (
+        -not $AllowProtocolOnlyFixture -and
+        $releaseEvidence.MatchingSdkBundleBuilt -ne $true
+    )
+) {
+    throw "Bundle source is not bound to a verified matching-SDK release."
 }
 $sourceVerification = & $verifier -BundlePath $resolvedSource -PassThru
 if (Test-Path -LiteralPath $destinationBundle) {
