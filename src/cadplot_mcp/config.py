@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,7 @@ MAX_CONFIG_BYTES = 1024 * 1024
 TOP_LEVEL_KEYS = {
     "version",
     "allowed_roots",
+    "template_roots",
     "workspace_root",
     "drawing_unit_mm",
     "scale_denominators",
@@ -36,6 +37,8 @@ PROFILE_KEYS = {
     "plot_style",
     "canonical_media",
     "template_layout",
+    "template_drawing",
+    "template_sha256",
     "tolerance_mm",
 }
 
@@ -49,6 +52,8 @@ class PaperProfile:
     plot_style: str
     canonical_media: str | None = None
     template_layout: str | None = None
+    template_drawing: Path | None = None
+    template_sha256: str | None = None
     tolerance_mm: float = 3.0
 
 
@@ -56,6 +61,7 @@ class PaperProfile:
 class CadPlotConfig:
     source: Path
     path_policy: PathPolicy
+    template_path_policy: PathPolicy | None
     paper_profiles: tuple[PaperProfile, ...]
     workspace_root: Path | None = None
     drawing_unit_mm: float = 1.0
@@ -125,11 +131,19 @@ def load_config(path: str | Path) -> CadPlotConfig:
         not isinstance(item, str) or not item.strip() for item in roots_value
     ):
         raise ValueError("allowed_roots must be a list of non-empty paths.")
+    template_roots_value = raw.get("template_roots", [])
+    if not isinstance(template_roots_value, list) or any(
+        not isinstance(item, str) or not item.strip() for item in template_roots_value
+    ):
+        raise ValueError("template_roots must be a list of non-empty paths.")
     profiles_value = raw.get("paper_profiles", [])
     if not isinstance(profiles_value, list):
         raise ValueError("paper_profiles must be a list of profile mappings.")
     roots = [_resolve_relative(source.parent, item) for item in roots_value]
-    profiles = tuple(_parse_profile(item) for item in profiles_value)
+    template_roots = [
+        _resolve_relative(source.parent, item) for item in template_roots_value
+    ]
+    profiles = tuple(_parse_profile(item, source.parent) for item in profiles_value)
     workspace_value = raw.get("workspace_root")
     if workspace_value is not None and (
         not isinstance(workspace_value, str) or not workspace_value.strip()
@@ -191,18 +205,43 @@ def load_config(path: str | Path) -> CadPlotConfig:
         raise ValueError("frame_layers must be unique ignoring case")
     _validate_profiles(profiles)
     path_policy = PathPolicy.from_roots(roots)
+    template_path_policy = (
+        PathPolicy.from_roots(template_roots) if template_roots else None
+    )
+    resolved_profiles: list[PaperProfile] = []
+    for profile in profiles:
+        if profile.template_drawing is None:
+            resolved_profiles.append(profile)
+            continue
+        if template_path_policy is None:
+            raise ValueError(
+                f"Paper profile {profile.id} requires template_roots for template_drawing"
+            )
+        template = template_path_policy.require_allowed(profile.template_drawing)
+        if template.suffix.casefold() not in {".dwg", ".dwt"} or not template.is_file():
+            raise ValueError(
+                f"Paper profile {profile.id} template_drawing must be a DWG or DWT file"
+            )
+        resolved_profiles.append(replace(profile, template_drawing=template))
+    profiles = tuple(resolved_profiles)
     if workspace_root is not None:
         resolved_workspace = workspace_root.resolve(strict=False)
+        read_roots = list(path_policy.allowed_roots)
+        if template_path_policy is not None:
+            read_roots.extend(template_path_policy.allowed_roots)
         if any(
             resolved_workspace == root
             or root in resolved_workspace.parents
             or resolved_workspace in root.parents
-            for root in path_policy.allowed_roots
+            for root in read_roots
         ):
-            raise ValueError("workspace_root must be separate from every allowed_roots tree")
+            raise ValueError(
+                "workspace_root must be separate from allowed_roots and template_roots"
+            )
     return CadPlotConfig(
         source=source,
         path_policy=path_policy,
+        template_path_policy=template_path_policy,
         paper_profiles=profiles,
         workspace_root=workspace_root,
         drawing_unit_mm=drawing_unit_mm,
@@ -222,7 +261,7 @@ def _resolve_relative(base: Path, value: str) -> Path:
     return candidate if candidate.is_absolute() else base / candidate
 
 
-def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
+def _parse_profile(raw: dict[str, Any], base: Path) -> PaperProfile:
     if not isinstance(raw, dict):
         raise ValueError("Each paper profile must be a mapping.")
     unknown_keys = sorted(set(raw) - PROFILE_KEYS)
@@ -258,6 +297,16 @@ def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
         if raw.get("template_layout") is not None
         else None
     )
+    template_drawing = (
+        _resolve_relative(base, _profile_text(raw, "template_drawing", 4_096))
+        if raw.get("template_drawing") is not None
+        else None
+    )
+    template_sha256 = (
+        _profile_text(raw, "template_sha256", 64).lower()
+        if raw.get("template_sha256") is not None
+        else None
+    )
     return PaperProfile(
         id=profile_id,
         labels=labels,
@@ -266,6 +315,8 @@ def _parse_profile(raw: dict[str, Any]) -> PaperProfile:
         plot_style=plot_style,
         canonical_media=canonical_media,
         template_layout=template_layout,
+        template_drawing=template_drawing,
+        template_sha256=template_sha256,
         tolerance_mm=float(raw.get("tolerance_mm", 3.0)),
     )
 
@@ -285,6 +336,18 @@ def _validate_profiles(profiles: tuple[PaperProfile, ...]) -> None:
             )
         if profile.canonical_media is not None and not profile.canonical_media.strip():
             raise ValueError(f"Paper profile {profile.id} has an empty canonical_media")
+        if profile.template_drawing is not None and profile.template_layout is None:
+            raise ValueError(
+                f"Paper profile {profile.id} template_drawing requires template_layout"
+            )
+        if (profile.template_drawing is None) != (profile.template_sha256 is None):
+            raise ValueError(
+                f"Paper profile {profile.id} template_drawing and template_sha256 must be paired"
+            )
+        if profile.template_sha256 is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", profile.template_sha256
+        ):
+            raise ValueError(f"Paper profile {profile.id} has an invalid template_sha256")
         for label in profile.labels:
             normalized = normalize_label(label)
             owner = aliases.get(normalized)

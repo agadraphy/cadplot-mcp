@@ -17,6 +17,16 @@ class DrawingFingerprintOutput(_ClosedOutput):
     modified_ns: int
 
 
+class PlanTemplateAssetOutput(_ClosedOutput):
+    id: str
+    source: str
+    sha256: Sha256String
+    size_bytes: int
+    modified_ns: int
+    layout: str
+    page_setup: str
+
+
 class PlanPaperProfileOutput(_ClosedOutput):
     id: str
     page_setup: str
@@ -24,6 +34,7 @@ class PlanPaperProfileOutput(_ClosedOutput):
     plot_style: str
     canonical_media: str | None
     template_layout: str | None
+    template_asset: PlanTemplateAssetOutput | None
 
 
 class PlotWindowOutput(_ClosedOutput):
@@ -53,6 +64,7 @@ class PublishPlanSheetOutput(_ClosedOutput):
         "low_confidence",
         "page_setup_mismatch",
         "template_layout_mismatch",
+        "template_asset_mismatch",
         "unsupported_scale",
         "layout_conflict",
     ]
@@ -143,6 +155,9 @@ class EnvironmentValidationOutput(_ClosedOutput):
     config: str | None
     allowed_roots: list[str]
     allowed_root_status: list[dict[str, Any]]
+    template_roots: list[str]
+    template_root_status: list[dict[str, Any]]
+    template_assets: list[dict[str, Any]]
     workspace_root: str | None
     workspace: dict[str, Any] | None
     autocad: dict[str, Any]

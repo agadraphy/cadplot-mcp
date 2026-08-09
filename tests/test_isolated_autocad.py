@@ -28,6 +28,7 @@ def _inspection_payload(drawing: Path) -> dict[str, object]:
                 "plot_type": 5,
                 "use_standard_scale": True,
                 "standard_scale": 16,
+                "floating_viewport_count": 1,
             }
         ],
         "page_setups": [
@@ -88,6 +89,27 @@ def test_isolated_inspector_uses_stdin_protocol_and_rebuilds_models(
     request = json.loads(captured["input"].decode("utf-8"))
     assert request["drawing"] == str(drawing.resolve())
     assert captured["timeout"] == 30
+
+
+def test_isolated_inspector_accepts_dwt_template_through_same_closed_protocol(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    template = tmp_path / "office.dwt"
+    template.write_bytes(b"dwt")
+
+    def fake_run(command, **kwargs):
+        stdout = json.dumps(
+            {"ok": True, "inspection": _inspection_payload(template)}
+        ).encode("utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr("cadplot_mcp.backends.isolated_autocad.subprocess.run", fake_run)
+    inspector = IsolatedAutoCADInspector(PathPolicy.from_roots([tmp_path]), timeout_seconds=30)
+
+    inspection = inspector.inspect_drawing(template)
+
+    assert inspection.path == str(template.resolve())
+    assert inspection.layouts[0].name == "Layout1"
 
 
 def test_isolated_inspector_terminates_and_bounds_timeout_error(

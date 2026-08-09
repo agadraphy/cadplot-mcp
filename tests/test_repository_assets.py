@@ -513,6 +513,53 @@ def test_publish_outputs_are_staged_until_all_plots_and_dwg_discard_succeed() ->
         assert required in transaction
 
 
+def test_external_layout_templates_are_hash_bound_and_imported_only_from_job_copy() -> None:
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+    manifest = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "PublishManifest.cs"
+    ).read_text(encoding="utf-8")
+    workspace = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "workspace.py").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "current_template = fingerprint_template(",
+        "shutil.copy2(template_source, staged_template)",
+        '"template_assets": template_assets',
+        '"template_asset_id"',
+    ):
+        assert required in workspace
+    for required in (
+        'DataMember(Name = "staged_template")',
+        '"template_asset_outside_job"',
+        '"template_asset_changed"',
+        "FileSha256.Compute(path)",
+    ):
+        assert required in manifest
+    for required in (
+        "ImportTemplateLayouts(database, manifest.TemplateAssets)",
+        "FileSha256.Compute(asset.StagedTemplate)",
+        "external.ReadDwgFile(",
+        "external.WblockCloneObjects(",
+        "DuplicateRecordCloning.MangleName",
+        "importedLayout.CopyFrom(externalLayout)",
+    ):
+        assert required in runtime
+    assert runtime.index("ImportTemplateLayouts(database") < runtime.index(
+        "PreflightLayouts(database"
+    )
+
+
 def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
     builder = (REPOSITORY_ROOT / "scripts" / "build-release-kit.ps1").read_text(
         encoding="utf-8"

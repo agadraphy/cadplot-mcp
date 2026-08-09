@@ -215,7 +215,7 @@ namespace CadPlotMcp.AutoCAD
                 AcApplication.DocumentManager.MdiActiveDocument = document;
                 using (document.LockDocument())
                 {
-                    ConfigureLayouts(document.Database, manifest.Outputs);
+                    ConfigureLayouts(document.Database, manifest);
                     document.Editor.Regen();
                     for (var index = 0; index < manifest.Outputs.Count; index++)
                         PlotLayout(
@@ -275,12 +275,152 @@ namespace CadPlotMcp.AutoCAD
 
         private static void ConfigureLayouts(
             Database database,
-            IList<PublishManifestOutput> outputs
+            PublishManifest manifest
         )
         {
-            PreflightLayouts(database, outputs);
-            foreach (var output in outputs)
+            ImportTemplateLayouts(database, manifest.TemplateAssets);
+            PreflightLayouts(database, manifest.Outputs);
+            foreach (var output in manifest.Outputs)
                 ConfigureLayout(database, output);
+        }
+
+        private static void ImportTemplateLayouts(
+            Database destination,
+            IList<PublishTemplateAsset> assets
+        )
+        {
+            if (assets == null) return;
+            foreach (var asset in assets)
+                ImportTemplateLayout(destination, asset);
+        }
+
+        private static void ImportTemplateLayout(
+            Database destination,
+            PublishTemplateAsset asset
+        )
+        {
+            var info = new FileInfo(asset.StagedTemplate);
+            if (!info.Exists
+                || info.Length != asset.SizeBytes
+                || !String.Equals(
+                    FileSha256.Compute(asset.StagedTemplate),
+                    asset.Sha256,
+                    StringComparison.Ordinal
+                )) throw new CadPlotPublishException("template_asset_changed");
+
+            using (var destinationCheck = destination.TransactionManager.StartTransaction())
+            {
+                var layouts = (DBDictionary)destinationCheck.GetObject(
+                    destination.LayoutDictionaryId,
+                    OpenMode.ForRead
+                );
+                if (layouts.Contains(asset.Layout))
+                    throw new CadPlotPublishException("external_template_layout_exists");
+                destinationCheck.Abort();
+            }
+
+            using (var external = new Database(false, true))
+            {
+                external.ReadDwgFile(
+                    asset.StagedTemplate,
+                    FileOpenMode.OpenForReadAndAllShare,
+                    true,
+                    String.Empty
+                );
+                using (var externalTransaction = external.TransactionManager.StartTransaction())
+                {
+                    var externalLayouts = (DBDictionary)externalTransaction.GetObject(
+                        external.LayoutDictionaryId,
+                        OpenMode.ForRead
+                    );
+                    if (!externalLayouts.Contains(asset.Layout))
+                        throw new CadPlotPublishException("template_layout_missing");
+                    var externalLayout = (Layout)externalTransaction.GetObject(
+                        externalLayouts.GetAt(asset.Layout),
+                        OpenMode.ForRead
+                    );
+                    if (externalLayout.ModelType)
+                        throw new CadPlotPublishException("template_layout_is_model");
+                    var externalSpace = (BlockTableRecord)externalTransaction.GetObject(
+                        externalLayout.BlockTableRecordId,
+                        OpenMode.ForRead
+                    );
+                    if (CountFloatingViewports(externalTransaction, externalSpace) != 1)
+                        throw new CadPlotPublishException("template_viewport_count");
+
+                    var objectIds = new ObjectIdCollection();
+                    foreach (ObjectId objectId in externalSpace) objectIds.Add(objectId);
+
+                    using (var transaction = destination.TransactionManager.StartTransaction())
+                    {
+                        var blockTable = (BlockTable)transaction.GetObject(
+                            destination.BlockTableId,
+                            OpenMode.ForWrite
+                        );
+                        using (var paperSpace = new BlockTableRecord())
+                        {
+                            paperSpace.Name = NewPaperSpaceBlockName(blockTable);
+                            blockTable.Add(paperSpace);
+                            transaction.AddNewlyCreatedDBObject(paperSpace, true);
+                            external.WblockCloneObjects(
+                                objectIds,
+                                paperSpace.ObjectId,
+                                new IdMapping(),
+                                DuplicateRecordCloning.MangleName,
+                                false
+                            );
+
+                            using (var importedLayout = new Layout())
+                            {
+                                importedLayout.LayoutName = asset.Layout;
+                                importedLayout.AddToLayoutDictionary(
+                                    destination,
+                                    paperSpace.ObjectId
+                                );
+                                transaction.AddNewlyCreatedDBObject(importedLayout, true);
+                                importedLayout.CopyFrom(externalLayout);
+                            }
+                        }
+
+                        var externalPageSetups = (DBDictionary)externalTransaction.GetObject(
+                            external.PlotSettingsDictionaryId,
+                            OpenMode.ForRead
+                        );
+                        if (!externalPageSetups.Contains(asset.PageSetup))
+                            throw new CadPlotPublishException("page_setup_missing");
+                        var pageSetups = (DBDictionary)transaction.GetObject(
+                            destination.PlotSettingsDictionaryId,
+                            OpenMode.ForRead
+                        );
+                        if (!pageSetups.Contains(asset.PageSetup))
+                        {
+                            var externalPageSetup = (PlotSettings)externalTransaction.GetObject(
+                                externalPageSetups.GetAt(asset.PageSetup),
+                                OpenMode.ForRead
+                            );
+                            using (var pageSetup = new PlotSettings(false))
+                            {
+                                pageSetup.PlotSettingsName = asset.PageSetup;
+                                pageSetup.AddToPlotSettingsDictionary(destination);
+                                transaction.AddNewlyCreatedDBObject(pageSetup, true);
+                                pageSetup.CopyFrom(externalPageSetup);
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    externalTransaction.Abort();
+                }
+            }
+        }
+
+        private static string NewPaperSpaceBlockName(BlockTable blockTable)
+        {
+            for (var index = 1; index <= 10_000; index++)
+            {
+                var candidate = "*Paper_Space" + index.ToString();
+                if (!blockTable.Has(candidate)) return candidate;
+            }
+            throw new CadPlotPublishException("template_layout_capacity");
         }
 
         private static void PreflightLayouts(

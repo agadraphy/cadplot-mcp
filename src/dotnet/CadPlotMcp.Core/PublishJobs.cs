@@ -145,7 +145,7 @@ namespace CadPlotMcp.Core
         }
     }
 
-    internal static class FileSha256
+    public static class FileSha256
     {
         public static string Compute(string path)
         {

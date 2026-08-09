@@ -33,6 +33,7 @@ def test_office_inventory_reports_exact_names_without_approving_mapping() -> Non
                 plot_type=5,
                 use_standard_scale=True,
                 standard_scale=16,
+                floating_viewport_count=1,
             ),
         ],
         page_setups=[
@@ -68,6 +69,8 @@ def test_office_inventory_reports_exact_names_without_approving_mapping() -> Non
             "plotter": "OFFICE PDF.pc3",
             "plot_style": "OFFICE.ctb",
             "canonical_media": "UserDefinedMetric (700.00 x 1000.00MM)",
+            "floating_viewport_count": 1,
+            "ready_for_template_approval": True,
             "candidate_only": True,
             "requires_exactly_one_floating_viewport_validation": True,
         }

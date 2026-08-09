@@ -4,6 +4,10 @@ version: 1
 allowed_roots:
   - "C:/Projects"
 
+# Optional separate read-only roots for approved external DWG/DWT layout templates.
+# template_roots:
+#   - "C:/CompanyCAD/Templates"
+
 # Staged DWG copies, job manifests, and PDFs are written only below this folder.
 workspace_root: "C:/CadPlotWork"
 
@@ -30,6 +34,10 @@ paper_profiles:
     # canonical_media: "UserDefinedMetric (700.00 x 1000.00MM)"
     # Optional: clone this existing paper-space layout and reuse its single floating viewport.
     # template_layout: "TEMPLATE_70X100"
+    # To use that layout from an external asset instead, also pin both fields below. The file is
+    # inspected read-only and copied only into the isolated job; never commit the company asset.
+    # template_drawing: "C:/CompanyCAD/Templates/office-70x100.dwt"
+    # template_sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     tolerance_mm: 3
 
   - id: "sheet_50x70"

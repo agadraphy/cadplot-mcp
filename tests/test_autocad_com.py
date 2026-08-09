@@ -7,6 +7,13 @@ from cadplot_mcp.backends.autocad_com import (
 )
 
 
+class FakeViewport:
+    ObjectName = "AcDbViewport"
+
+    def __init__(self, number: int):
+        self.Number = number
+
+
 class FakeLayout:
     Name = "PAFTA-01"
     ModelType = False
@@ -16,6 +23,7 @@ class FakeLayout:
     PlotType = 5
     UseStandardScale = True
     StandardScale = 0
+    Block = [FakeViewport(1), FakeViewport(2)]
 
 
 class FakePlotConfiguration:
@@ -139,6 +147,7 @@ def test_read_layouts_collects_plot_properties() -> None:
     assert layouts[0].name == "PAFTA-01"
     assert layouts[0].plotter == "DWG To PDF.pc3"
     assert layouts[0].plot_style == "monochrome.ctb"
+    assert layouts[0].floating_viewport_count == 1
 
 
 def test_read_page_setups_collects_exact_layout_plot_scale() -> None:

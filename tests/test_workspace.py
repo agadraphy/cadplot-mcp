@@ -7,8 +7,13 @@ from pypdf import PdfWriter
 
 from cadplot_mcp.audit import audit_publish_outputs, read_publish_receipt
 from cadplot_mcp.config import load_config
-from cadplot_mcp.fingerprint import fingerprint_drawing
-from cadplot_mcp.models import DrawingInspection, FrameCandidate, PageSetupSummary
+from cadplot_mcp.fingerprint import fingerprint_drawing, fingerprint_template
+from cadplot_mcp.models import (
+    DrawingInspection,
+    FrameCandidate,
+    LayoutSummary,
+    PageSetupSummary,
+)
 from cadplot_mcp.planner import create_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
 from cadplot_mcp.workspace import stage_publish_job
@@ -87,6 +92,111 @@ def test_stage_publish_job_copies_source_and_writes_manifest(tmp_path: Path) -> 
     assert job["outputs"][0]["canonical_media"] == "ISO_A4"
     assert job["outputs"][0]["plot_geometry"]["scale_denominator"] == 1
     assert not Path(job["outputs"][0]["pdf"]).exists()
+
+
+def test_stage_publish_job_copies_and_hash_binds_external_template(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    templates = tmp_path / "templates"
+    project.mkdir()
+    templates.mkdir()
+    drawing = project / "sheet.dwg"
+    drawing.write_bytes(b"drawing")
+    template = templates / "office.dwt"
+    template.write_bytes(b"authorized template")
+    template_sha = hashlib.sha256(template.read_bytes()).hexdigest()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+allowed_roots: [project]
+template_roots: [templates]
+workspace_root: work
+paper_profiles:
+  - id: office_a4
+    labels: [A4]
+    page_setup: OFFICE_A4
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    canonical_media: ISO_A4
+    template_layout: OFFICE_TEMPLATE
+    template_drawing: templates/office.dwt
+    template_sha256: {template_sha}
+""".strip(),
+        encoding="utf-8",
+    )
+    config = load_config(config_path)
+    source_inspection = DrawingInspection(
+        path=str(drawing),
+        frames=[
+            FrameCandidate(
+                handle="A1",
+                layer="SHEET",
+                min_point=(0.0, 0.0, 0.0),
+                max_point=(297.0, 210.0, 0.0),
+                label="A4",
+                width_mm=297.0,
+                height_mm=210.0,
+                confidence=1.0,
+            )
+        ],
+    )
+    template_inspection = DrawingInspection(
+        path=str(template),
+        layouts=[
+            LayoutSummary(
+                name="OFFICE_TEMPLATE",
+                model_type=False,
+                floating_viewport_count=1,
+            )
+        ],
+        page_setups=[
+            PageSetupSummary(
+                name="OFFICE_A4",
+                model_type=False,
+                plotter="DWG To PDF.pc3",
+                media_name="ISO_A4",
+                plot_style="monochrome.ctb",
+                plot_type=5,
+                use_standard_scale=True,
+                standard_scale=16,
+            )
+        ],
+    )
+    assert config.template_path_policy is not None
+    template_fingerprint = fingerprint_template(template, config.template_path_policy)
+    plan = create_publish_plan(
+        source_inspection,
+        config,
+        drawing_fingerprint=fingerprint_drawing(drawing, config.path_policy),
+        template_evidence={"office_a4": (template_inspection, template_fingerprint)},
+    )
+
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+
+    asset = job["template_assets"][0]
+    staged_template = Path(asset["staged_template"])
+    assert staged_template.read_bytes() == template.read_bytes()
+    assert asset["sha256"] == template_sha
+    assert asset["layout"] == "OFFICE_TEMPLATE"
+    assert job["outputs"][0]["template_asset_id"] == "office_a4"
+    assert audit_publish_outputs(job["manifest"], config)["summary"]["missing"] == 1
+
+    manifest_path = Path(job["manifest"])
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["outputs"][0]["template_asset_id"] = None
+    manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing its template asset reference"):
+        audit_publish_outputs(manifest_path, config)
+    manifest_payload["outputs"][0]["template_asset_id"] = "office_a4"
+    manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
+
+    template.write_bytes(b"changed after approval")
+    with pytest.raises(ValueError, match="External template changed after planning"):
+        stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+
+    staged_template.write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="Staged template no longer matches"):
+        audit_publish_outputs(job["manifest"], config)
 
 
 def test_stage_publish_job_requires_exact_approval(tmp_path: Path) -> None:

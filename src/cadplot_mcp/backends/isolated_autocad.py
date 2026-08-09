@@ -48,7 +48,9 @@ class IsolatedAutoCADInspector:
         self.timeout_seconds = timeout_seconds
 
     def inspect_drawing(self, value: str | Path) -> DrawingInspection:
-        drawing_path = self.path_policy.require_allowed(value, suffix=".dwg")
+        drawing_path = self.path_policy.require_allowed(value)
+        if drawing_path.suffix.casefold() not in {".dwg", ".dwt"}:
+            raise ValueError("AutoCAD inspection requires an allowed DWG or DWT file.")
         request = {
             "schema_version": 1,
             "drawing": str(drawing_path),
@@ -168,6 +170,9 @@ def _layout(value: Any) -> LayoutSummary:
             record["use_standard_scale"], "layout standard-scale flag"
         ),
         standard_scale=_optional_int(record["standard_scale"], "layout standard scale"),
+        floating_viewport_count=_optional_nonnegative_int(
+            record["floating_viewport_count"], "layout floating viewport count"
+        ),
     )
 
 
@@ -258,6 +263,15 @@ def _optional_int(value: Any, name: str) -> int | None:
     if not isinstance(value, int) or isinstance(value, bool):
         raise AutoCADInspectorProtocolError(f"AutoCAD inspector returned invalid {name}.")
     return value
+
+
+def _optional_nonnegative_int(value: Any, name: str) -> int | None:
+    result = _optional_int(value, name)
+    if result is not None and result < 0:
+        raise AutoCADInspectorProtocolError(
+            f"AutoCAD inspector returned invalid {name}."
+        )
+    return result
 
 
 def _number(value: Any, name: str) -> float:

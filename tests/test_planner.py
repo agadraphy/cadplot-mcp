@@ -311,7 +311,13 @@ def test_publish_plan_requires_configured_paper_space_template_layout(tmp_path: 
     present = create_publish_plan(
         _inspection(
             [_frame("70x100")],
-            layouts=[LayoutSummary(name="office_template", model_type=False)],
+            layouts=[
+                LayoutSummary(
+                    name="office_template",
+                    model_type=False,
+                    floating_viewport_count=1,
+                )
+            ],
         ),
         config,
         drawing_fingerprint=_fingerprint(),
@@ -321,6 +327,64 @@ def test_publish_plan_requires_configured_paper_space_template_layout(tmp_path: 
     assert missing["sheets"][0]["status"] == "template_layout_mismatch"
     assert present["ready"] is True
     assert present["sheets"][0]["profile"]["template_layout"] == "OFFICE_TEMPLATE"
+
+
+def test_publish_plan_uses_hash_bound_external_template_resources(tmp_path: Path) -> None:
+    base = _config(tmp_path)
+    template = tmp_path / "office.dwt"
+    profile = replace(
+        base.paper_profiles[0],
+        template_layout="OFFICE_TEMPLATE",
+        template_drawing=template,
+        template_sha256="b" * 64,
+    )
+    config = replace(base, paper_profiles=(profile,))
+    source_inspection = _inspection([_frame("70x100")])
+    source_inspection.page_setups.clear()
+    template_inspection = _inspection(
+        [],
+        layouts=[
+            LayoutSummary(
+                name="OFFICE_TEMPLATE",
+                model_type=False,
+                floating_viewport_count=1,
+            )
+        ],
+    )
+    template_inspection.path = str(template)
+    template_fingerprint = {
+        "sha256": "b" * 64,
+        "size_bytes": 456,
+        "modified_ns": 789,
+    }
+
+    plan = create_publish_plan(
+        source_inspection,
+        config,
+        drawing_fingerprint=_fingerprint(),
+        template_evidence={
+            "sheet_70x100": (template_inspection, template_fingerprint)
+        },
+    )
+    missing = create_publish_plan(
+        source_inspection,
+        config,
+        drawing_fingerprint=_fingerprint(),
+    )
+
+    assert plan["ready"] is True
+    assert plan["sheets"][0]["profile"]["template_asset"] == {
+        "id": "sheet_70x100",
+        "source": str(template),
+        "sha256": "b" * 64,
+        "size_bytes": 456,
+        "modified_ns": 789,
+        "layout": "OFFICE_TEMPLATE",
+        "page_setup": "OFFICE_70x100",
+    }
+    validate_publish_plan(plan)
+    assert missing["ready"] is False
+    assert missing["sheets"][0]["status"] == "template_asset_mismatch"
 
 
 def test_publish_plan_blocks_low_confidence_frame(tmp_path: Path) -> None:

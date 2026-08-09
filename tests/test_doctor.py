@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -46,6 +47,53 @@ def test_config_doctor_is_read_only_and_allows_not_yet_created_workspace(tmp_pat
     assert report["autocad"] == {"checked": False}
     assert report["plugin"] == {"checked": False}
     assert not (tmp_path / "work").exists()
+
+
+def test_config_doctor_verifies_external_template_hash(tmp_path: Path) -> None:
+    (tmp_path / "project").mkdir()
+    (tmp_path / "templates").mkdir()
+    template = tmp_path / "templates" / "office.dwt"
+    template.write_bytes(b"approved office template")
+    digest = hashlib.sha256(template.read_bytes()).hexdigest()
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        f"""
+version: 1
+allowed_roots: [project]
+template_roots: [templates]
+workspace_root: work
+paper_profiles:
+  - id: a4
+    labels: [A4]
+    page_setup: OFFICE_A4
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    template_layout: OFFICE_TEMPLATE
+    template_drawing: templates/office.dwt
+    template_sha256: {digest}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = diagnose_environment(config, mode="config")
+
+    assert report["ready"] is True
+    assert report["template_roots"] == [str((tmp_path / "templates").resolve())]
+    assert report["template_assets"] == [
+        {
+            "profile_id": "a4",
+            "path": str(template.resolve()),
+            "expected_sha256": digest,
+            "actual_sha256": digest,
+            "matched": True,
+        }
+    ]
+
+    template.write_bytes(b"changed")
+    changed = diagnose_environment(config, mode="config")
+    assert changed["ready"] is False
+    assert changed["template_assets"][0]["matched"] is False
+    assert "External template SHA-256 mismatch" in changed["errors"][-1]
 
 
 def test_full_doctor_cross_checks_com_and_plugin(

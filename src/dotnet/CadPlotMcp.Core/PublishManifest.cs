@@ -17,7 +17,19 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "staged_drawing")] public string StagedDrawing { get; set; }
         [DataMember(Name = "output_directory")] public string OutputDirectory { get; set; }
         [DataMember(Name = "source_fingerprint")] public PublishSourceFingerprint SourceFingerprint { get; set; }
+        [DataMember(Name = "template_assets", EmitDefaultValue = false)] public List<PublishTemplateAsset> TemplateAssets { get; set; }
         [DataMember(Name = "outputs")] public List<PublishManifestOutput> Outputs { get; set; }
+    }
+
+    [DataContract]
+    public sealed class PublishTemplateAsset
+    {
+        [DataMember(Name = "id")] public string Id { get; set; }
+        [DataMember(Name = "staged_template")] public string StagedTemplate { get; set; }
+        [DataMember(Name = "sha256")] public string Sha256 { get; set; }
+        [DataMember(Name = "size_bytes")] public long SizeBytes { get; set; }
+        [DataMember(Name = "layout")] public string Layout { get; set; }
+        [DataMember(Name = "page_setup")] public string PageSetup { get; set; }
     }
 
     [DataContract]
@@ -39,6 +51,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "plot_style")] public string PlotStyle { get; set; }
         [DataMember(Name = "canonical_media", EmitDefaultValue = false)] public string CanonicalMedia { get; set; }
         [DataMember(Name = "template_layout", EmitDefaultValue = false)] public string TemplateLayout { get; set; }
+        [DataMember(Name = "template_asset_id", EmitDefaultValue = false)] public string TemplateAssetId { get; set; }
         [DataMember(Name = "plot_geometry")] public PublishPlotGeometry PlotGeometry { get; set; }
         [DataMember(Name = "status")] public string Status { get; set; }
     }
@@ -74,6 +87,10 @@ namespace CadPlotMcp.Core
         );
         private static readonly Regex Sha256Pattern = new Regex(
             "^[0-9a-f]{64}$",
+            RegexOptions.CultureInvariant
+        );
+        private static readonly Regex SafeAssetId = new Regex(
+            "^[A-Za-z0-9_-]{1,64}$",
             RegexOptions.CultureInvariant
         );
 
@@ -137,11 +154,35 @@ namespace CadPlotMcp.Core
                 manifest.SourceFingerprint.Sha256,
                 StringComparison.Ordinal
             )) return "staged_drawing_changed";
+            var templateAssets = new Dictionary<string, PublishTemplateAsset>(
+                StringComparer.Ordinal
+            );
+            var templateLayouts = new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase
+            );
+            if (manifest.TemplateAssets != null)
+            {
+                if (manifest.TemplateAssets.Count > 100)
+                    return "too_many_template_assets";
+                var templateRoot = Path.Combine(jobRoot, "source", "templates");
+                foreach (var asset in manifest.TemplateAssets)
+                {
+                    var assetError = ValidateTemplateAsset(asset, templateRoot);
+                    if (assetError != null) return assetError;
+                    if (templateAssets.ContainsKey(asset.Id))
+                        return "duplicate_template_asset";
+                    if (templateLayouts.ContainsKey(asset.Layout))
+                        return "duplicate_template_layout";
+                    templateLayouts.Add(asset.Layout, asset.Id);
+                    templateAssets.Add(asset.Id, asset);
+                }
+            }
             if (manifest.Outputs == null || manifest.Outputs.Count != request.SheetCount)
                 return "manifest_sheet_count_mismatch";
 
             var outputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var layouts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var usedTemplateAssets = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < manifest.Outputs.Count; index++)
             {
                 var error = ValidateOutput(
@@ -149,10 +190,51 @@ namespace CadPlotMcp.Core
                     index + 1,
                     request.OutputDirectory,
                     outputs,
-                    layouts
+                    layouts,
+                    templateAssets,
+                    templateLayouts,
+                    usedTemplateAssets
                 );
                 if (error != null) return error;
             }
+            if (usedTemplateAssets.Count != templateAssets.Count)
+                return "unused_template_asset";
+            return null;
+        }
+
+        private static string ValidateTemplateAsset(
+            PublishTemplateAsset asset,
+            string templateRoot
+        )
+        {
+            if (asset == null || !SafeAssetId.IsMatch(asset.Id ?? String.Empty))
+                return "invalid_template_asset";
+            if (!SafeResourceName(asset.Layout) || !SafeResourceName(asset.PageSetup))
+                return "invalid_template_asset_metadata";
+            if (!Sha256Pattern.IsMatch(asset.Sha256 ?? String.Empty) || asset.SizeBytes < 1)
+                return "invalid_template_asset_fingerprint";
+            string path;
+            try { path = Path.GetFullPath(asset.StagedTemplate ?? String.Empty); }
+            catch (Exception exception)
+            {
+                if (exception is ArgumentException
+                    || exception is NotSupportedException
+                    || exception is PathTooLongException)
+                    return "invalid_template_asset_path";
+                throw;
+            }
+            if (!SamePath(Path.GetDirectoryName(path), templateRoot)
+                || !(String.Equals(Path.GetExtension(path), ".dwg", StringComparison.OrdinalIgnoreCase)
+                    || String.Equals(Path.GetExtension(path), ".dwt", StringComparison.OrdinalIgnoreCase)))
+                return "template_asset_outside_job";
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length != asset.SizeBytes)
+                return "template_asset_changed";
+            if ((info.Attributes & FileAttributes.ReparsePoint) != 0
+                || (new DirectoryInfo(templateRoot).Attributes & FileAttributes.ReparsePoint) != 0)
+                return "template_asset_redirected";
+            if (!String.Equals(FileSha256.Compute(path), asset.Sha256, StringComparison.Ordinal))
+                return "template_asset_changed";
             return null;
         }
 
@@ -161,7 +243,10 @@ namespace CadPlotMcp.Core
             int expectedSheetIndex,
             string outputDirectory,
             HashSet<string> seen,
-            HashSet<string> seenLayouts
+            HashSet<string> seenLayouts,
+            IDictionary<string, PublishTemplateAsset> templateAssets,
+            IDictionary<string, string> templateLayouts,
+            HashSet<string> usedTemplateAssets
         )
         {
             if (output == null || output.SheetIndex != expectedSheetIndex)
@@ -193,6 +278,21 @@ namespace CadPlotMcp.Core
                 && (!SafeResourceName(output.TemplateLayout)
                     || String.Equals(output.TemplateLayout, output.TargetLayout, StringComparison.OrdinalIgnoreCase)))
                 return "invalid_template_layout";
+            if (output.TemplateAssetId != null)
+            {
+                PublishTemplateAsset asset;
+                if (!SafeAssetId.IsMatch(output.TemplateAssetId)
+                    || !templateAssets.TryGetValue(output.TemplateAssetId, out asset))
+                    return "unknown_template_asset";
+                if (output.TemplateLayout == null
+                    || !String.Equals(output.TemplateLayout, asset.Layout, StringComparison.Ordinal)
+                    || !String.Equals(output.PageSetup, asset.PageSetup, StringComparison.Ordinal))
+                    return "template_asset_metadata_mismatch";
+                usedTemplateAssets.Add(output.TemplateAssetId);
+            }
+            else if (output.TemplateLayout != null
+                && templateLayouts.ContainsKey(output.TemplateLayout))
+                return "template_asset_reference_missing";
             if (!seenLayouts.Add(output.TargetLayout)) return "duplicate_layout_target";
             return ValidateGeometry(output.PlotGeometry);
         }

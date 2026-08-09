@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.fingerprint import fingerprint_drawing
+from cadplot_mcp.fingerprint import fingerprint_drawing, fingerprint_template
 from cadplot_mcp.planner import validate_publish_plan
 from cadplot_mcp.security import PathPolicy, require_plain_directory_path
 
@@ -51,6 +51,59 @@ def stage_publish_job(
     if staged_digest["sha256"] != current_fingerprint["sha256"]:
         raise RuntimeError("Staged DWG copy failed content verification.")
 
+    template_assets: list[dict[str, Any]] = []
+    template_by_id: dict[str, dict[str, Any]] = {}
+    for sheet in plan["sheets"]:
+        asset = sheet["profile"].get("template_asset")
+        if asset is None:
+            continue
+        asset_id = str(asset.get("id", ""))
+        previous = template_by_id.get(asset_id)
+        if previous is not None:
+            if previous != asset:
+                raise ValueError("Publish plan contains conflicting template asset identities.")
+            continue
+        template_by_id[asset_id] = asset
+
+    if template_by_id:
+        if config.template_path_policy is None:
+            raise ValueError("template_roots must be configured before staging templates.")
+        template_dir = source_dir / "templates"
+        template_dir.mkdir()
+        for asset_id in sorted(template_by_id):
+            asset = template_by_id[asset_id]
+            template_source = config.template_path_policy.require_allowed(asset["source"])
+            current_template = fingerprint_template(
+                template_source, config.template_path_policy
+            )
+            expected_template = {
+                "sha256": asset.get("sha256"),
+                "size_bytes": asset.get("size_bytes"),
+                "modified_ns": asset.get("modified_ns"),
+            }
+            if current_template != expected_template:
+                raise ValueError(
+                    "External template changed after planning; inspect and approve again."
+                )
+            staged_template = template_dir / f"{asset_id}{template_source.suffix.lower()}"
+            shutil.copy2(template_source, staged_template)
+            staged_template_digest = fingerprint_template(
+                staged_template, _single_root_policy(template_dir)
+            )
+            if staged_template_digest["sha256"] != current_template["sha256"]:
+                raise RuntimeError("Staged template copy failed content verification.")
+            template_assets.append(
+                {
+                    "id": asset_id,
+                    "source_template": str(template_source),
+                    "staged_template": str(staged_template),
+                    "sha256": current_template["sha256"],
+                    "size_bytes": current_template["size_bytes"],
+                    "layout": asset["layout"],
+                    "page_setup": asset["page_setup"],
+                }
+            )
+
     outputs = [
         {
             "sheet_index": index,
@@ -62,6 +115,11 @@ def stage_publish_job(
             "plot_style": sheet["profile"]["plot_style"],
             "canonical_media": sheet["profile"]["canonical_media"],
             "template_layout": sheet["profile"]["template_layout"],
+            "template_asset_id": (
+                sheet["profile"]["template_asset"]["id"]
+                if sheet["profile"].get("template_asset") is not None
+                else None
+            ),
             "plot_geometry": sheet["plot_geometry"],
             "status": "pending",
         }
@@ -77,6 +135,7 @@ def stage_publish_job(
         "source_fingerprint": current_fingerprint,
         "staged_drawing": str(staged_drawing),
         "output_directory": str(output_dir),
+        "template_assets": template_assets,
         "outputs": outputs,
     }
     manifest_path = job_root / "manifest.json"

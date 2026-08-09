@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from cadplot_mcp.backends.autocad_com import AutoCADComInspector
 from cadplot_mcp.config import load_config
+from cadplot_mcp.fingerprint import fingerprint_template
 from cadplot_mcp.pipe_client import PluginConnectionError, get_plugin_status
 from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
 
@@ -30,6 +31,9 @@ def diagnose_environment(
         "config": None,
         "allowed_roots": [],
         "allowed_root_status": [],
+        "template_roots": [],
+        "template_root_status": [],
+        "template_assets": [],
         "workspace_root": None,
         "workspace": None,
         "autocad": {"checked": False},
@@ -56,6 +60,48 @@ def diagnose_environment(
         report["allowed_root_status"].append({"path": str(root), "exists": exists})
         if not exists:
             report["errors"].append(f"Allowed root does not exist: {root}")
+    if config.template_path_policy is not None:
+        for root in config.template_path_policy.allowed_roots:
+            exists = root.is_dir()
+            report["template_roots"].append(str(root))
+            report["template_root_status"].append(
+                {"path": str(root), "exists": exists}
+            )
+            if not exists:
+                report["errors"].append(f"Template root does not exist: {root}")
+        for profile in config.paper_profiles:
+            if profile.template_drawing is None:
+                continue
+            try:
+                fingerprint = fingerprint_template(
+                    profile.template_drawing, config.template_path_policy
+                )
+            except (OSError, ValueError) as exc:
+                report["template_assets"].append(
+                    {
+                        "profile_id": profile.id,
+                        "path": str(profile.template_drawing),
+                        "expected_sha256": profile.template_sha256,
+                        "actual_sha256": None,
+                        "matched": False,
+                    }
+                )
+                report["errors"].append(str(exc))
+                continue
+            matched = fingerprint["sha256"] == profile.template_sha256
+            report["template_assets"].append(
+                {
+                    "profile_id": profile.id,
+                    "path": str(profile.template_drawing),
+                    "expected_sha256": profile.template_sha256,
+                    "actual_sha256": fingerprint["sha256"],
+                    "matched": matched,
+                }
+            )
+            if not matched:
+                report["errors"].append(
+                    f"External template SHA-256 mismatch for profile {profile.id}."
+                )
 
     if config.workspace_root is None:
         report["workspace"] = {"path": None, "configured": False, "safe": False}

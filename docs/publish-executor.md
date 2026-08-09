@@ -16,9 +16,10 @@ For every job the plug-in:
    plotter/style/media mismatches, any layout plot scale other than verified 1:1, and a busy
    PlotEngine;
 4. opens only the staged DWG copy and makes it the current locked document;
-5. creates a unique paper-space layout or clones the explicitly approved in-drawing template,
-   copies the approved named page setup, and configures a locked viewport centered on the approved
-   model window at the approved physical scale;
+5. creates a unique paper-space layout, clones the explicitly approved in-drawing template, or
+   imports only the hash-bound job-local copy of an approved external DWG/DWT layout; it copies the
+   approved named page setup and configures a locked viewport centered on the approved model window
+   at the approved physical scale;
 6. temporarily forces foreground plotting (`BACKGROUNDPLOT=0`) and plots every layout through the
    nested PlotEngine lifecycle to a unique owned `.partial.pdf` in the same job output directory;
 7. closes the DWG without saving, so the staged file remains byte-identical, then rechecks every
@@ -76,8 +77,9 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 - The first live gate is intentionally one sheet. Large batches are enabled only after both
   supported-version pilots accept scale, orientation, crop, fonts, and plot style.
 - Without `template_layout`, the generic executor creates an empty layout with one full-sheet
-  viewport. With it, the executor preserves an existing in-drawing title block and requires exactly
-  one floating viewport. External DWT/DWG import still needs a separately approved extension.
+  viewport. With it, the executor preserves an approved in-drawing or hash-bound job-local external
+  title block and requires exactly one read-only-inspected and runtime-verified floating viewport.
+  External import has compile-only coverage until the separate licensed 2016/2025 pilots accept it.
 
 ## Autodesk references
 

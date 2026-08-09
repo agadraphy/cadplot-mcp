@@ -51,7 +51,20 @@ the public repository.
 For every authorized paper standard, replace the dummy profile with a real profile. Keep aliases
 unique and use only names returned by the workstation inspection. Add `canonical_media` for custom
 PC3 paper when the office requires exact media validation. Add `template_layout` only when the
-source DWG contains the accepted paper-space layout and it has exactly one floating viewport.
+source DWG contains the accepted paper-space layout and it has exactly one floating viewport. If
+the layout lives in an approved external DWG/DWT, add its parent to `template_roots`, record the
+exact `template_drawing` and `template_sha256`, and keep the company file outside Git. `cadplot-doctor`
+must report the configured and current template hashes as matched before staging.
+
+Record the reviewed hash locally, for example:
+
+```powershell
+(Get-FileHash -LiteralPath 'C:\CompanyCAD\Templates\office-layout.dwt' -Algorithm SHA256).Hash.ToLowerInvariant()
+```
+
+Then run `inventory_office_resources` on that explicitly allowed template path as well as the source
+DWG. Do not approve a layout unless `floating_viewport_count` is exactly `1` and the required named
+page setup properties match the office profile.
 
 Run `match_paper_profile` for every observed label, then `create_publish_plan`. Any unmatched label,
 missing/mismatched/non-Layout/non-1:1 page setup, ambiguous frame, nonstandard scale, missing template, or

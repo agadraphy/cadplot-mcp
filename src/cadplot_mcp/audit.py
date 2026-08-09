@@ -11,7 +11,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.security import PathPolicyError
+from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT, PathPolicyError
 
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_RECEIPT_BYTES = 64 * 1024
@@ -143,10 +143,69 @@ def load_staged_manifest(
     if _sha256(staged_drawing) != source_fingerprint["sha256"]:
         raise ValueError("Staged drawing no longer matches the approved source fingerprint.")
 
+    template_assets = raw.get("template_assets", [])
+    if not isinstance(template_assets, list) or len(template_assets) > 100:
+        raise ValueError("Job manifest contains an invalid template asset collection.")
+    template_ids: set[str] = set()
+    template_layouts: dict[str, dict[str, Any]] = {}
+    template_by_id: dict[str, dict[str, Any]] = {}
+    if template_assets:
+        template_root_value = job_root / "source" / "templates"
+        if _is_reparse(template_root_value):
+            raise PathPolicyError("Manifest template asset directory cannot be a reparse point.")
+        template_root = template_root_value.resolve(strict=True)
+        if not template_root.is_dir():
+            raise PathPolicyError("Manifest template asset directory is invalid.")
+        for asset in template_assets:
+            if not isinstance(asset, dict):
+                raise ValueError("Job manifest contains an invalid template asset.")
+            asset_id = asset.get("id")
+            if not isinstance(asset_id, str) or not re.fullmatch(
+                r"[A-Za-z0-9_-]{1,64}", asset_id
+            ):
+                raise ValueError("Job manifest contains an invalid template asset id.")
+            if asset_id in template_ids:
+                raise ValueError("Job manifest contains duplicate template asset ids.")
+            template_ids.add(asset_id)
+            layout = asset.get("layout")
+            page_setup = asset.get("page_setup")
+            if not _valid_resource_name(layout) or not _valid_resource_name(page_setup):
+                raise ValueError("Job manifest template asset has invalid metadata.")
+            layout_key = layout.casefold()
+            if layout_key in template_layouts:
+                raise ValueError("Job manifest contains duplicate template asset layouts.")
+            template_layouts[layout_key] = asset
+            template_by_id[asset_id] = asset
+            staged_template_value = Path(
+                str(asset.get("staged_template", ""))
+            ).expanduser().absolute()
+            if _is_reparse(staged_template_value):
+                raise PathPolicyError("Manifest template asset cannot be a reparse point.")
+            staged_template = staged_template_value.resolve(strict=True)
+            if (
+                staged_template.parent != template_root
+                or staged_template.suffix.casefold() not in {".dwg", ".dwt"}
+                or not staged_template.is_file()
+            ):
+                raise PathPolicyError("Manifest template asset is outside its job boundary.")
+            if (
+                not isinstance(asset.get("size_bytes"), int)
+                or isinstance(asset["size_bytes"], bool)
+                or asset["size_bytes"] < 1
+                or not isinstance(asset.get("sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", asset["sha256"]) is None
+            ):
+                raise ValueError("Job manifest template asset has an invalid fingerprint.")
+            if staged_template.stat().st_size != asset["size_bytes"] or _sha256(
+                staged_template
+            ) != asset.get("sha256"):
+                raise ValueError("Staged template no longer matches its approved fingerprint.")
+
     outputs = raw.get("outputs")
     if not isinstance(outputs, list) or not 1 <= len(outputs) <= 5_000:
         raise ValueError("Job manifest must contain between 1 and 5000 outputs.")
     seen: set[Path] = set()
+    used_template_ids: set[str] = set()
     for output in outputs:
         if not isinstance(output, dict):
             raise ValueError("Job manifest contains an invalid output entry.")
@@ -155,8 +214,42 @@ def load_staged_manifest(
             raise PathPolicyError("Expected PDF path is outside its job output directory.")
         if pdf in seen:
             raise ValueError("Job manifest contains duplicate PDF paths.")
+        template_asset_id = output.get("template_asset_id")
+        template_layout = output.get("template_layout")
+        if template_asset_id is not None:
+            asset = template_by_id.get(template_asset_id)
+            if asset is None:
+                raise ValueError("Job manifest output references an unknown template asset.")
+            if (
+                template_layout != asset["layout"]
+                or output.get("page_setup") != asset["page_setup"]
+            ):
+                raise ValueError("Job manifest template asset metadata does not match output.")
+            used_template_ids.add(template_asset_id)
+        elif (
+            isinstance(template_layout, str)
+            and template_layout.casefold() in template_layouts
+        ):
+            raise ValueError("Job manifest output is missing its template asset reference.")
         seen.add(pdf)
+    if used_template_ids != template_ids:
+        raise ValueError("Job manifest contains an unused template asset.")
     return raw, job_root
+
+
+def _is_reparse(path: Path) -> bool:
+    info = path.lstat()
+    attributes = getattr(info, "st_file_attributes", 0)
+    return path.is_symlink() or bool(attributes & FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def _valid_resource_name(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 255
+        and not value.isspace()
+        and not any(ord(character) < 32 or ord(character) == 127 for character in value)
+    )
 
 
 def _audit_pdf(

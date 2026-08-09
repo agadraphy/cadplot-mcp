@@ -62,6 +62,8 @@ def build_office_inventory_report(inspection: DrawingInspection) -> dict[str, An
                 "plotter": layout.plotter,
                 "plot_style": layout.plot_style,
                 "canonical_media": layout.media_name,
+                "floating_viewport_count": layout.floating_viewport_count,
+                "ready_for_template_approval": layout.floating_viewport_count == 1,
                 "candidate_only": True,
                 "requires_exactly_one_floating_viewport_validation": True,
             }
@@ -70,7 +72,8 @@ def build_office_inventory_report(inspection: DrawingInspection) -> dict[str, An
         "warnings": _unique(warnings),
         "next_action": (
             "Have the authorized CAD reviewer map each frame label to an exact named page setup "
-            "and optionally approve one in-drawing template layout. Keep publishing disabled."
+            "and optionally approve one in-drawing or hash-pinned external template layout. "
+            "Keep publishing disabled."
         ),
     }
 

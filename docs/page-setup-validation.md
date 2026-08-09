@@ -1,7 +1,8 @@
 # Page setup and layout validation
 
 Company plotting resources remain local and are referenced by name. CadPlot MCP does not package
-or upload DWT, PC3, PMP, CTB/STB, or proprietary title-block files.
+or upload DWT, PC3, PMP, CTB/STB, or proprietary title-block files. An explicitly approved external
+DWG/DWT may be copied only into a local isolated job workspace under company control.
 
 During read-only inspection the AutoCAD COM adapter lists named `PlotConfigurations`. With
 `require_page_setup_match: true`, every matched paper profile must find a named page setup whose:
@@ -35,7 +36,7 @@ New layout targets use:
 The default prefix is `CADPLOT`. If the target already exists in the drawing, the sheet receives
 `layout_conflict`. CadPlot MCP does not reuse, rename, or overwrite an existing layout.
 
-## Optional in-drawing layout template
+## Optional layout template
 
 A paper profile may name `template_layout`. Planning requires that exact layout to exist in the
 inspected source DWG and be paper space. During execution, AutoCAD clones it to the unique target
@@ -43,6 +44,14 @@ layout. The clone must contain exactly one floating viewport: its paper-space po
 preserved while its model target, twist, scale, on/off state, and lock are set from the approved
 plan. All title-block and other paper-space geometry stays in the clone.
 
-Zero or multiple floating viewports produce `template_viewport_count`; no heuristic chooses one.
-The named page setup is still applied and independently validated after cloning. This option does
-not import an external DWT/DWG and never searches for a template by filename.
+Zero, multiple, or inspection-unverifiable floating viewports block planning; the runtime repeats
+the exact-one check and can produce `template_viewport_count`. No heuristic chooses one. The named
+page setup is still applied and independently validated after cloning.
+
+For an external template, configure a read-only `template_roots` boundary plus exact
+`template_drawing`, `template_sha256`, and `template_layout` values. The file and its required named
+page setup are inspected read-only. The plan ID binds its fingerprint; staging makes a hash-verified
+job-local copy and records it in `template_assets`. The plug-in accepts only that direct-child
+DWG/DWT copy, replays size/SHA-256, imports the layout with Autodesk's cross-database clone API, and
+mangles colliding dependent record names instead of replacing staged drawing definitions. A changed,
+escaped, redirected, unused, or metadata-mismatched asset fails closed.

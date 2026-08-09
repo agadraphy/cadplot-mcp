@@ -80,6 +80,9 @@ Use this checklist for every alpha release.
 - [ ] README and API examples match the released behavior, where changed.
 - [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as
       execution proof unless `publish_verified=true`.
+- [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
+      layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
+      all match; the company asset remains outside Git and release artifacts.
 - [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.
 - [ ] Dependency lock data has been reviewed for intended versions.
 
@@ -92,6 +95,8 @@ Use this checklist for every alpha release.
 - [ ] A maintainer has reviewed the release artifacts before publication.
 - [ ] Licensed AutoCAD 2016 and 2025 live results are recorded separately; one version's result is
       not treated as proof for the other.
+- [ ] External-template import, when used by the office profile, is visually accepted separately on
+      both licensed versions; compile-only `ReadDwgFile`/`WblockCloneObjects` coverage is not live proof.
 - [ ] `cadplot-validate-pilot` returns `valid=true` for the locally retained two-version
       acceptance record.
 - [ ] `cadplot-collect-pilot` produced each run from the live plug-in and immutable job evidence;

@@ -162,6 +162,60 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void ManifestAcceptsHashBoundStagedExternalTemplate()
+    {
+        AddExternalTemplateToManifest();
+        var queue = NewQueue();
+
+        Assert.True(queue.TryEnqueue(_request, out var error));
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void ManifestRejectsChangedOrEscapedExternalTemplate()
+    {
+        var template = AddExternalTemplateToManifest();
+        File.AppendAllText(template, "changed");
+        var queue = NewQueue();
+        Assert.False(queue.TryEnqueue(_request, out var changed));
+        Assert.Equal("template_asset_changed", changed);
+
+        WriteManifest();
+        AddExternalTemplateToManifest(Path.Combine(Path.GetTempPath(), "outside.dwt"));
+        queue = NewQueue();
+        Assert.False(queue.TryEnqueue(_request, out var escaped));
+        Assert.Equal("template_asset_outside_job", escaped);
+    }
+
+    [Fact]
+    public void ManifestRejectsUnknownExternalTemplateReference()
+    {
+        var root = JsonNode.Parse(File.ReadAllText(_request.ManifestPath))!.AsObject();
+        root["outputs"]![0]!["template_layout"] = "OFFICE_TEMPLATE";
+        root["outputs"]![0]!["template_asset_id"] = "missing";
+        File.WriteAllText(_request.ManifestPath, root.ToJsonString());
+        RefreshManifestHash();
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("unknown_template_asset", error);
+    }
+
+    [Fact]
+    public void ManifestRejectsMissingExternalTemplateReference()
+    {
+        AddExternalTemplateToManifest();
+        var root = JsonNode.Parse(File.ReadAllText(_request.ManifestPath))!.AsObject();
+        root["outputs"]![0]!["template_asset_id"] = null;
+        File.WriteAllText(_request.ManifestPath, root.ToJsonString());
+        RefreshManifestHash();
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("template_asset_reference_missing", error);
+    }
+
+    [Fact]
     public void ManifestRejectsRotationThatContradictsApprovedGeometry()
     {
         WriteManifest(rotationDegrees: 0);
@@ -601,6 +655,38 @@ public sealed class PublishJobTests : IDisposable
         };
         File.WriteAllText(_request.ManifestPath, JsonSerializer.Serialize(manifest));
         RefreshManifestHash();
+    }
+
+    private string AddExternalTemplateToManifest(string? manifestPath = null)
+    {
+        var templates = Path.Combine(_jobRoot, "source", "templates");
+        Directory.CreateDirectory(templates);
+        var actualTemplate = Path.Combine(templates, "office.dwt");
+        if (!File.Exists(actualTemplate)) File.WriteAllText(actualTemplate, "template");
+        var stagedTemplate = manifestPath ?? actualTemplate;
+        var root = JsonNode.Parse(File.ReadAllText(_request.ManifestPath))!.AsObject();
+        root["template_assets"] = new JsonArray
+        {
+            new JsonObject
+            {
+                ["id"] = "sheet_70x100",
+                ["staged_template"] = stagedTemplate,
+                ["sha256"] = Convert.ToHexString(
+                    SHA256.HashData(File.ReadAllBytes(actualTemplate))
+                ).ToLowerInvariant(),
+                ["size_bytes"] = new FileInfo(actualTemplate).Length,
+                ["layout"] = "OFFICE_TEMPLATE",
+                ["page_setup"] = "OFFICE_A4",
+            },
+        };
+        foreach (var output in root["outputs"]!.AsArray())
+        {
+            output!["template_layout"] = "OFFICE_TEMPLATE";
+            output["template_asset_id"] = "sheet_70x100";
+        }
+        File.WriteAllText(_request.ManifestPath, root.ToJsonString());
+        RefreshManifestHash();
+        return actualTemplate;
     }
 
     private void RefreshManifestHash()

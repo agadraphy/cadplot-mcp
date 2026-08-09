@@ -18,6 +18,9 @@ def create_publish_plan(
     config: CadPlotConfig,
     *,
     drawing_fingerprint: dict[str, Any] | None = None,
+    template_evidence: dict[
+        str, tuple[DrawingInspection, dict[str, Any]]
+    ] | None = None,
 ) -> dict[str, Any]:
     """Create a deterministic, read-only plan from an inspection result."""
     sheets: list[dict[str, Any]] = []
@@ -43,7 +46,30 @@ def create_publish_plan(
             )
             continue
 
-        profile_payload = _profile_payload(profile)
+        external_template = None
+        if profile.template_drawing is not None:
+            external_template = (template_evidence or {}).get(profile.id)
+            if (
+                external_template is None
+                or external_template[1].get("sha256") != profile.template_sha256
+            ):
+                warnings.append(
+                    f"Frame {frame.handle or '<no handle>'}: external template evidence "
+                    f"for profile {profile.id!r} is missing or does not match configured SHA-256."
+                )
+                sheets.append(
+                    {
+                        "frame_handle": frame.handle,
+                        "label": frame.label,
+                        "status": "template_asset_mismatch",
+                        "profile": _profile_payload(profile, external_template),
+                        "target_layout": target_layout,
+                        "plot_geometry": None,
+                    }
+                )
+                continue
+
+        profile_payload = _profile_payload(profile, external_template)
         if allowed_frame_layers and frame.layer.casefold() not in allowed_frame_layers:
             warnings.append(
                 f"Frame {frame.handle or '<no handle>'} is on unapproved layer {frame.layer!r}."
@@ -75,7 +101,12 @@ def create_publish_plan(
                 }
             )
             continue
-        page_setup_error = _page_setup_error(profile, inspection.page_setups, config)
+        resource_inspection = (
+            external_template[0] if external_template is not None else inspection
+        )
+        page_setup_error = _page_setup_error(
+            profile, resource_inspection.page_setups, config
+        )
         if page_setup_error is not None:
             warnings.append(f"Frame {frame.handle or '<no handle>'}: {page_setup_error}")
             sheets.append(
@@ -89,7 +120,9 @@ def create_publish_plan(
                 }
             )
             continue
-        template_layout_error = _template_layout_error(profile, inspection.layouts)
+        template_layout_error = _template_layout_error(
+            profile, resource_inspection.layouts
+        )
         if template_layout_error is not None:
             warnings.append(f"Frame {frame.handle or '<no handle>'}: {template_layout_error}")
             sheets.append(
@@ -258,7 +291,22 @@ def _derive_plot_geometry(frame: FrameCandidate, config: CadPlotConfig) -> dict[
     }
 
 
-def _profile_payload(profile: PaperProfile) -> dict[str, str | None]:
+def _profile_payload(
+    profile: PaperProfile,
+    external_template: tuple[DrawingInspection, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    template_asset = None
+    if profile.template_drawing is not None and external_template is not None:
+        fingerprint = external_template[1]
+        template_asset = {
+            "id": profile.id,
+            "source": str(profile.template_drawing),
+            "sha256": fingerprint["sha256"],
+            "size_bytes": fingerprint["size_bytes"],
+            "modified_ns": fingerprint["modified_ns"],
+            "layout": profile.template_layout,
+            "page_setup": profile.page_setup,
+        }
     return {
         "id": profile.id,
         "page_setup": profile.page_setup,
@@ -266,6 +314,7 @@ def _profile_payload(profile: PaperProfile) -> dict[str, str | None]:
         "plot_style": profile.plot_style,
         "canonical_media": profile.canonical_media,
         "template_layout": profile.template_layout,
+        "template_asset": template_asset,
     }
 
 
@@ -332,6 +381,11 @@ def _template_layout_error(
         return f"required template layout {profile.template_layout!r} was not found."
     if matches[0].model_type:
         return f"template layout {profile.template_layout!r} is model space."
+    if matches[0].floating_viewport_count != 1:
+        return (
+            f"template layout {profile.template_layout!r} must contain exactly one verified "
+            "floating viewport."
+        )
     return None
 
 

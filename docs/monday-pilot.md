@@ -11,6 +11,8 @@ enables one explicitly approved sheet and proves the real in-memory layout/viewp
 - The expected PDF for that DWG.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
 - Exact case-sensitive canonical media name reported by AutoCAD for every custom PC3 paper.
+- If the title-block layout is external, its approved DWG/DWT path, layout name, and separately
+  reviewed SHA-256; keep it under a read-only `template_roots` boundary.
 
 Do not copy company drawings or resources to a personal computer without written permission.
 
@@ -77,6 +79,8 @@ them with the pilot evidence.
    environment that launches AutoCAD.
 3. Run `scan_drawings` and confirm the exact target path.
 4. Run `inspect_drawing` and compare layouts, page setups, plotter, media, style, and frame label.
+   For an external template, verify `validate_environment` reports `matched=true`, then inspect the
+   configured DWG/DWT and require exactly one floating viewport in the selected paper-space layout.
 5. Run `create_publish_plan`; every page setup, scale, and target layout must be ready.
 
 ## Gate 5: approved staging validation
@@ -85,7 +89,9 @@ them with the pilot evidence.
 2. Call `stage_publish_job` with that exact ID; confirm the original DWG hash is unchanged.
 3. Call `validate_staged_job`; require `accepted=true`, `readOnly=true`, and
    `workspaceConfigured=true`.
-4. Confirm the job contains a verified source copy, an empty output directory, and manifest only.
+4. Confirm the job contains a verified source copy, an empty output directory, and manifest. If an
+   external template is configured, confirm its hash-bound copy is a direct child of
+   `source/templates`; the company original must remain unchanged.
 
 ## Gate 6: one-sheet write pilot
 
@@ -107,6 +113,8 @@ them with the pilot evidence.
    and title block against the office reference PDF.
 
 Repeat Gate 6 separately on licensed AutoCAD 2016 and 2025. Do not infer one from the other.
+When an external template is part of the office profile, repeat the visual and hash evidence for
+that import path on each version as a distinct acceptance item.
 Record both runs using the [licensed pilot evidence contract](pilot-evidence.md) and require its
 collector/assembler/validator chain to return `valid=true`.
 

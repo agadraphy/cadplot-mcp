@@ -136,7 +136,14 @@ layer'lardaki adaylar blocker olur.
 Her kaynak DWG içinde onaylı bir paper-space title-block layout'u ve tam bir floating viewport
 varsa profile `template_layout` eklenebilir. Eklenti layout'u staged kopya içinde klonlar, pafta
 geometrisini korur ve klon viewport'unu onaylı pencere/ölçeğe taşır. Eksik veya çok viewport'lu
-template işi durdurur; harici DWT yolu kendiliğinden kabul edilmez.
+template işi durdurur.
+
+Onaylı harici DWG/DWT yalnız açık sözleşmeyle kullanılabilir: üst seviyede `template_roots`, profilde
+`template_drawing`, gözden geçirilmiş exact `template_sha256` ve `template_layout`. Planlama asset'i
+salt-okunur inceler ve layout/page setup/hash kimliğini plan ID'ye bağlar. Staging tekrar hashleyip
+yalnız izole job içine kopyalar; eklenti sadece bu kopyayı yeniden hashleyerek import eder ve plot
+sonunda staged DWG ile birlikte bütün geçici değişiklikleri kaydetmeden atar. Dosya adına göre arama
+veya şirket template klasörüne örtük güven yoktur.
 
 AutoCAD kullanmadan plan→onay→kopya staging→PDF audit zincirini denemek için:
 

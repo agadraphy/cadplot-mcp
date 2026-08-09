@@ -202,7 +202,14 @@ Set optional profile `template_layout` when each source DWG already contains an 
 paper-space title-block layout with exactly one floating viewport. The executor clones that layout,
 preserves its paper-space geometry, and retargets the cloned viewport to the approved model window
 and scale. Missing/model-space templates or zero/multiple floating viewports block execution.
-External DWT/DWG template import is deliberately not inferred from a path or filename.
+
+An approved external DWG/DWT can be used only through the explicit three-part contract:
+top-level `template_roots`, profile `template_drawing`, and the reviewed exact
+`template_sha256`, together with `template_layout`. Planning inspects that asset read-only and binds
+its layout/page setup/fingerprint into the plan ID. Staging re-hashes it and copies it under the
+isolated job; the plug-in imports only that staged copy, re-hashes it again, and discards all imported
+scaffolding with the staged DWG after plotting. No filename search or implicit office-library trust
+is performed.
 
 For large folders, retain the first `create_batch_publish_plans` result's `inventory_id`, then pass
 it as `expected_inventory_id` with each returned `next_offset` until `has_more=false`. Pagination

@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -56,6 +57,81 @@ paper_profiles:
     )
 
     assert load_config(path).paper_profiles[0].template_layout == "TEMPLATE_70X100"
+
+
+def test_config_accepts_hash_pinned_external_dwg_or_dwt_template(tmp_path: Path) -> None:
+    (tmp_path / "project").mkdir()
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    template = templates / "office-layout.dwt"
+    template.write_bytes(b"authorized template")
+    digest = hashlib.sha256(template.read_bytes()).hexdigest()
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        f"""
+version: 1
+allowed_roots: [project]
+template_roots: [templates]
+paper_profiles:
+  - id: sheet
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    template_layout: TEMPLATE_70X100
+    template_drawing: templates/office-layout.dwt
+    template_sha256: {digest}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+    profile = config.paper_profiles[0]
+
+    assert profile.template_drawing == template.resolve()
+    assert profile.template_sha256 == digest
+    assert config.template_path_policy is not None
+    assert config.template_path_policy.allowed_roots == (templates.resolve(),)
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (
+            "template_layout: OFFICE\n    template_drawing: templates/office.dwt",
+            "must be paired",
+        ),
+        ("template_sha256: " + "a" * 64, "must be paired"),
+        (
+            "template_drawing: templates/office.dwt\n    template_sha256: " + "a" * 64,
+            "requires template_layout",
+        ),
+    ],
+)
+def test_config_rejects_incomplete_external_template_contract(
+    tmp_path: Path, extra: str, message: str
+) -> None:
+    (tmp_path / "project").mkdir()
+    (tmp_path / "templates").mkdir()
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        f"""
+version: 1
+allowed_roots: [project]
+template_roots: [templates]
+paper_profiles:
+  - id: sheet
+    labels: [70x100]
+    page_setup: OFFICE
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+    {extra}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_config(path)
 
 
 def test_config_rejects_overlapping_profile_dimensions(tmp_path: Path) -> None:

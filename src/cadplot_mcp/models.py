@@ -25,6 +25,7 @@ class LayoutSummary:
     plot_type: int | None = None
     use_standard_scale: bool | None = None
     standard_scale: int | None = None
+    floating_viewport_count: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

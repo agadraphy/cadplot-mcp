@@ -91,8 +91,9 @@ taşınmaz.
 - Geçerli PDF dosyasının tek başına varlığı AutoCAD yürütme kanıtı değildir; başarılı receipt de
   gerekir.
 - Profilde `template_layout` yoksa executor boş layout + tam sayfa viewport kurar. Kaynak DWG
-  içinde tek floating viewport'lu onaylı template varsa onu klonlayabilir. Harici DWT/DWG importu
-  gerekiyorsa yetkili örnek incelenmeden bu destek tamamlandı denmez.
+  içinde tek floating viewport'lu onaylı template varsa onu klonlayabilir. Harici DWG/DWT için
+  `template_roots` + exact yol/hash/layout sözleşmesi gerekir; yalnız job-local kopya import edilir.
+  Bu yol iki lisanslı sürümde ayrıca kabul edilmeden canlı destek kanıtlanmış sayılmaz.
 - Normal ChatGPT web oturumu yerel AutoCAD'e kendiliğinden erişmez. İlk demo yerel MCP istemcisiyle
   yapılır; merkezi şirket ChatGPT bağlantısı IT onaylı güvenli connector/tunnel işidir.
 

@@ -47,7 +47,9 @@ class AutoCADComInspector:
         return {"available": True, "reason": None}
 
     def inspect_drawing(self, value: str | Path) -> DrawingInspection:
-        drawing_path = self.path_policy.require_allowed(value, suffix=".dwg")
+        drawing_path = self.path_policy.require_allowed(value)
+        if drawing_path.suffix.casefold() not in {".dwg", ".dwt"}:
+            raise ValueError("AutoCAD inspection requires an allowed DWG or DWT file.")
         if os.name != "nt":
             raise AutoCADUnavailableError("AutoCAD COM inspection is Windows-only.")
 
@@ -121,9 +123,36 @@ def _read_layouts(document: Any) -> list[LayoutSummary]:
                 plot_type=_safe(layout, "PlotType"),
                 use_standard_scale=_safe(layout, "UseStandardScale"),
                 standard_scale=_safe(layout, "StandardScale"),
+                floating_viewport_count=_floating_viewport_count(layout),
             )
         )
     return sorted(layouts, key=lambda item: (item.model_type, item.name.casefold()))
+
+
+def _floating_viewport_count(layout: Any) -> int | None:
+    if bool(_safe(layout, "ModelType", False)):
+        return 0
+    block = _safe(layout, "Block")
+    if block is None:
+        return None
+    count = 0
+    try:
+        for entity in block:
+            if str(_safe(entity, "ObjectName", "")) not in {
+                "AcDbViewport",
+                "AcDbPViewport",
+            }:
+                continue
+            number = _safe(entity, "Number")
+            if number is None:
+                return None
+            if int(number) > 1:
+                count += 1
+    except (TypeError, ValueError, OSError):
+        return None
+    except Exception:
+        return None
+    return count
 
 
 def _read_page_setups(document: Any) -> list[PageSetupSummary]:

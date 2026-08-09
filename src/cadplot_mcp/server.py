@@ -22,7 +22,7 @@ from cadplot_mcp.batch import (
 from cadplot_mcp.config import CadPlotConfig, load_config
 from cadplot_mcp.discovery import scan_drawings as discover_drawings
 from cadplot_mcp.environment import diagnose_environment
-from cadplot_mcp.fingerprint import fingerprint_drawing
+from cadplot_mcp.fingerprint import fingerprint_drawing, fingerprint_template
 from cadplot_mcp.onboarding import build_office_inventory_report
 from cadplot_mcp.pipe_client import (
     PluginConnectionError,
@@ -38,6 +38,7 @@ from cadplot_mcp.pipe_client import (
 from cadplot_mcp.pipe_client import validate_staged_job as request_staged_job_validation
 from cadplot_mcp.planner import create_publish_plan as build_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
+from cadplot_mcp.security import PathPolicy
 from cadplot_mcp.tool_outputs import (
     AuditPublishOutputsOutput,
     AutoCADPluginStatusOutput,
@@ -78,13 +79,13 @@ from cadplot_mcp.workspace import stage_publish_job as stage_job
 # before construction under current pydantic-settings releases.
 FastMCPSettings.model_rebuild()
 SERVER_INSTRUCTIONS = (
-    "Start with validate_environment, then inspect and create a dry-run plan. "
-    "If office resource names are unknown, use inventory_office_resources and keep publishing "
-    "disabled. "
-    "Never stage without the user's exact plan_id approval. Never queue publishing without "
-    "the exact approved plan_id and manifest_sha256. Source DWGs are immutable; only isolated "
-    "staged copies and job outputs may change. Treat a job as complete only when "
-    "audit_publish_outputs returns publish_verified=true; otherwise report its blockers."
+    "Run validate_environment. Use inventory_office_resources for unknown office names; keep "
+    "publishing disabled. Dry-run before writes. External DWG/DWT templates require "
+    "template_roots plus exact path/layout/SHA-256; use staged copies. Never stage without "
+    "exact plan_id approval; never queue without the exact approved "
+    "plan_id and manifest_sha256. Source DWGs are immutable; only staged copies/outputs may "
+    "change. Complete only when audit_publish_outputs returns publish_verified=true; report "
+    "blockers otherwise."
 )
 mcp = FastMCP("CadPlot MCP", instructions=SERVER_INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(
@@ -151,7 +152,7 @@ def scan_drawings(
 
 @mcp.tool(title="Inspect one DWG", annotations=READ_ONLY)
 def inspect_drawing(path: PathString) -> InspectDrawingOutput:
-    """Inspect one explicit DWG read-only: layouts, plot settings, and labelled frames."""
+    """Inspect one explicit allowed DWG/DWT read-only: layouts, plot settings, and frames."""
     config = _config()
     return _inspector(config).inspect_drawing(path).to_dict()
 
@@ -189,9 +190,10 @@ def create_batch_publish_plans(
         max_files=max_files,
     )
     inventory_id = build_drawing_inventory_id([drawing.to_dict() for drawing in drawings])
+    template_cache: dict[str, tuple[Any, dict[str, Any]]] = {}
     return build_batch_page(
         [drawing.path for drawing in drawings],
-        lambda path: _build_current_plan(path, config),
+        lambda path: _build_current_plan(path, config, template_cache=template_cache),
         offset=offset,
         limit=limit,
         inventory_id=inventory_id,
@@ -244,9 +246,10 @@ def stage_publish_job(
 def stage_publish_batch(approvals: StageApprovals) -> StagePublishBatchOutput:
     """Stage up to 20 explicit DWG/plan-ID approvals; never plots or edits originals."""
     config = _config()
+    template_cache: dict[str, tuple[Any, dict[str, Any]]] = {}
     return stage_approved_batch(
         approvals,
-        lambda path: _build_current_plan(path, config),
+        lambda path: _build_current_plan(path, config, template_cache=template_cache),
         lambda plan, approved_plan_id: stage_job(
             plan,
             config,
@@ -388,18 +391,71 @@ def match_paper_profile(label: LabelString) -> MatchPaperProfileOutput:
     }
 
 
-def _build_current_plan(path: str, config: CadPlotConfig) -> dict[str, Any]:
+def _build_current_plan(
+    path: str,
+    config: CadPlotConfig,
+    *,
+    template_cache: dict[str, tuple[Any, dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
     before = fingerprint_drawing(path, config.path_policy)
     inspection = _inspector(config).inspect_drawing(path)
     after = fingerprint_drawing(path, config.path_policy)
     if before != after:
         raise RuntimeError("Drawing changed during inspection; retry after it is stable.")
-    return build_publish_plan(inspection, config, drawing_fingerprint=after)
+    evidence: dict[str, tuple[Any, dict[str, Any]]] = {}
+    cache = template_cache if template_cache is not None else {}
+    for frame in inspection.frames:
+        profile = config.match_paper_profile(frame.label)
+        if profile is None or profile.template_drawing is None:
+            continue
+        cached = cache.get(profile.id)
+        if cached is None:
+            if config.template_path_policy is None:
+                raise ValueError("External template profile has no template_roots policy.")
+            template_before = fingerprint_template(
+                profile.template_drawing, config.template_path_policy
+            )
+            if template_before["sha256"] != profile.template_sha256:
+                raise ValueError(
+                    f"External template SHA-256 changed for profile {profile.id!r}; "
+                    "review the asset and update config explicitly."
+                )
+            template_inspection = _template_inspector(config).inspect_drawing(
+                profile.template_drawing
+            )
+            template_after = fingerprint_template(
+                profile.template_drawing, config.template_path_policy
+            )
+            if template_before != template_after:
+                raise RuntimeError(
+                    f"External template changed during inspection for profile {profile.id!r}."
+                )
+            cached = (template_inspection, template_after)
+            cache[profile.id] = cached
+        evidence[profile.id] = cached
+    return build_publish_plan(
+        inspection,
+        config,
+        drawing_fingerprint=after,
+        template_evidence=evidence,
+    )
 
 
 def _inspector(config: CadPlotConfig) -> IsolatedAutoCADInspector:
+    roots = list(config.path_policy.allowed_roots)
+    if config.template_path_policy is not None:
+        roots.extend(config.template_path_policy.allowed_roots)
     return IsolatedAutoCADInspector(
-        config.path_policy,
+        PathPolicy.from_roots(roots),
+        timeout_seconds=config.inspection_timeout_seconds,
+    )
+
+
+def _template_inspector(config: CadPlotConfig) -> IsolatedAutoCADInspector:
+    if config.template_path_policy is None:
+        raise ValueError("template_roots must be configured for external templates.")
+    return IsolatedAutoCADInspector(
+        config.template_path_policy,
         timeout_seconds=config.inspection_timeout_seconds,
     )
 

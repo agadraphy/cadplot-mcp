@@ -46,6 +46,10 @@ those values to the parsed PDF MediaBox independent of orientation, using config
 
 The manifest starts in `staged` state. The AutoCAD executor may operate only on the
 `staged_drawing` named in this manifest and may write PDFs only under its `output_directory`.
+Optional `template_assets` are direct-child DWG/DWT copies under `source/templates`; each carries a
+safe profile id, layout/page-setup names, byte length, and SHA-256. Outputs reference them only by id.
+Python audit and the plug-in both reject missing, changed, redirected, escaped, duplicate, unused, or
+metadata-mismatched assets before importing any layout.
 Expected final PDF names stay absent while plotting. Every sheet is first written to a unique
 executor-owned `.partial.pdf` beside its final target; only after all plots finish and the staged
 DWG closes without saving are non-empty temporary files promoted with no-overwrite moves. A normal
