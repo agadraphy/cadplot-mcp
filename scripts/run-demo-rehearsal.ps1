@@ -28,7 +28,8 @@ try {
     }
     & $preflight @preflightParameters
 
-    $commit = (Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))[0].Trim()
+    $commitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
+    $commit = $commitLines[0].Trim()
     if ($commit -notmatch "^[0-9a-f]{40}$") {
         throw "Could not resolve an exact 40-character Git commit."
     }

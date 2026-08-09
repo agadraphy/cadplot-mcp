@@ -110,6 +110,7 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
 
     for required in (
         "run-local-preflight.ps1",
+        "$commitLines = @(Invoke-GitReadOnly",
         '"rev-parse", "HEAD"',
         '"status"',
         '"--porcelain=v1"',
