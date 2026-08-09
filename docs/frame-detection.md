@@ -2,9 +2,13 @@
 
 CadPlot MCP inspects closed, axis-aligned four-vertex model-space polylines and paper-size text
 inside them. It also accepts an `AcDbBlockReference` as a frame when its own editable or constant
-attributes contain exactly one physical paper size, its bounding box has that aspect ratio, it has
-a stable handle, and its rotation is an exact multiple of 90 degrees. Detection is deterministic
-and does not use an LLM.
+attributes contain exactly one physical paper size. When the instance has no paper-size attribute,
+the detector may read ordinary text, MText, attribute definitions, and nested block references from
+its `document.Blocks` definition. It never calls `Explode` and never writes to the drawing.
+
+In either block path, the top-level reference bounding box must have the detected paper aspect ratio,
+the reference must have a stable handle, and its rotation must be an exact multiple of 90 degrees.
+Detection is deterministic and does not use an LLM.
 
 The detector evaluates candidates per paper label:
 
@@ -18,11 +22,17 @@ A single candidate receives confidence `0.9`. A deterministic nested selection r
 and a warning. The default `minimum_frame_confidence` is `0.85`, so nested results remain plan
 blockers until an operator fixes the source ambiguity or deliberately changes office policy.
 
-Attribute-backed block candidates fail closed when attributes contain conflicting paper sizes,
-the bounds do not match, rotation is non-orthogonal, or equal-size blocks compete. Arbitrarily
-rotated frames and blocks whose paper label exists only inside nested block geometry are not yet
-automatic candidates. They must be handled by an approved office-specific detector or reviewed
-manually rather than guessed.
+Instance-attribute candidates receive confidence `0.9`. Definition-backed candidates receive `0.85`
+and an explicit warning identifying that fallback. Definition traversal is bounded to 8 nested
+definitions, 1,000 entities, and 100 text values; definitions are visited once, cycles are detected,
+and Xref/layout definitions are not inspected. If a paper label was seen but any traversal boundary
+was incomplete, the candidate is rejected rather than accepted from partial evidence.
+
+Block candidates also fail closed when labels conflict, bounds do not match, rotation is
+non-orthogonal, or equal-size blocks compete. An instance paper-size attribute remains the narrow
+authoritative path and does not trigger definition traversal. Arbitrarily rotated frames and labels
+hidden in unsupported custom/proxy entities are not automatic candidates; they require an approved
+office-specific detector or manual review.
 
 If the office has a frame-layer standard, configure `frame_layers`. Matching is case-insensitive;
 any detected candidate on another layer receives `disallowed_frame_layer` and blocks the plan.

@@ -549,6 +549,40 @@ def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> 
     assert "has_verified_one_to_one_scale" in planner
 
 
+def test_block_definition_frame_detection_is_bounded_read_only_and_fail_closed() -> None:
+    detector = (
+        REPOSITORY_ROOT / "src" / "cadplot_mcp" / "backends" / "autocad_com.py"
+    ).read_text(encoding="utf-8")
+    guide = (REPOSITORY_ROOT / "docs" / "frame-detection.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "MAX_BLOCK_DEFINITION_DEPTH = 8",
+        "MAX_BLOCK_DEFINITION_ENTITIES = 1_000",
+        "MAX_BLOCK_DEFINITION_TEXTS = 100",
+        "document, \"Blocks\"",
+        "AcDbAttributeDefinition",
+        "cyclic block definition",
+        "xref definition is not inspected",
+        "layout definition is not inspected",
+        "bounded definition traversal ",
+        "was incomplete",
+        "confidence=0.85 if definition_label_used else 0.9",
+    ):
+        assert required in detector
+    assert ".Explode(" not in detector
+    for required in (
+        "never calls `Explode`",
+        "8 nested",
+        "definitions, 1,000",
+        "1,000 entities",
+        "100 text values",
+        "partial evidence",
+    ):
+        assert required in guide
+
+
 def test_publish_outputs_are_staged_until_all_plots_and_dwg_discard_succeed() -> None:
     runtime = (
         REPOSITORY_ROOT

@@ -20,7 +20,8 @@ Hazır olan parçalar:
 
 - yalnızca izin verilen klasörlerde DWG tarama;
 - çalışan AutoCAD üzerinden salt-okunur layout/page setup, dikdörtgen polyline ve yalnız güvenli
-  koşulları sağlayan attribute-backed block çerçeve inceleme;
+  koşulları sağlayan instance-attribute veya bounded nested block-definition yazısı destekli
+  çerçeve inceleme; block hiçbir zaman explode edilmez;
 - `70x100`, `700x1000 mm` ve `A0-A5` gibi kâğıt etiketi tanıma;
 - çerçeve geometrisinden plot penceresi, yön ve izinli ölçek türetme;
 - PC3 ile CTB/STB değerlerini şirket profiliyle karşılaştırma;

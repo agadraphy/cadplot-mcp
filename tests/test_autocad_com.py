@@ -98,8 +98,10 @@ class VariableText:
 class VariableDocument:
     Layouts = []
 
-    def __init__(self, entities: list[object]):
+    def __init__(self, entities: list[object], blocks: object | None = None):
         self.ModelSpace = entities
+        if blocks is not None:
+            self.Blocks = blocks
 
 
 class FakeAttribute:
@@ -120,9 +122,13 @@ class FakeBlockReference:
         attributes: tuple[str, ...] = (),
         constant_attributes: tuple[str, ...] = (),
         rotation: float = 0.0,
+        name: str = "TITLE_BLOCK",
+        effective_name: str | None = None,
     ):
         self.Handle = handle
         self.Rotation = rotation
+        self.Name = name
+        self.EffectiveName = effective_name or name
         self._minimum = (minimum[0], minimum[1], 0.0)
         self._maximum = (maximum[0], maximum[1], 0.0)
         self._attributes = tuple(FakeAttribute(value) for value in attributes)
@@ -138,6 +144,39 @@ class FakeBlockReference:
 
     def GetBoundingBox(self):
         return self._minimum, self._maximum
+
+
+class FakeDefinitionText:
+    ObjectName = "AcDbText"
+
+    def __init__(self, value: str):
+        self.TextString = value
+
+
+class FakeDefinitionEntity:
+    ObjectName = "AcDbLine"
+
+
+class FakeBlockDefinition:
+    IsXRef = False
+    IsLayout = False
+
+    def __init__(self, name: str, entities: list[object]):
+        self.Name = name
+        self._entities = entities
+
+    def __iter__(self):
+        return iter(self._entities)
+
+
+class FakeBlocks:
+    def __init__(self, *definitions: FakeBlockDefinition):
+        self._definitions = {
+            definition.Name.casefold(): definition for definition in definitions
+        }
+
+    def Item(self, name: str):
+        return self._definitions[name.casefold()]
 
 
 def test_read_layouts_collects_plot_properties() -> None:
@@ -256,7 +295,125 @@ def test_conflicting_attribute_paper_sizes_are_skipped_fail_closed() -> None:
     frames, warnings = _read_labelled_frames(VariableDocument([block]))
 
     assert frames == []
-    assert warnings == ["Block CONFLICT contains conflicting paper-size attributes; skipped."]
+    assert warnings == ["Block CONFLICT contains conflicting paper-size labels; skipped."]
+
+
+def test_block_definition_paper_label_is_detected_without_explode() -> None:
+    block = FakeBlockReference(
+        "DEFINED",
+        (0, 0),
+        (841, 594),
+        name="TITLE_A1",
+    )
+    blocks = FakeBlocks(
+        FakeBlockDefinition("TITLE_A1", [FakeDefinitionText("PAFTA A1")])
+    )
+
+    frames, warnings = _read_labelled_frames(VariableDocument([block], blocks))
+
+    assert [frame.handle for frame in frames] == ["DEFINED"]
+    assert frames[0].label == "A1"
+    assert frames[0].confidence == 0.85
+    assert warnings == [
+        "Block DEFINED paper label was read from bounded block-definition geometry."
+    ]
+
+
+def test_nested_block_definition_paper_label_is_detected_bounded() -> None:
+    nested = FakeBlockReference(
+        "NESTED",
+        (0, 0),
+        (1, 1),
+        name="TITLE_LABEL",
+    )
+    block = FakeBlockReference(
+        "PARENT",
+        (0, 0),
+        (1000, 700),
+        name="SHEET_FRAME",
+    )
+    blocks = FakeBlocks(
+        FakeBlockDefinition("SHEET_FRAME", [nested]),
+        FakeBlockDefinition("TITLE_LABEL", [FakeDefinitionText("70x100")]),
+    )
+
+    frames, warnings = _read_labelled_frames(VariableDocument([block], blocks))
+
+    assert [frame.handle for frame in frames] == ["PARENT"]
+    assert frames[0].label == "70x100"
+    assert len(warnings) == 1
+    assert "bounded block-definition geometry" in warnings[0]
+
+
+def test_conflicting_block_definition_labels_are_skipped_fail_closed() -> None:
+    block = FakeBlockReference(
+        "DEFINED_CONFLICT",
+        (0, 0),
+        (841, 594),
+        name="TITLE_CONFLICT",
+    )
+    blocks = FakeBlocks(
+        FakeBlockDefinition(
+            "TITLE_CONFLICT",
+            [FakeDefinitionText("A1"), FakeDefinitionText("A3")],
+        )
+    )
+
+    frames, warnings = _read_labelled_frames(VariableDocument([block], blocks))
+
+    assert frames == []
+    assert warnings == [
+        "Block DEFINED_CONFLICT contains conflicting paper-size labels; skipped."
+    ]
+
+
+def test_cyclic_definition_with_paper_label_is_skipped_fail_closed() -> None:
+    parent_ref = FakeBlockReference(
+        "PARENT_REF",
+        (0, 0),
+        (1, 1),
+        name="PARENT_DEF",
+    )
+    child_ref = FakeBlockReference(
+        "CHILD_REF",
+        (0, 0),
+        (1, 1),
+        name="CHILD_DEF",
+    )
+    block = FakeBlockReference(
+        "CYCLIC",
+        (0, 0),
+        (841, 594),
+        name="PARENT_DEF",
+    )
+    blocks = FakeBlocks(
+        FakeBlockDefinition("PARENT_DEF", [FakeDefinitionText("A1"), child_ref]),
+        FakeBlockDefinition("CHILD_DEF", [parent_ref]),
+    )
+
+    frames, warnings = _read_labelled_frames(VariableDocument([block], blocks))
+
+    assert frames == []
+    assert len(warnings) == 1
+    assert "bounded definition traversal was incomplete" in warnings[0]
+    assert "cyclic block definition" in warnings[0]
+
+
+def test_definition_entity_limit_rejects_partial_paper_evidence() -> None:
+    block = FakeBlockReference(
+        "OVERSIZED_DEF",
+        (0, 0),
+        (841, 594),
+        name="TOO_LARGE",
+    )
+    entities = [FakeDefinitionText("A1"), *[FakeDefinitionEntity() for _ in range(1_000)]]
+    blocks = FakeBlocks(FakeBlockDefinition("TOO_LARGE", entities))
+
+    frames, warnings = _read_labelled_frames(VariableDocument([block], blocks))
+
+    assert frames == []
+    assert len(warnings) == 1
+    assert "entity limit exceeded" in warnings[0]
 
 
 def test_equal_size_attribute_blocks_are_both_skipped_as_ambiguous() -> None:

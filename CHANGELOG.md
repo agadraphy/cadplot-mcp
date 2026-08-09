@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Read-only bounded block-definition frame labels, including nested definitions, with no `Explode`,
+  strict depth/entity/text caps, cycle/Xref/layout rejection, lower confidence, and fail-closed
+  handling whenever a detected paper label came from incomplete traversal.
 - Explicit hash-pinned external DWG/DWT layout templates with separate read-only roots, isolated
   copy-only job staging, manifest-bound asset identities, dual Python/plug-in hash replay, verified
   single-viewport planning, and cross-database import that never replaces source definitions.

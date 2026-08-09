@@ -22,6 +22,9 @@ class AutoCADUnavailableError(RuntimeError):
 
 
 _COM_LOCK = Lock()
+MAX_BLOCK_DEFINITION_DEPTH = 8
+MAX_BLOCK_DEFINITION_ENTITIES = 1_000
+MAX_BLOCK_DEFINITION_TEXTS = 100
 
 
 class AutoCADComInspector:
@@ -194,6 +197,8 @@ def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str
     block_frames: list[FrameCandidate] = []
     texts: list[tuple[str, tuple[float, float, float]]] = []
     warnings: list[str] = []
+    blocks = _safe(document, "Blocks")
+    definition_cache: dict[str, tuple[list[str], bool, str | None]] = {}
 
     try:
         entities = document.ModelSpace
@@ -209,7 +214,11 @@ def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str
                 if bounds and _is_axis_aligned_rectangle(entity):
                     rectangles.append((entity, bounds[0], bounds[1]))
             elif object_name == "AcDbBlockReference":
-                block_frame, block_warnings = _read_attribute_backed_block_frame(entity)
+                block_frame, block_warnings = _read_label_backed_block_frame(
+                    entity,
+                    blocks=blocks,
+                    definition_cache=definition_cache,
+                )
                 warnings.extend(block_warnings)
                 if block_frame is not None:
                     block_frames.append(block_frame)
@@ -301,28 +310,59 @@ def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str
     return frames, warnings
 
 
-def _read_attribute_backed_block_frame(
+def _read_label_backed_block_frame(
     entity: Any,
+    *,
+    blocks: Any | None = None,
+    definition_cache: dict[str, tuple[list[str], bool, str | None]] | None = None,
 ) -> tuple[FrameCandidate | None, list[str]]:
     labels: dict[tuple[float, float], PaperSize] = {}
+    attribute_labels: dict[tuple[float, float], PaperSize] = {}
     for text in _block_attribute_texts(entity):
         size = parse_paper_size(text)
         if size is not None:
-            labels.setdefault(size.orientation_independent, size)
+            attribute_labels.setdefault(size.orientation_independent, size)
+    labels.update(attribute_labels)
+    definition_label_used = False
+    definition_warning: str | None = None
+    if not attribute_labels and blocks is not None:
+        definition_texts, complete, reason = _block_definition_texts(
+            entity,
+            blocks,
+            definition_cache if definition_cache is not None else {},
+        )
+        definition_labels: dict[tuple[float, float], PaperSize] = {}
+        for text in definition_texts:
+            size = parse_paper_size(text)
+            if size is not None:
+                definition_labels.setdefault(size.orientation_independent, size)
+        if definition_labels and not complete:
+            handle = str(_safe(entity, "Handle", "")) or "<no handle>"
+            detail = f" ({reason})" if reason else ""
+            return None, [
+                f"Block {handle} contains a paper-size label but bounded definition traversal "
+                f"was incomplete{detail}; skipped."
+            ]
+        if definition_labels:
+            labels.update(definition_labels)
+            definition_label_used = True
+            definition_warning = (
+                "paper label was read from bounded block-definition geometry"
+            )
     if not labels:
         return None, []
 
     handle = str(_safe(entity, "Handle", ""))
     name = handle or "<no handle>"
     if not handle:
-        return None, ["Attribute-backed block frame has no stable handle; skipped."]
+        return None, ["Label-backed block frame has no stable handle; skipped."]
     if len(labels) != 1:
-        return None, [f"Block {name} contains conflicting paper-size attributes; skipped."]
+        return None, [f"Block {name} contains conflicting paper-size labels; skipped."]
     if not _is_orthogonal_block_rotation(_safe(entity, "Rotation")):
         return None, [f"Block {name} has a non-orthogonal rotation; skipped."]
     bounds = _bounds(entity)
     if bounds is None:
-        return None, [f"Block {name} paper-size attributes were found but bounds are invalid."]
+        return None, [f"Block {name} paper-size labels were found but bounds are invalid."]
 
     size = next(iter(labels.values()))
     if not _aspect_ratio_matches(size.width_mm, size.height_mm, bounds[0], bounds[1]):
@@ -336,9 +376,13 @@ def _read_attribute_backed_block_frame(
             label=size.source,
             width_mm=size.width_mm,
             height_mm=size.height_mm,
-            confidence=0.9,
+            confidence=0.85 if definition_label_used else 0.9,
         ),
-        [],
+        (
+            [f"Block {name} {definition_warning}."]
+            if definition_label_used and definition_warning is not None
+            else []
+        ),
     )
 
 
@@ -361,6 +405,113 @@ def _block_attribute_texts(entity: Any) -> list[str]:
             if text:
                 values.append(text)
     return values
+
+
+def _block_definition_texts(
+    entity: Any,
+    blocks: Any,
+    cache: dict[str, tuple[list[str], bool, str | None]],
+) -> tuple[list[str], bool, str | None]:
+    names = _block_definition_names(entity)
+    cache_key = "|".join(name.casefold() for name in names)
+    if not cache_key:
+        return [], False, "block definition name is unavailable"
+    if cache_key in cache:
+        cached_texts, complete, reason = cache[cache_key]
+        return list(cached_texts), complete, reason
+
+    texts: list[str] = []
+    visited: set[str] = set()
+    active: set[str] = set()
+    reasons: set[str] = set()
+    entity_count = 0
+
+    def add_text(value: Any) -> None:
+        if len(texts) >= MAX_BLOCK_DEFINITION_TEXTS:
+            reasons.add("text limit exceeded")
+            return
+        text = str(value or "").strip()
+        if text:
+            texts.append(text)
+
+    def get_definition(candidate_names: tuple[str, ...]) -> tuple[Any | None, str | None]:
+        item = _safe(blocks, "Item")
+        if not callable(item):
+            reasons.add("Blocks.Item is unavailable")
+            return None, None
+        for candidate in candidate_names:
+            try:
+                definition = item(candidate)
+            except Exception:
+                continue
+            resolved_name = str(_safe(definition, "Name", candidate)) or candidate
+            return definition, resolved_name
+        reasons.add("block definition is unavailable")
+        return None, None
+
+    def visit(candidate_names: tuple[str, ...], depth: int) -> None:
+        nonlocal entity_count
+        if depth > MAX_BLOCK_DEFINITION_DEPTH:
+            reasons.add("depth limit exceeded")
+            return
+        definition, resolved_name = get_definition(candidate_names)
+        if definition is None or resolved_name is None:
+            return
+        key = resolved_name.casefold()
+        if key in active:
+            reasons.add("cyclic block definition")
+            return
+        if key in visited:
+            return
+        if bool(_safe(definition, "IsXRef", False)):
+            reasons.add("xref definition is not inspected")
+            return
+        if bool(_safe(definition, "IsLayout", False)):
+            reasons.add("layout definition is not inspected")
+            return
+        active.add(key)
+        try:
+            try:
+                definition_entities = iter(definition)
+            except Exception:
+                reasons.add("block definition enumeration failed")
+                return
+            for child in definition_entities:
+                entity_count += 1
+                if entity_count > MAX_BLOCK_DEFINITION_ENTITIES:
+                    reasons.add("entity limit exceeded")
+                    return
+                object_name = str(_safe(child, "ObjectName", ""))
+                if object_name in {"AcDbText", "AcDbMText", "AcDbAttributeDefinition"}:
+                    add_text(_safe(child, "TextString", ""))
+                elif object_name == "AcDbBlockReference":
+                    for value in _block_attribute_texts(child):
+                        add_text(value)
+                    visit(_block_definition_names(child), depth + 1)
+                if len(texts) >= MAX_BLOCK_DEFINITION_TEXTS:
+                    reasons.add("text limit exceeded")
+                    return
+            visited.add(key)
+        except Exception:
+            reasons.add("block definition enumeration failed")
+        finally:
+            active.discard(key)
+
+    visit(names, 0)
+    complete = not reasons
+    reason = ", ".join(sorted(reasons)) if reasons else None
+    result = (list(texts), complete, reason)
+    cache[cache_key] = result
+    return list(texts), complete, reason
+
+
+def _block_definition_names(entity: Any) -> tuple[str, ...]:
+    values: list[str] = []
+    for attribute in ("Name", "EffectiveName"):
+        value = str(_safe(entity, attribute, "")).strip()
+        if value and value.casefold() not in {item.casefold() for item in values}:
+            values.append(value)
+    return tuple(values)
 
 
 def _is_orthogonal_block_rotation(value: Any, tolerance: float = 1e-6) -> bool:

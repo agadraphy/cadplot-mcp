@@ -113,7 +113,8 @@ uv run python scripts/run-synthetic-demo.py
 - `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, labelled rectangular polylines, and strictly
-  validated orthogonal attribute-backed block frames.
+  validated orthogonal block frames backed by instance attributes or bounded read-only nested
+  definition text; the detector never explodes a block.
 - `inventory_office_resources`: produce a read-only exact-name inventory for frame labels, named
   page setups, plotters, plot styles, canonical media, and candidate paper-space layouts without
   approving any mapping.
