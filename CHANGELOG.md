@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Fail-closed post-pilot release acceptance finalizer/validator that binds the exact release kit,
+  wheel, matching-SDK bundle, and separate licensed 2016/2025 evidence into a sanitized no-overwrite
+  report while keeping public readiness behind explicit company and maintainer approvals.
 - Full-commit-pinned, read-only GitHub Actions with non-persistent checkout credentials, workflow
   supply-chain auditing, explicit action-repository allowlisting, Python 3.11/3.12/3.13 compatibility,
   and weekly Dependabot coverage for `uv`, NuGet, and Actions dependencies.

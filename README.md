@@ -335,6 +335,11 @@ evidence file stays outside the public repository. Live status exposes the embed
 and running adapter DLL SHA-256. The pilot assembler derives the release commit from the verified
 `bundle-build.json`, re-hashes every bundle ZIP entry, and refuses either version when its running
 binary does not match the corresponding adapter artifact.
+After both runs pass, the installed `cadplot-acceptance` finalizer binds that evidence to the exact
+release-kit directory/ZIP, wheel, bundle, build manifest, commit, and package version. Its sanitized
+report excludes company-run details and keeps `public_release_ready=false` until separate company
+publication and maintainer release approvals are explicit; see
+[release acceptance](docs/release-acceptance.md).
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration

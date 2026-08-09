@@ -279,6 +279,8 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"cadplot-assemble-pilot"',
         '"cadplot-validate-pilot"',
         '"pilot_cli_commands": len(pilot_commands)',
+        '"cadplot-acceptance"',
+        '"acceptance_cli_commands": len(acceptance_commands)',
         '"inspector_worker_protocol": True',
     ):
         assert required in script
@@ -508,8 +510,10 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "collect-pilot-run.py",
         "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py",
+        "release-acceptance.py",
         "new-local-pilot.ps1",
         "pilot-evidence.md",
+        "release-acceptance.md",
         "self_verification_passed = $verification.Passed",
         "Readiness report has invalid compile-only API evidence",
         "current lock-bound dependency-audit evidence",
@@ -539,7 +543,9 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         '"scripts/collect-pilot-run.py"',
         '"scripts/assemble-pilot-evidence.py"',
         '"scripts/validate-pilot-evidence.py"',
+        '"scripts/release-acceptance.py"',
         '"docs/pilot-evidence.md"',
+        '"docs/release-acceptance.md"',
     ):
         assert required in verifier
     assert "Expand-Archive" not in verifier
@@ -560,6 +566,7 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "cadplot-collect-pilot.cmd\" --help" in guide
     assert "cadplot-assemble-pilot.cmd\" --help" in guide
     assert "cadplot-validate-pilot.cmd\" --help" in guide
+    assert "cadplot-acceptance.cmd\" --help" in guide
     assert "new-local-pilot.ps1" in guide
     assert "publisher authenticity" in guide
     assert "--from" not in guide

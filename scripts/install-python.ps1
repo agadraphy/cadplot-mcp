@@ -214,6 +214,7 @@ print(json.dumps({
         "cadplot-collect-pilot.cmd" = '-c "from cadplot_mcp.pilot_cli import collect_main; raise SystemExit(collect_main())"'
         "cadplot-assemble-pilot.cmd" = '-c "from cadplot_mcp.pilot_cli import assemble_main; raise SystemExit(assemble_main())"'
         "cadplot-validate-pilot.cmd" = '-c "from cadplot_mcp.pilot_cli import validate_main; raise SystemExit(validate_main())"'
+        "cadplot-acceptance.cmd" = '-m cadplot_mcp.acceptance_cli'
     }
     foreach ($launcher in $launchers.GetEnumerator()) {
         $content = '@"%~dp0..\venv\Scripts\python.exe" ' + $launcher.Value + ' %*' + "`r`n"

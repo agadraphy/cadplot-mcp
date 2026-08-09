@@ -148,6 +148,10 @@ Canlı eklenti status'u gömülü build commit'ini ve çalışan adapter DLL SHA
 assembler commit'i operatörden kabul etmek yerine doğrulanmış `bundle-build.json` içinden türetir,
 ZIP'in tüm girdilerini yeniden hash'ler ve iki sürümün çalışan binary değerlerini ilgili bundle
 adapter'ıyla eşleştirmeden kabul üretmez.
+İki pilot geçtikten sonra kurulu `cadplot-acceptance` komutu pilot kanıtını exact release kit/ZIP,
+wheel, bundle, build manifest, commit ve sürüme bağlar. Şirket içi koşu ayrıntılarını içermeyen rapor,
+şirket yayın izni ile maintainer release onayı ayrı ayrı verilene kadar
+`public_release_ready=false` tutar; bkz. [release kabulü](docs/release-acceptance.md).
 
 ## Önerilen pilot akışı
 

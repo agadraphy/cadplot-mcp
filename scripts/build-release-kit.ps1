@@ -242,7 +242,7 @@ try {
         "install-release-kit.ps1", "verify-release-install.ps1", "uninstall-release-kit.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
-        "validate-pilot-evidence.py"
+        "validate-pilot-evidence.py", "release-acceptance.py"
     )) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $scriptName) `
             -Destination (Join-Path $kitRoot "scripts\$scriptName")
@@ -250,7 +250,7 @@ try {
     foreach ($docName in @(
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
-        "chatgpt-connection.md", "loopback-http.md"
+        "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")

@@ -126,6 +126,7 @@ $commandRoot = $pythonInstall.CommandRoot
 & "$commandRoot\cadplot-collect-pilot.cmd" --help
 & "$commandRoot\cadplot-assemble-pilot.cmd" --help
 & "$commandRoot\cadplot-validate-pilot.cmd" --help
+& "$commandRoot\cadplot-acceptance.cmd" --help
 ```
 
 The installer first re-runs the embedded release-kit verifier, exports dependencies from the exact
@@ -177,7 +178,8 @@ Set `CADPLOT_CONFIG` to that external file. Keep `CADPLOT_ENABLE_PUBLISH` unset 
 dry-run. Follow `docs/pazartesi-demo-tr.md` for the licensed one-sheet acceptance flow. After both
 licensed runs, use the installed `cadplot-collect-pilot`, `cadplot-assemble-pilot`, and
 `cadplot-validate-pilot` commands documented in `docs/pilot-evidence.md`; no repository Python
-environment is required.
+environment is required. After both runs validate, follow `docs/release-acceptance.md` to bind the
+pilot evidence to this exact transferred kit without exposing company-run details.
 
 ## Evidence boundary
 

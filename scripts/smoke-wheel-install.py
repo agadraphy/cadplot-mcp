@@ -191,7 +191,8 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             "cadplot-assemble-pilot",
             "cadplot-validate-pilot",
         )
-        for command_name in pilot_commands:
+        acceptance_commands = ("cadplot-acceptance",)
+        for command_name in pilot_commands + acceptance_commands:
             command_path = command_root / f"{command_name}{command_suffix}"
             if not command_path.is_file():
                 raise RuntimeError(f"Installed wheel is missing command: {command_name}")
@@ -217,6 +218,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "http_transport_header_guards": True,
         "http_transport_cleanup_retries": http_protocol["cleanup_retries"],
         "pilot_cli_commands": len(pilot_commands),
+        "acceptance_cli_commands": len(acceptance_commands),
         "inspector_worker_protocol": True,
         "isolated_install": True,
         "locked_dependencies": True,

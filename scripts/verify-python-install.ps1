@@ -87,8 +87,9 @@ if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
     throw "Python installation interpreter is missing."
 }
 $expectedCommands = @(
-    "cadplot-assemble-pilot.cmd", "cadplot-collect-pilot.cmd", "cadplot-doctor.cmd",
-    "cadplot-mcp-http.cmd", "cadplot-mcp.cmd", "cadplot-validate-pilot.cmd"
+    "cadplot-acceptance.cmd", "cadplot-assemble-pilot.cmd", "cadplot-collect-pilot.cmd",
+    "cadplot-doctor.cmd", "cadplot-mcp-http.cmd", "cadplot-mcp.cmd",
+    "cadplot-validate-pilot.cmd"
 )
 $commandRoot = Join-Path $root "bin"
 foreach ($command in $expectedCommands) {

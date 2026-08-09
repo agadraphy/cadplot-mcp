@@ -77,3 +77,6 @@ running commit/binary mismatches, changed DWG hashes, a receipt bound to another
 incomplete visual acceptance, or a run that was not rechecked after AutoCAD restart. A valid report
 proves the recorded gates only; the actual evidence files and licensed workstation remain
 authoritative.
+
+After both runs validate, use the [release acceptance](release-acceptance.md) gate to bind this local
+evidence to the exact transferred release kit and produce a sanitized no-overwrite readiness report.

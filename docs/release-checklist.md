@@ -97,6 +97,10 @@ Use this checklist for every alpha release.
 - [ ] `cadplot-collect-pilot` produced each run from the live plug-in and immutable job evidence;
       live `buildCommit`/`pluginSha256` matched the corresponding adapter entry, and
       `cadplot-assemble-pilot` bound both runs to the exact verified bundle/build manifest.
+- [ ] `cadplot-acceptance finalize` bound the full transferred release kit and two-version pilot
+      evidence into a new sanitized report; `validate` replays the same hashes successfully.
+- [ ] `public_release_ready=true` appears only when both company-publication and maintainer-release
+      approvals were explicitly supplied; the full company pilot evidence remains outside Git.
 - [ ] The demo operator reviewed `docs/pazartesi-demo-tr.md` and can state the title-block and
       managed-ChatGPT boundaries without overstating readiness.
 
