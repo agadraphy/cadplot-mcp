@@ -2,7 +2,8 @@
 param(
     [string]$DotNet = "",
     [string]$AutoCADApiDir = "",
-    [switch]$SkipSync
+    [switch]$SkipSync,
+    [switch]$WriteReport
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +22,20 @@ function Invoke-GitReadOnly {
 
 Push-Location $repoRoot
 try {
+    $initialCommitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
+    $initialCommit = $initialCommitLines[0].Trim()
+    if ($initialCommit -notmatch "^[0-9a-f]{40}$") {
+        throw "Could not resolve an exact 40-character Git commit."
+    }
+    $initialWorktreeChanges = @(Invoke-GitReadOnly -Arguments @(
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all"
+    ))
+    if ($initialWorktreeChanges.Count -ne 0) {
+        throw "Demo rehearsal requires a clean worktree before checks begin."
+    }
+
     $preflightParameters = @{
         DotNet = $DotNet
         AutoCADApiDir = $AutoCADApiDir
@@ -30,8 +45,8 @@ try {
 
     $commitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
     $commit = $commitLines[0].Trim()
-    if ($commit -notmatch "^[0-9a-f]{40}$") {
-        throw "Could not resolve an exact 40-character Git commit."
+    if ($commit -ne $initialCommit) {
+        throw "Git HEAD changed while the demo rehearsal was running."
     }
 
     $worktreeChanges = @(Invoke-GitReadOnly -Arguments @(
@@ -51,7 +66,7 @@ try {
     $wheelHash = (Get-FileHash -LiteralPath $wheel.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     $apiProbeRan = -not [string]::IsNullOrWhiteSpace($AutoCADApiDir)
 
-    [ordered]@{
+    $report = [ordered]@{
         passed = $true
         generated_utc = [DateTime]::UtcNow.ToString("o")
         exact_commit = $commit
@@ -71,7 +86,33 @@ try {
             "Authorized representative DWG plus exact PC3/PMP/CTB/STB resources",
             "One-sheet visual comparison and retained receipt/audit evidence"
         )
-    } | ConvertTo-Json -Depth 4
+    }
+
+    if ($WriteReport) {
+        $reportPath = Join-Path `
+            ([System.IO.Path]::GetTempPath()) `
+            ("cadplot-demo-readiness-{0}.json" -f [Guid]::NewGuid().ToString("N"))
+        $report["report_path"] = $reportPath
+    }
+    $reportJson = $report | ConvertTo-Json -Depth 4
+
+    if ($WriteReport) {
+        $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($reportJson)
+        $stream = [System.IO.File]::Open(
+            $reportPath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::Read
+        )
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+
+    Write-Output $reportJson
 }
 finally {
     Pop-Location

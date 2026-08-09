@@ -110,6 +110,7 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
 
     for required in (
         "run-local-preflight.ps1",
+        "$initialCommitLines = @(Invoke-GitReadOnly",
         "$commitLines = @(Invoke-GitReadOnly",
         '"rev-parse", "HEAD"',
         '"status"',
@@ -121,6 +122,7 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "autocad_launched = $false",
         "live_publish_proven = $false",
         "company_assets_copied = $false",
+        "[System.IO.FileMode]::CreateNew",
     ):
         assert required in script
     assert "Start-Process" not in script

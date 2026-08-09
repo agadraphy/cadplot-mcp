@@ -20,14 +20,16 @@ Run the fail-fast local preflight. It does not launch AutoCAD and therefore does
 publishing:
 
 ```powershell
-.\scripts\run-local-preflight.ps1 `
-  -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2025"
+.\scripts\run-demo-rehearsal.ps1 `
+  -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2025" `
+  -WriteReport
 ```
 
 If the installed SDK is outside `PATH`, pass `-DotNet` explicitly. The script runs the locked
 environment sync, lint, Python tests, synthetic demo, Python package/audit, .NET build/tests, and
-an isolated wheel-install MCP smoke plus the optional compile-only API probe. Its final JSON
-must show `passed=true`,
+an isolated wheel-install MCP smoke plus the optional compile-only API probe. It also requires a
+stable clean commit, binds the wheel hash, and writes a non-overwriting report to the returned
+`report_path`. Its final JSON must show `passed=true`, `local_demo_ready=true`,
 `autocad_launched=false`, and `live_publish_proven=false`.
 
 Equivalent individual commands are:
