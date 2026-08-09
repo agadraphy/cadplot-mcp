@@ -30,8 +30,11 @@ namespace CadPlotMcp.AutoCAD
         {
             var workspace = Environment.GetEnvironmentVariable("CADPLOT_WORKSPACE_ROOT");
             var acadVersion = Convert.ToString(AcApplication.GetSystemVariable("ACADVER"));
+            var runtimeSeries = AutoCadRuntimeIdentity.NormalizeSeries(acadVersion);
+            var runtimeSupported = AutoCadRuntimeIdentity.IsSupported(adapter, runtimeSeries);
             var capturedProduct = (productName == null ? "AutoCAD" : productName())
-                + " (ACADVER " + acadVersion + ")";
+                + " (ACADVER " + (runtimeSeries ?? "unknown")
+                + "; raw " + acadVersion + ")";
             var publishRequested = String.Equals(
                 Environment.GetEnvironmentVariable("CADPLOT_ENABLE_PUBLISH"),
                 "1",
@@ -40,7 +43,7 @@ namespace CadPlotMcp.AutoCAD
 
             PublishJobQueue queue = null;
             var publishEnabled = false;
-            if (publishRequested)
+            if (publishRequested && runtimeSupported)
             {
                 try
                 {
@@ -77,7 +80,9 @@ namespace CadPlotMcp.AutoCAD
                     queue,
                     _publishEnabled,
                     buildCommit,
-                    pluginSha256
+                    pluginSha256,
+                    runtimeSeries,
+                    runtimeSupported
                 )
             );
             _host.Start();

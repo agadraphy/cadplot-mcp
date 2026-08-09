@@ -77,9 +77,25 @@ def test_version_adapters_require_all_managed_autocad_references() -> None:
 
 def test_api_probe_is_compile_only() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "probe-autocad-api.ps1").read_text(encoding="utf-8")
+    project = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCADApiProbe"
+        / "CadPlotMcp.AutoCADApiProbe.csproj"
+    ).read_text(encoding="utf-8")
 
     assert "dotnet" in script.casefold()
-    assert "AutoCAD was not launched" in script
+    assert '"R20.1" = "net45"' in script
+    assert '"R24.3" = "net48"' in script
+    assert '"R25.0" = "net8.0-windows"' in script
+    assert "--framework $targetFramework" in script
+    assert "[switch]$PassThru" in script
+    assert "check-autocad-api-series.ps1" in script
+    assert 'evidence_scope = "compile-only"' in script
+    assert "autocad_launched = $false" in script
+    assert "live_publish_proven = $false" in script
+    assert "net45;net48;net8.0-windows" in project
     assert "Start-Process" not in script
 
 
@@ -131,6 +147,8 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "smoke-bundle-install.ps1",
         "dotnet\\CadPlotMcp.sln",
         "probe-autocad-api.ps1",
+        "api_probe = if ($apiProbeRan)",
+        "evidence_scope -cne \"compile-only\"",
         "autocad_launched = $false",
         "live_publish_proven = $false",
     ):
@@ -159,6 +177,8 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "live_publish_proven = $false",
         "company_assets_copied = $false",
         "synthetic_batch_rehearsal",
+        "api_probe = $preflightSummary.api_probe",
+        "unexpectedly contains API evidence",
         "target_drawings -ne 300",
         "publish_verified -ne 0",
         "[System.IO.FileMode]::CreateNew",
@@ -184,6 +204,8 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         "live_publish_proven = $false",
         "300-drawing synthetic batch evidence",
         "synthetic_batch_rehearsal = $batch",
+        "api_probe = $readiness.api_probe",
+        "invalid compile-only API evidence",
         "not a live AutoCAD plug-in bundle",
     ):
         assert required in script
@@ -319,22 +341,42 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
     pilot = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "pilot.py").read_text(
         encoding="utf-8"
     )
+    identity = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "AutoCadRuntimeIdentity.cs"
+    ).read_text(encoding="utf-8")
     assembler = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "pilot_cli.py").read_text(
         encoding="utf-8"
     )
 
-    for required in ("buildCommit", "pluginSha256", "BuildCommit", "PluginSha256"):
+    for required in (
+        "buildCommit",
+        "pluginSha256",
+        "BuildCommit",
+        "PluginSha256",
+        "runtimeSeries",
+        "runtimeSupported",
+    ):
         assert required in protocol
     for required in (
         "Assembly.GetExecutingAssembly()",
         'ReadAssemblyMetadata(pluginAssembly, "RepositoryCommit")',
         "SHA256.Create()",
         "assembly.Location",
+        "AutoCadRuntimeIdentity.NormalizeSeries",
+        "AutoCadRuntimeIdentity.IsSupported",
     ):
         assert required in runtime
+    for required in ("R20.1", "R25.0", "R25.1"):
+        assert required in identity
     for required in (
         '"build_commit"',
         '"plugin_sha256"',
+        '"runtime_series"',
+        '"runtimeSupported"',
         "validate_bundle_build_evidence",
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
@@ -382,6 +424,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "new-local-pilot.ps1",
         "pilot-evidence.md",
         "self_verification_passed = $verification.Passed",
+        "Readiness report has invalid compile-only API evidence",
     ):
         assert required in builder
     assert "Remove-Item" not in builder

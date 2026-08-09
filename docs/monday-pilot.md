@@ -27,7 +27,9 @@ publishing:
 
 If the installed SDK is outside `PATH`, pass `-DotNet` explicitly. The script runs the locked
 environment sync, lint, Python tests, synthetic demo, Python package/audit, .NET build/tests, and
-an isolated wheel-install MCP smoke plus the optional compile-only API probe. It also requires a
+an isolated wheel-install MCP smoke plus the optional compile-only API probe. The probe report must
+show the detected API series and its release-appropriate target (`R20.1/net45` or
+`R25.0/net8.0-windows`); an unknown series fails closed. It also requires a
 stable clean commit, binds the wheel hash, and writes a non-overwriting report to the returned
 `report_path`. Its final JSON must show `passed=true`, `local_demo_ready=true`,
 `autocad_launched=false`, and `live_publish_proven=false`.
@@ -61,8 +63,10 @@ First preview the copy:
 
 Then run the same exact source without `-WhatIf`. Start AutoCAD and call MCP tool
 `get_autocad_plugin_status`. Required
-result: `connected=true`, correct adapter/release, `readOnly=true`, and `publishEnabled=false`.
-The product field must include the live `ACADVER`. `buildCommit` must be the exact release commit,
+result: `connected=true`, correct adapter/release, `runtimeSupported=true`, `readOnly=true`, and
+`publishEnabled=false`. The product field must include normalized and raw live `ACADVER`; require
+`runtimeSeries=R20.1` for the 2016 adapter and `runtimeSeries=R25.0` for the 2025 adapter.
+`buildCommit` must be the exact release commit,
 and `pluginSha256` must match that release's adapter DLL entry in `bundle-build.json`; record all of
 them with the pilot evidence.
 
@@ -87,7 +91,8 @@ them with the pilot evidence.
 
 1. Close AutoCAD. In the same launcher environment set `CADPLOT_ENABLE_PUBLISH=1`; keep the same
    `CADPLOT_WORKSPACE_ROOT`, then restart AutoCAD.
-2. Require `get_autocad_plugin_status` to report `publishEnabled=true`.
+2. Require `get_autocad_plugin_status` to report `runtimeSupported=true` and
+   `publishEnabled=true`. A runtime/adapter mismatch must remain fail-closed.
 3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.
 4. Call `queue_publish_job` with the exact manifest path, approved `plan_id`, and approved
    `manifest_sha256` returned by staging.

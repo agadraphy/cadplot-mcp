@@ -28,8 +28,14 @@ def _run(
     plugin_sha256: str | None = None,
 ) -> dict:
     expected = {
-        "2016": ("AutoCAD 2016 (ACADVER R20.1s)", "autocad-2016-net45"),
-        "2025": ("AutoCAD 2025-2026 (ACADVER R25.0s)", "autocad-2025-net8"),
+        "2016": (
+            "AutoCAD 2016 (ACADVER R20.1; raw 20.1s (LMS Tech))",
+            "autocad-2016-net45",
+        ),
+        "2025": (
+            "AutoCAD 2025-2026 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "autocad-2025-net8",
+        ),
     }
     product, adapter = expected[release]
     manifest = digit * 64
@@ -41,6 +47,7 @@ def _run(
         "adapter": adapter,
         "build_commit": build_commit,
         "plugin_sha256": plugin_sha256 or (("6" if release == "2016" else "7") * 64),
+        "runtime_series": "R20.1" if release == "2016" else "R25.0",
         "licensed": True,
         "authorized_test_asset": True,
         "plan_id": "sha256:" + digit * 64,
@@ -151,14 +158,22 @@ paper_profiles:
 
 def _status(release: str) -> dict:
     product, adapter = {
-        "2016": ("AutoCAD 2016 (ACADVER R20.1s)", "autocad-2016-net45"),
-        "2025": ("AutoCAD 2025-2026 (ACADVER R25.0s)", "autocad-2025-net8"),
+        "2016": (
+            "AutoCAD 2016 (ACADVER R20.1; raw 20.1s (LMS Tech))",
+            "autocad-2016-net45",
+        ),
+        "2025": (
+            "AutoCAD 2025-2026 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "autocad-2025-net8",
+        ),
     }[release]
     return {
         "ok": True,
         "readOnly": True,
         "workspaceConfigured": True,
         "publishEnabled": True,
+        "runtimeSupported": True,
+        "runtimeSeries": "R20.1" if release == "2016" else "R25.0",
         "product": product,
         "adapter": adapter,
         "buildCommit": "1" * 40,
@@ -266,6 +281,7 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
     assert run["adapter"] == "autocad-2016-net45"
     assert run["build_commit"] == "1" * 40
     assert run["plugin_sha256"] == "6" * 64
+    assert run["runtime_series"] == "R20.1"
 
 
 def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -> None:

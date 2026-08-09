@@ -93,7 +93,7 @@ def diagnose_environment(
                     f"AutoCAD plug-in status was rejected: {status.get('error', 'unknown_error')}"
                 )
             else:
-                for field in ("readOnly", "workspaceConfigured"):
+                for field in ("readOnly", "workspaceConfigured", "runtimeSupported"):
                     if status.get(field) is not True:
                         report["errors"].append(f"AutoCAD plug-in requires {field}=true.")
         except (PluginConnectionError, ValueError) as exc:

@@ -32,8 +32,9 @@ Use this checklist for every alpha release.
       STDIO/tool contract without source-tree import.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
-- [ ] The compile-only API probe passes against an installed managed API folder and is labelled
-      compile-only evidence.
+- [ ] The compile-only API probe passes against an installed managed API folder, is labelled
+      compile-only evidence, and records the correct release target (`R20.1/net45` or
+      `R25.0/net8.0-windows`).
 - [ ] The real bundle was built with Autodesk references while no Autodesk DLL was packaged.
 - [ ] `check-autocad-api-series.ps1` reports one consistent `R20.1` set for the 2016 build and one
       consistent `R25.0` set for the 2025 build; directory names alone were not accepted.

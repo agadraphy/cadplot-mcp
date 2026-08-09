@@ -55,6 +55,19 @@ try {
     ) {
         throw "Readiness report is not a valid local-only result for the current commit."
     }
+    if (
+        $readiness.api_probe_ran -eq $true -and (
+            $readiness.api_probe.passed -ne $true -or
+            $readiness.api_probe.evidence_scope -cne "compile-only" -or
+            $readiness.api_probe.autocad_launched -ne $false -or
+            $readiness.api_probe.live_publish_proven -ne $false
+        )
+    ) {
+        throw "Readiness report has invalid compile-only API evidence."
+    }
+    if ($readiness.api_probe_ran -ne $true -and $null -ne $readiness.api_probe) {
+        throw "Readiness report contains API evidence without a completed probe."
+    }
     $batch = $readiness.synthetic_batch_rehearsal
     if (
         $batch.target_drawings -ne 300 -or
@@ -116,6 +129,7 @@ try {
         local_demo_ready = $true
         licensed_live_pilot_ready = $false
         live_publish_proven = $false
+        api_probe = $readiness.api_probe
         synthetic_batch_rehearsal = $batch
         company_assets_copied = $false
         autodesk_binaries_included = $false

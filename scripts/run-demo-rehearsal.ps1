@@ -64,6 +64,25 @@ try {
     ) {
         throw "Preflight summary does not contain the required 300-drawing rehearsal evidence."
     }
+    if (
+        -not [string]::IsNullOrWhiteSpace($AutoCADApiDir) -and (
+            $preflightSummary.api_probe_ran -ne $true -or
+            $preflightSummary.api_probe.passed -ne $true -or
+            $preflightSummary.api_probe.evidence_scope -cne "compile-only" -or
+            $preflightSummary.api_probe.autocad_launched -ne $false -or
+            $preflightSummary.api_probe.live_publish_proven -ne $false
+        )
+    ) {
+        throw "Preflight summary does not contain valid compile-only API evidence."
+    }
+    if (
+        [string]::IsNullOrWhiteSpace($AutoCADApiDir) -and (
+            $preflightSummary.api_probe_ran -ne $false -or
+            $null -ne $preflightSummary.api_probe
+        )
+    ) {
+        throw "Preflight summary unexpectedly contains API evidence."
+    }
 
     $commitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
     $commit = $commitLines[0].Trim()
@@ -99,6 +118,7 @@ try {
         licensed_live_pilot_ready = $false
         public_release_ready = $false
         api_probe_ran = $apiProbeRan
+        api_probe = $preflightSummary.api_probe
         autocad_launched = $false
         live_publish_proven = $false
         company_assets_copied = $false

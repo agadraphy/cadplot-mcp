@@ -67,6 +67,7 @@ def collect_main() -> int:
                 "release": run["autocad_release"],
                 "build_commit": run["build_commit"],
                 "plugin_sha256": run["plugin_sha256"],
+                "runtime_series": run["runtime_series"],
                 "plan_id": run["plan_id"],
                 "output": str(output),
             },

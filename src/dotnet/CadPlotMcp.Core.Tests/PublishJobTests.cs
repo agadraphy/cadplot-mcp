@@ -292,6 +292,32 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void UnsupportedRuntimeCannotEnableOrQueuePublishing()
+    {
+        var queue = NewQueue();
+        var dispatcher = new CommandDispatcher(
+            "autocad-2025-net8",
+            () => "AutoCAD 2024",
+            Path.GetDirectoryName(_jobRoot),
+            queue,
+            publishEnabled: true,
+            runtimeSeries: "R24.3",
+            runtimeSupported: false
+        );
+
+        var status = dispatcher.Dispatch(
+            new PipeRequest { Version = "1", Command = "status" }
+        );
+        var queued = dispatcher.Dispatch(JobPipeRequest("queue_publish_job"));
+
+        Assert.False(status.RuntimeSupported);
+        Assert.False(status.PublishEnabled);
+        Assert.False(queued.Ok);
+        Assert.Equal("unsupported_autocad_runtime", queued.Error);
+        Assert.Equal(0, queue.PendingCount);
+    }
+
+    [Fact]
     public void StatusSeparatesCompletedJobFailureFromProtocolFailure()
     {
         var queue = NewQueue();

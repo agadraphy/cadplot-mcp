@@ -23,10 +23,14 @@ Hazır olan parçalar:
 - staged DWG içinde bellekte layout/page setup/viewport kurup her pafta için ayrı PDF üreten
   ortak executor.
 
-Ortak executor, kurulu AutoCAD 2024 API DLL'lerine karşı AutoCAD açılmadan derlenmiştir. Henüz
-tamamlanmamış kapı: aynı kodun sürüme uygun Autodesk SDK referanslarıyla paketlenip lisanslı
+Ortak executor, kurulu AutoCAD 2024 API DLL'lerine karşı AutoCAD açılmadan derlenmiştir. Compile
+probe assembly kimliğine göre `R20.1` için `net45`, `R25.0` için `net8.0-windows`, desteklenen ara
+sürümler için `net48` seçer ve bilinmeyen seriyi reddeder. Henüz tamamlanmamış kapı: aynı kodun
+sürüme uygun Autodesk SDK referanslarıyla paketlenip lisanslı
 AutoCAD 2016 ve 2025 üzerinde yetkili örnek DWG ve şirket plot kaynaklarıyla canlı kabul testinden
 geçmesidir. Bu doğrulama yapılmadan proje üretim-hazır olarak sunulmaz.
+Eklenti yüklenirken gerçek `ACADVER` değeri normalize edilir; çalışan AutoCAD sürümü ile yüklenen
+adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
 
 ## Güvenlik modeli
 

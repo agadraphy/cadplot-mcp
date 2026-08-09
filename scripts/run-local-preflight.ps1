@@ -104,17 +104,28 @@ try {
     }
 
     $apiProbeRan = $false
+    $apiProbeEvidence = $null
     if (-not [string]::IsNullOrWhiteSpace($AutoCADApiDir)) {
         $resolvedApiDir = [System.IO.Path]::GetFullPath($AutoCADApiDir)
         Invoke-CheckedStep "installed AutoCAD API series identity" {
             & (Join-Path $PSScriptRoot "check-autocad-api-series.ps1") `
                 -AutoCADApiDir $resolvedApiDir
         }
-        Invoke-CheckedStep "compile-only installed AutoCAD API probe" {
-            & (Join-Path $PSScriptRoot "probe-autocad-api.ps1") `
-                -AutoCADApiDir $resolvedApiDir `
-                -DotNet $resolvedDotNet
+        Write-Output "PRECHECK: compile-only installed AutoCAD API probe"
+        $apiProbeEvidence = & (Join-Path $PSScriptRoot "probe-autocad-api.ps1") `
+            -AutoCADApiDir $resolvedApiDir `
+            -DotNet $resolvedDotNet `
+            -PassThru
+        if (
+            $apiProbeEvidence.passed -ne $true -or
+            $apiProbeEvidence.autocad_launched -ne $false -or
+            $apiProbeEvidence.live_publish_proven -ne $false -or
+            $apiProbeEvidence.evidence_scope -cne "compile-only" -or
+            [string]$apiProbeEvidence.target_framework -notmatch '^net(45|48|8\.0-windows)$'
+        ) {
+            throw "Compile-only AutoCAD API probe returned invalid evidence."
         }
+        $apiProbeEvidence | ConvertTo-Json -Depth 5
         $apiProbeRan = $true
     }
 
@@ -123,6 +134,19 @@ try {
         repository = $repoRoot
         dotnet = $resolvedDotNet
         api_probe_ran = $apiProbeRan
+        api_probe = if ($apiProbeRan) {
+            [ordered]@{
+                passed = $apiProbeEvidence.passed
+                api_directory = $apiProbeEvidence.api_directory
+                detected_series = $apiProbeEvidence.detected_series
+                target_framework = $apiProbeEvidence.target_framework
+                assemblies = $apiProbeEvidence.assemblies
+                autocad_launched = $false
+                live_publish_proven = $false
+                evidence_scope = "compile-only"
+            }
+        }
+        else { $null }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = $batchResult.target_drawings
             planning_pages = $batchResult.planning.pages

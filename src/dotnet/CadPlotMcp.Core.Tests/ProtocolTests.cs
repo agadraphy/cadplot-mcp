@@ -44,6 +44,30 @@ public sealed class ProtocolTests
     }
 
     [Fact]
+    public void StatusReportsNormalizedRuntimeAndExplicitFalseGates()
+    {
+        var dispatcher = new CommandDispatcher(
+            "autocad-2025-net8",
+            () => "AutoCAD 2025 (ACADVER R24.3; raw 24.3s (LMS Tech))",
+            runtimeSeries: "R24.3",
+            runtimeSupported: false
+        );
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest { Id = "runtime", Version = "1", Command = "status" }
+        );
+        var json = JsonLineCodec.WriteResponse(response);
+
+        Assert.Equal("R24.3", response.RuntimeSeries);
+        Assert.False(response.RuntimeSupported);
+        Assert.False(response.WorkspaceConfigured);
+        Assert.False(response.PublishEnabled);
+        Assert.Contains("\"runtimeSupported\":false", json, StringComparison.Ordinal);
+        Assert.Contains("\"workspaceConfigured\":false", json, StringComparison.Ordinal);
+        Assert.Contains("\"publishEnabled\":false", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnknownCommandIsRejectedByPositiveWhitelist()
     {
         var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");

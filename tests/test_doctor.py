@@ -62,6 +62,8 @@ def test_full_doctor_cross_checks_com_and_plugin(
             "readOnly": True,
             "workspaceConfigured": True,
             "publishEnabled": False,
+            "runtimeSupported": True,
+            "runtimeSeries": "R25.0",
             "adapter": "autocad-2025-net8",
         },
     )
@@ -84,13 +86,44 @@ def test_full_doctor_fails_when_plugin_workspace_is_not_configured(
     )
     monkeypatch.setattr(
         "cadplot_mcp.environment.get_plugin_status",
-        lambda **_kwargs: {"ok": True, "readOnly": True, "workspaceConfigured": False},
+        lambda **_kwargs: {
+            "ok": True,
+            "readOnly": True,
+            "workspaceConfigured": False,
+            "runtimeSupported": True,
+        },
     )
 
     report = diagnose_environment(config, mode="full")
 
     assert report["ready"] is False
     assert "workspaceConfigured=true" in report["errors"][-1]
+
+
+def test_full_doctor_rejects_wrong_autocad_runtime(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _config(tmp_path)
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.AutoCADComInspector.status",
+        lambda _self: {"available": True, "reason": None},
+    )
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.get_plugin_status",
+        lambda **_kwargs: {
+            "ok": True,
+            "readOnly": True,
+            "workspaceConfigured": True,
+            "publishEnabled": False,
+            "runtimeSupported": False,
+            "runtimeSeries": "R24.3",
+        },
+    )
+
+    report = diagnose_environment(config, mode="full")
+
+    assert report["ready"] is False
+    assert "runtimeSupported=true" in report["errors"][-1]
 
 
 def test_doctor_cli_returns_machine_readable_config_result(tmp_path: Path) -> None:

@@ -28,7 +28,8 @@ cadplot-collect-pilot C:\CadPlotPilot\2016-job\manifest.json `
 
 Repeat with the 2025 job and `--release 2025`. The collector is read-only with respect to the job,
 DWG, receipt, and PDFs. It queries the live named-pipe status, requires publishing/workspace to be
-enabled, records the running adapter's embedded `buildCommit` and on-disk `pluginSha256`, audits
+enabled, requires `runtimeSupported=true`, records the normalized `runtimeSeries`, the running
+adapter's embedded `buildCommit`, and on-disk `pluginSha256`, audits
 `publish_verified=true`, re-hashes source/staged files, requires exactly one PDF, and refuses to
 overwrite an existing evidence file. The four declaration flags are human
 attestations; do not pass them before the corresponding checks are actually complete.
@@ -59,8 +60,8 @@ its output.
 The schema-v2 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`. Each run records:
 
-- `autocad_release`, live `product` including ACADVER, exact `adapter`, embedded `build_commit`, and
-  running `plugin_sha256` identity;
+- `autocad_release`, live `product` including normalized and raw ACADVER, exact `adapter`, normalized
+  `runtime_series`, embedded `build_commit`, and running `plugin_sha256` identity;
 - explicit `licensed=true` and `authorized_test_asset=true` declarations;
 - approved `plan_id`, manifest digest, and matching receipt manifest digest;
 - source and staged DWG SHA-256 values before and after plotting;
@@ -70,7 +71,8 @@ manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`.
   and title block;
 - the authorized approver and a timezone-qualified completion timestamp.
 
-The validator rejects missing/extra fields, duplicate releases, incorrect adapter/ACADVER pairs,
+The validator rejects missing/extra fields, duplicate releases, incorrect adapter/runtime-series
+pairs, incorrect ACADVER product identity,
 running commit/binary mismatches, changed DWG hashes, a receipt bound to another manifest,
 incomplete visual acceptance, or a run that was not rechecked after AutoCAD restart. A valid report
 proves the recorded gates only; the actual evidence files and licensed workstation remain

@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Release-aware compile probing that targets AutoCAD 2016 `R20.1` with `net45`, AutoCAD 2025+
+  `R25.x` with `net8.0-windows`, supported intervening releases with `net48`, and rejects unknown
+  API series without launching AutoCAD.
+- Runtime `ACADVER` normalization and adapter/release gating that keeps publishing disabled when a
+  2016 or 2025 plug-in is loaded into an unsupported AutoCAD runtime.
 - Self-verifying transfer kits that carry their exact verifier, portable pilot-workspace setup,
   licensed-run evidence tools, and installed `cadplot-collect-pilot`, `cadplot-assemble-pilot`, and
   `cadplot-validate-pilot` commands without requiring a separate source checkout.

@@ -22,6 +22,8 @@ The repository now provides:
 The executor compiles against an installed AutoCAD 2024 managed API surface. AutoCAD 2016 and
 2025 release builds and live plotting still require the matching Autodesk SDK references and a
 licensed-workstation acceptance test. Compile-only evidence is not presented as live evidence.
+At load time the plug-in normalizes the real `ACADVER` value and refuses to enable publishing when
+the loaded adapter does not match the running AutoCAD release.
 
 ## Safety contract
 
@@ -270,6 +272,9 @@ To compile-check the shared executor against a locally installed API without lau
 powershell -ExecutionPolicy Bypass -File .\scripts\probe-autocad-api.ps1 `
   -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2024"
 ```
+
+The probe derives the managed target from the assembly identities (`R20.1 → net45`, `R25.0 →
+net8.0-windows`) instead of compiling every release through `net48`; unknown series are rejected.
 
 This is only an API-signature probe. It does not validate plotting or version compatibility.
 See [publish executor](docs/publish-executor.md) and the

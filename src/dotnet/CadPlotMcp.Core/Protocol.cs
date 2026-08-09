@@ -44,11 +44,13 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "adapter", EmitDefaultValue = false)] public string Adapter { get; set; }
         [DataMember(Name = "buildCommit", EmitDefaultValue = false)] public string BuildCommit { get; set; }
         [DataMember(Name = "pluginSha256", EmitDefaultValue = false)] public string PluginSha256 { get; set; }
+        [DataMember(Name = "runtimeSeries", EmitDefaultValue = false)] public string RuntimeSeries { get; set; }
+        [DataMember(Name = "runtimeSupported", EmitDefaultValue = false)] public bool? RuntimeSupported { get; set; }
         [DataMember(Name = "readOnly", EmitDefaultValue = false)] public bool ReadOnly { get; set; }
         [DataMember(Name = "plan_id", EmitDefaultValue = false)] public string PlanId { get; set; }
         [DataMember(Name = "acceptedSheetCount", EmitDefaultValue = false)] public int AcceptedSheetCount { get; set; }
-        [DataMember(Name = "workspaceConfigured", EmitDefaultValue = false)] public bool WorkspaceConfigured { get; set; }
-        [DataMember(Name = "publishEnabled", EmitDefaultValue = false)] public bool PublishEnabled { get; set; }
+        [DataMember(Name = "workspaceConfigured", EmitDefaultValue = false)] public bool? WorkspaceConfigured { get; set; }
+        [DataMember(Name = "publishEnabled", EmitDefaultValue = false)] public bool? PublishEnabled { get; set; }
         [DataMember(Name = "jobState", EmitDefaultValue = false)] public string JobState { get; set; }
         [DataMember(Name = "jobError", EmitDefaultValue = false)] public string JobError { get; set; }
     }
@@ -98,6 +100,8 @@ namespace CadPlotMcp.Core
         private readonly bool _publishEnabled;
         private readonly string _buildCommit;
         private readonly string _pluginSha256;
+        private readonly string _runtimeSeries;
+        private readonly bool _runtimeSupported;
 
         public CommandDispatcher(
             string adapter,
@@ -106,14 +110,18 @@ namespace CadPlotMcp.Core
             PublishJobQueue publishQueue = null,
             bool publishEnabled = false,
             string buildCommit = null,
-            string pluginSha256 = null
+            string pluginSha256 = null,
+            string runtimeSeries = null,
+            bool runtimeSupported = true
         )
         {
             _adapter = adapter ?? "unknown";
             _productName = productName ?? (() => "AutoCAD");
             _trustedWorkspaceRoot = trustedWorkspaceRoot;
             _publishQueue = publishQueue;
-            _publishEnabled = publishEnabled && publishQueue != null;
+            _runtimeSeries = runtimeSeries;
+            _runtimeSupported = runtimeSupported;
+            _publishEnabled = runtimeSupported && publishEnabled && publishQueue != null;
             _buildCommit = buildCommit;
             _pluginSha256 = pluginSha256;
         }
@@ -134,6 +142,8 @@ namespace CadPlotMcp.Core
                 response.Adapter = _adapter;
                 response.BuildCommit = _buildCommit;
                 response.PluginSha256 = _pluginSha256;
+                response.RuntimeSeries = _runtimeSeries;
+                response.RuntimeSupported = _runtimeSupported;
                 response.ReadOnly = true;
                 response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
                 response.PublishEnabled = _publishEnabled;
@@ -193,6 +203,11 @@ namespace CadPlotMcp.Core
             }
             if (String.Equals(request.Command, PipeProtocol.QueuePublishJobCommand, StringComparison.Ordinal))
             {
+                if (!_runtimeSupported)
+                {
+                    response.Error = "unsupported_autocad_runtime";
+                    return response;
+                }
                 if (!_publishEnabled)
                 {
                     response.Error = "publish_disabled";
@@ -217,6 +232,11 @@ namespace CadPlotMcp.Core
             }
             if (String.Equals(request.Command, PipeProtocol.PublishJobStatusCommand, StringComparison.Ordinal))
             {
+                if (!_runtimeSupported)
+                {
+                    response.Error = "unsupported_autocad_runtime";
+                    return response;
+                }
                 if (!_publishEnabled)
                 {
                     response.Error = "publish_disabled";

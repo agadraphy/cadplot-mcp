@@ -29,6 +29,7 @@ RUN_FIELDS = {
     "adapter",
     "build_commit",
     "plugin_sha256",
+    "runtime_series",
     "licensed",
     "authorized_test_asset",
     "plan_id",
@@ -96,7 +97,13 @@ def build_pilot_run_evidence(
     """Build one read-only live-pilot record from cross-checked job evidence."""
     if autocad_release not in EXPECTED:
         raise ValueError("autocad_release must be 2016 or 2025.")
-    for field in ("ok", "readOnly", "workspaceConfigured", "publishEnabled"):
+    for field in (
+        "ok",
+        "readOnly",
+        "workspaceConfigured",
+        "publishEnabled",
+        "runtimeSupported",
+    ):
         if plugin_status.get(field) is not True:
             raise ValueError(f"Live AutoCAD status requires {field}=true.")
     report = audit_publish_outputs(manifest_value, config)
@@ -117,6 +124,7 @@ def build_pilot_run_evidence(
         "adapter": plugin_status.get("adapter"),
         "build_commit": plugin_status.get("buildCommit"),
         "plugin_sha256": plugin_status.get("pluginSha256"),
+        "runtime_series": plugin_status.get("runtimeSeries"),
         "licensed": licensed,
         "authorized_test_asset": authorized_test_asset,
         "plan_id": manifest["plan_id"],
@@ -247,6 +255,8 @@ def _validate_run(run: Any) -> dict[str, Any]:
     expected = EXPECTED[release]
     if run["adapter"] != expected["adapter"]:
         raise ValueError(f"AutoCAD {release} adapter identity mismatch.")
+    if run["runtime_series"] != expected["acadver"]:
+        raise ValueError(f"AutoCAD {release} normalized runtime series mismatch.")
     product = run["product"]
     if (
         not isinstance(product, str)

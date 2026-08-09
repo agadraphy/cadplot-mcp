@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net45;net48;net8.0-windows</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" Condition="'$(TargetFramework)' != 'net8.0-windows'" />
     <ProjectReference Include="..\CadPlotMcp.Core\CadPlotMcp.Core.csproj" />
     <Compile Include="..\CadPlotMcp.AutoCAD.Shared\AutoCadPublishRuntime.cs" Link="AutoCadPublishRuntime.cs" />
     <Reference Include="AcMgd"><HintPath>$(AutoCADProbeDir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
