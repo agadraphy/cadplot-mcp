@@ -147,7 +147,10 @@ try {
         $releaseKitSmoke.release_install_resume_verified -ne $true -or
         $releaseKitSmoke.release_install_bundle_last -ne $true -or
         $releaseKitSmoke.release_install_receipt_verified -ne $true -or
-        $releaseKitSmoke.release_install_receipt_tamper_blocked -ne $true
+        $releaseKitSmoke.release_install_receipt_tamper_blocked -ne $true -or
+        $releaseKitSmoke.release_install_receipt_independent_verified -ne $true -or
+        $releaseKitSmoke.release_install_receipt_independent_tamper_blocked -ne $true -or
+        $releaseKitSmoke.release_install_config_change_reported -ne $true
     ) {
         throw "Protocol-only combined release-kit smoke failed."
     }
@@ -314,6 +317,9 @@ try {
         release_install_bundle_last = $releaseKitSmoke.release_install_bundle_last
         release_install_receipt_verified = $releaseKitSmoke.release_install_receipt_verified
         release_install_receipt_tamper_blocked = $releaseKitSmoke.release_install_receipt_tamper_blocked
+        release_install_receipt_independent_verified = $releaseKitSmoke.release_install_receipt_independent_verified
+        release_install_receipt_independent_tamper_blocked = $releaseKitSmoke.release_install_receipt_independent_tamper_blocked
+        release_install_config_change_reported = $releaseKitSmoke.release_install_config_change_reported
         what_if_install_mutated = $false
         copied_hashes_verified = $true
         bundle_install_autocad_process_blocked = $installProcessGuardBlocked

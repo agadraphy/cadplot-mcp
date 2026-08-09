@@ -492,7 +492,26 @@ else {
     })
     $null = Assert-InstallReceipt -Path $receiptPath -Expected $receiptExpected
 }
-$receiptHash = (Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$installVerifierArguments = @{
+    ReleaseRoot = $resolvedRelease
+    ReceiptPath = $receiptPath
+    PassThru = $true
+}
+if ($AllowProtocolOnlyFixture) { $installVerifierArguments.AllowProtocolOnlyFixture = $true }
+$installEvidence = & (Join-Path $kitRoot "scripts\verify-release-install.ps1") `
+    @installVerifierArguments
+if (
+    $installEvidence.Passed -ne $true -or
+    $installEvidence.BundlePath -cne $bundleTarget -or
+    $installEvidence.PythonPath -cne $pythonTarget -or
+    $installEvidence.PilotRoot -cne $pilotEvidence.Root -or
+    $installEvidence.AutoCADLaunched -ne $false -or
+    $installEvidence.PublishEnabled -ne $false -or
+    $installEvidence.LivePublishProven -ne $false
+) {
+    throw "Independent installed-release verification did not confirm the exact targets."
+}
+$receiptHash = $installEvidence.ReceiptSha256
 
 $result = [pscustomobject]@{
     Installed = $true
@@ -512,6 +531,8 @@ $result = [pscustomobject]@{
     BundleTarget = $bundleTarget
     InstallReceipt = $receiptPath
     InstallReceiptSha256 = $receiptHash
+    InstallVerified = $true
+    ConfigChangedSinceInstall = $installEvidence.ConfigChangedSinceInstall
     AutoCADLaunched = $false
     PublishEnabled = $false
     LivePublishProven = $false

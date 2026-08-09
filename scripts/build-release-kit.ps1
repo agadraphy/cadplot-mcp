@@ -239,7 +239,7 @@ try {
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
         "verify-bundle-release.ps1", "verify-release-kit.ps1",
         "install-python.ps1", "verify-python-install.ps1", "uninstall-python.ps1",
-        "install-release-kit.ps1",
+        "install-release-kit.ps1", "verify-release-install.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py"

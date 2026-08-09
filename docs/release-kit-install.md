@@ -48,6 +48,23 @@ The receipt's canonical payload digest covers every evidence field. It contains 
 paths and must stay with the workstation evidence, not in the public repository. All bundle mutation
 commands fail before changes while any `acad.exe` is running.
 
+Verify the installed state independently at any later time without rerunning the installer:
+
+```powershell
+$installed = & "$releaseRoot\CadPlotMcp.release\scripts\verify-release-install.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -ReceiptPath $install.InstallReceipt `
+  -PassThru
+$installed | Format-List
+```
+
+This read-only check binds the receipt to the transferred kit, installed bundle hashes, installed
+Python manifest/distribution inventory, and exact pilot paths. It never starts AutoCAD or enables
+publishing. `ConfigChangedSinceInstall=true` is informational because the placeholder inventory is
+expected to be edited after installation; the verifier still validates the path and all immutable
+installation evidence. Compare `ReceiptSha256` through a trusted handoff if the receipt is used as
+formal evidence: its embedded digest proves consistency, not signer identity.
+
 ## 2. Install the AutoCAD bundle
 
 Preview the exact destination first, then repeat without `-WhatIf`:

@@ -705,6 +705,9 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
     release_installer = (REPOSITORY_ROOT / "scripts" / "install-release-kit.ps1").read_text(
         encoding="utf-8"
     )
+    install_verifier = (
+        REPOSITORY_ROOT / "scripts" / "verify-release-install.ps1"
+    ).read_text(encoding="utf-8")
 
     for required in (
         "SupportsShouldProcess = $true",
@@ -746,6 +749,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "verify-python-install.ps1",
         "uninstall-python.ps1",
         "install-release-kit.ps1",
+        "verify-release-install.ps1",
         "loopback-http.md",
     ):
         assert name in kit_builder
@@ -771,8 +775,38 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "payload_sha256",
         "Get-JsonSha256",
         "autocad_running_at_install = $false",
+        "verify-release-install.ps1",
+        "InstallVerified = $true",
     ):
         assert required in release_installer
+    for required in (
+        "verify-release-kit.ps1",
+        "verify-bundle.ps1",
+        "verify-python-install.ps1",
+        "CadPlot install receipt payload digest is invalid",
+        "Assert-RecordedAbsolutePath",
+        "Assert-NoRedirectedAncestor",
+        "Assert-JsonFalse",
+        "Test-PathsOverlap",
+        "must not be a drive or share root",
+        "exact commit-bound pilot evidence path",
+        "ConfigChangedSinceInstall",
+        "AutoCADLaunched = $false",
+        "PublishEnabled = $false",
+        "LivePublishProven = $false",
+    ):
+        assert required in install_verifier
+    for forbidden in (
+        "Start-Process",
+        "Get-Process",
+        "WriteAllText",
+        "WriteAllBytes",
+        "Copy-Item",
+        "Move-Item",
+        "Remove-Item",
+        "New-Item",
+    ):
+        assert forbidden not in install_verifier
     for field in (
         "python_install_what_if_safe",
         "python_install_locked_dependencies",
@@ -788,6 +822,9 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "release_install_bundle_last",
         "release_install_receipt_verified",
         "release_install_receipt_tamper_blocked",
+        "release_install_receipt_independent_verified",
+        "release_install_receipt_independent_tamper_blocked",
+        "release_install_config_change_reported",
     ):
         assert field in bundle_smoke
 

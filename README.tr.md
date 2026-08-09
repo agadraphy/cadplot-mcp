@@ -1,5 +1,9 @@
 # CadPlot MCP
 
+Kurulumdan sonra kitteki salt-okunur `verify-release-install.ps1`; yerel makbuzu, release kitini,
+bundle hashlerini, Python envanterini ve pilot yollarını bağımsız doğrular. Beklenen envanter config
+değişikliği ayrıca raporlanır; AutoCAD açılmaz ve yayın etkinleştirilmez.
+
 CadPlot MCP; çok sayıdaki revize DWG dosyasını denetlenebilir biçimde incelemek, pafta
 çerçevelerini şirket page setup'larıyla eşleştirmek, ölçek/layout kararlarını planlamak ve PDF
 çıktılarını doğrulamak için geliştirilen açık kaynak bir MCP sunucusudur.

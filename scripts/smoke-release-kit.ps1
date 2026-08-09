@@ -107,7 +107,7 @@ try {
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
         "verify-bundle-release.ps1", "verify-release-kit.ps1",
         "install-python.ps1", "verify-python-install.ps1", "uninstall-python.ps1",
-        "install-release-kit.ps1",
+        "install-release-kit.ps1", "verify-release-install.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py"
@@ -430,6 +430,8 @@ try {
         ConvertFrom-Json
     if (
         $orchestratedInstall.InstallReceiptSha256 -cne $installReceiptHash -or
+        $orchestratedInstall.InstallVerified -ne $true -or
+        $orchestratedInstall.ConfigChangedSinceInstall -ne $false -or
         $installReceipt.payload.exact_commit -cne $orchestratedInstall.ExactCommit -or
         [string]$installReceipt.payload_sha256 -notmatch '^[0-9a-f]{64}$' -or
         $installReceipt.payload.autocad_running_at_install -ne $false -or
@@ -438,6 +440,25 @@ try {
         $installReceipt.payload.live_publish_proven -ne $false
     ) {
         throw "Release installation receipt identity or safety evidence is invalid."
+    }
+    $releaseInstallVerifier = Join-Path $kitRoot "scripts\verify-release-install.ps1"
+    $independentInstallEvidence = & $releaseInstallVerifier `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -ReceiptPath $orchestratedInstall.InstallReceipt `
+        -AllowProtocolOnlyFixture `
+        -PassThru
+    if (
+        $independentInstallEvidence.Passed -ne $true -or
+        $independentInstallEvidence.ReceiptSha256 -cne $installReceiptHash -or
+        $independentInstallEvidence.BundlePath -cne $orchestratedInstall.BundleTarget -or
+        $independentInstallEvidence.PythonPath -cne $orchestratedInstall.PythonTarget -or
+        $independentInstallEvidence.PilotRoot -cne $orchestratedInstall.PilotRoot -or
+        $independentInstallEvidence.ConfigChangedSinceInstall -ne $false -or
+        $independentInstallEvidence.AutoCADLaunched -ne $false -or
+        $independentInstallEvidence.PublishEnabled -ne $false -or
+        $independentInstallEvidence.LivePublishProven -ne $false
+    ) {
+        throw "Independent installed-release verification did not confirm the exact fixture."
     }
     $orchestratedResume = & $releaseInstaller `
         -ReleaseRoot $resolvedSmokeRoot `
@@ -476,6 +497,18 @@ try {
     $tamperedReceiptHash = (
         Get-FileHash -LiteralPath $orchestratedInstall.InstallReceipt -Algorithm SHA256
     ).Hash.ToLowerInvariant()
+    $independentReceiptTamperBlocked = $false
+    try {
+        & $releaseInstallVerifier `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -ReceiptPath $orchestratedInstall.InstallReceipt `
+            -AllowProtocolOnlyFixture `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*receipt payload digest is invalid*") { throw }
+        $independentReceiptTamperBlocked = $true
+    }
     $receiptTamperBlocked = $false
     try {
         & $releaseInstaller `
@@ -494,13 +527,42 @@ try {
     $receiptHashAfterRejection = (
         Get-FileHash -LiteralPath $orchestratedInstall.InstallReceipt -Algorithm SHA256
     ).Hash.ToLowerInvariant()
-    if (-not $receiptTamperBlocked -or $receiptHashAfterRejection -cne $tamperedReceiptHash) {
+    if (
+        -not $independentReceiptTamperBlocked -or
+        -not $receiptTamperBlocked -or
+        $receiptHashAfterRejection -cne $tamperedReceiptHash
+    ) {
         throw (
             "Release installer accepted or overwrote a modified local install receipt. " +
-            "blocked=$receiptTamperBlocked before=$tamperedReceiptHash after=$receiptHashAfterRejection"
+            "independent=$independentReceiptTamperBlocked installer=$receiptTamperBlocked " +
+            "before=$tamperedReceiptHash after=$receiptHashAfterRejection"
         )
     }
     [System.IO.File]::WriteAllBytes($orchestratedInstall.InstallReceipt, $installReceiptBytes)
+    $configBytes = [System.IO.File]::ReadAllBytes($orchestratedInstall.Config)
+    $configChangeReported = $false
+    try {
+        [System.IO.File]::AppendAllText(
+            $orchestratedInstall.Config,
+            "`n# expected post-install inventory change`n",
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        $changedConfigEvidence = & $releaseInstallVerifier `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -ReceiptPath $orchestratedInstall.InstallReceipt `
+            -AllowProtocolOnlyFixture `
+            -PassThru
+        if (
+            $changedConfigEvidence.Passed -ne $true -or
+            $changedConfigEvidence.ConfigChangedSinceInstall -ne $true
+        ) {
+            throw "Independent installed-release verifier did not report an expected config change."
+        }
+        $configChangeReported = $true
+    }
+    finally {
+        [System.IO.File]::WriteAllBytes($orchestratedInstall.Config, $configBytes)
+    }
     $orchestratedBundleUninstall = & (Join-Path $kitRoot "scripts\uninstall-bundle.ps1") `
         -DestinationRoot $orchestratedBundleRoot `
         -Confirm:$false `
@@ -565,6 +627,9 @@ try {
         release_install_bundle_last = $true
         release_install_receipt_verified = $true
         release_install_receipt_tamper_blocked = $receiptTamperBlocked
+        release_install_receipt_independent_verified = $true
+        release_install_receipt_independent_tamper_blocked = $independentReceiptTamperBlocked
+        release_install_config_change_reported = $configChangeReported
         matching_sdk_bundle_built = $false
         autocad_launched = $false
         live_publish_proven = $false

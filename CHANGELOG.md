@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Independent installed-release verifier that replays the receipt digest, transferred release kit,
+  exact bundle hashes, Python install inventory, and pilot paths without launching AutoCAD; expected
+  post-install inventory-config changes are reported separately from immutable evidence failures.
 - No-overwrite local installation receipts binding release/Python manifests, exact bundle hashes,
   component paths, and false live/publish claims; bundle mutations now require `acad.exe` to be closed.
 - Resumable single-command release-kit installer that revalidates the whole transfer, rejects
