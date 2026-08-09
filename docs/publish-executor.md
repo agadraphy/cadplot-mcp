@@ -25,8 +25,9 @@ For every job the plug-in:
 7. closes the DWG without saving, so the staged file remains byte-identical, then rechecks every
    final target and promotes all non-empty temporary PDFs without overwrite;
 8. restores the user's prior `BACKGROUNDPLOT` value;
-9. atomically writes an immutable, manifest-digest-bound terminal `receipt.json` and exposes only
-   bounded error codes through job status. Raw exception messages are not returned.
+9. atomically writes an immutable terminal `receipt.json` bound to the manifest digest and the
+   exact ordered output PDF set, then exposes only bounded error codes through job status. Raw
+   exception messages are not returned.
 
 The executor does not run arbitrary AutoCAD commands or AutoLISP. It does not accept a source path,
 workspace root, plotter, layout name, or output path beyond the independently validated staged
@@ -74,8 +75,10 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
   the job from memory; restart restores `Cancelled` and never replays it. Retrying the same plan and
   manifest digest is idempotent. `Running` and terminal jobs return `job_not_pending`; active
   PlotEngine work is never force-aborted.
-  Valid terminal receipt state is restored into live status. Corrupt, redirected, over-capacity,
-  or identity-mismatched recovery data disables publishing with the bounded
+  Valid terminal receipt state is restored into live status only after the manifest, staged DWG,
+  output count, and canonical output-set SHA-256 are recomputed. A missing, changed, or redirected
+  PDF therefore blocks terminal recovery. Corrupt, redirected, over-capacity, legacy-schema, or
+  identity-mismatched recovery data disables publishing with the bounded
   `publish_queue_initialization_failed` status.
 - Queue authorization is intentionally non-portable: copying a workspace to another user or machine
   preserves review evidence but not permission to resume pending publishing. Missing or corrupt key

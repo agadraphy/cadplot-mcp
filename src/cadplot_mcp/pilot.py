@@ -12,7 +12,11 @@ from typing import Any
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from cadplot_mcp.audit import audit_publish_outputs, load_staged_manifest
+from cadplot_mcp.audit import (
+    audit_publish_outputs,
+    build_receipt_output_digest,
+    load_staged_manifest,
+)
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT
 
@@ -44,6 +48,9 @@ RUN_FIELDS = {
     "manifest_sha256",
     "receipt_manifest_sha256",
     "receipt_state",
+    "receipt_output_count",
+    "receipt_outputs_sha256",
+    "receipt_output_binding_verified",
     "source_sha256_before",
     "source_sha256_after",
     "staged_sha256_before",
@@ -66,6 +73,8 @@ VISUAL_REFERENCE_FIELDS = {
     "comparison_tolerance_mm",
 }
 PDF_EVIDENCE_FIELDS = {
+    "sheet_index",
+    "file",
     "sha256",
     "size_bytes",
     "page_count",
@@ -170,6 +179,9 @@ def build_pilot_run_evidence(
         "manifest_sha256": _sha256(Path(manifest_value).expanduser().resolve(strict=True)),
         "receipt_manifest_sha256": receipt["manifest_sha256"],
         "receipt_state": receipt["state"],
+        "receipt_output_count": receipt["output_count"],
+        "receipt_outputs_sha256": receipt["outputs_sha256"],
+        "receipt_output_binding_verified": report["receipt_output_binding_verified"],
         "source_sha256_before": source_before,
         "source_sha256_after": _sha256(source),
         "staged_sha256_before": source_before,
@@ -213,7 +225,7 @@ def assemble_pilot_evidence(
     if validated_2025["autocad_release"] != "2025":
         raise ValueError("run_2025 must contain AutoCAD 2025 evidence.")
     raw = {
-        "schema_version": 5,
+        "schema_version": 6,
         "repository_commit": repository_commit,
         "package_version": package_version,
         "bundle_sha256": bundle_sha256,
@@ -237,7 +249,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
         "runs",
     }:
         raise ValueError("Pilot evidence must contain exactly the documented top-level fields.")
-    if raw["schema_version"] != 5:
+    if raw["schema_version"] != 6:
         raise ValueError("Unsupported pilot evidence schema.")
     if not isinstance(raw["repository_commit"], str) or not COMMIT.fullmatch(
         raw["repository_commit"]
@@ -271,7 +283,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             raise ValueError(f"AutoCAD {release} running plug-in binary mismatch.")
     return {
         "valid": True,
-        "schema_version": 5,
+        "schema_version": 6,
         "repository_commit": raw["repository_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": raw["bundle_sha256"],
@@ -321,6 +333,7 @@ def _validate_run(run: Any) -> dict[str, Any]:
         "authorized_test_asset",
         "publish_verified",
         "restart_receipt_verified",
+        "receipt_output_binding_verified",
     ):
         if run[flag] is not True:
             raise ValueError(f"AutoCAD {release} requires {flag}=true.")
@@ -345,6 +358,17 @@ def _validate_run(run: Any) -> dict[str, Any]:
     if run["receipt_state"] != "succeeded":
         raise ValueError(f"AutoCAD {release} receipt_state must be succeeded.")
     _validate_pdf_evidence(run["published_pdf"], release, "published_pdf")
+    if (
+        not isinstance(run["receipt_output_count"], int)
+        or isinstance(run["receipt_output_count"], bool)
+        or run["receipt_output_count"] != 1
+    ):
+        raise ValueError(f"AutoCAD {release} receipt_output_count must be one.")
+    _require_digest(run["receipt_outputs_sha256"], "receipt_outputs_sha256")
+    if run["receipt_outputs_sha256"] != build_receipt_output_digest(
+        [run["published_pdf"]]
+    ):
+        raise ValueError(f"AutoCAD {release} receipt output binding mismatch.")
     _validate_visual_reference(run["visual_reference"], release)
     tolerance = float(run["visual_reference"]["comparison_tolerance_mm"])
     for field in ("page_width_mm", "page_height_mm"):
@@ -432,6 +456,8 @@ def _collect_visual_reference(
 
 def _collect_published_pdf(output: dict[str, Any]) -> dict[str, Any]:
     return {
+        "sheet_index": output["sheet_index"],
+        "file": Path(output["pdf"]).name,
         "sha256": output["sha256"],
         "size_bytes": output["size_bytes"],
         "page_count": output["page_count"],
@@ -444,6 +470,17 @@ def _validate_pdf_evidence(raw: Any, release: str, label: str) -> None:
     if not isinstance(raw, dict) or set(raw) != PDF_EVIDENCE_FIELDS:
         raise ValueError(f"AutoCAD {release} {label} fields are incomplete.")
     _require_digest(raw["sha256"], f"{label}.sha256")
+    if raw["sheet_index"] != 1:
+        raise ValueError(f"AutoCAD {release} {label} sheet index is invalid.")
+    file_name = raw["file"]
+    if (
+        not isinstance(file_name, str)
+        or not file_name
+        or Path(file_name).name != file_name
+        or Path(file_name).suffix.casefold() != ".pdf"
+        or any(ord(character) < 32 or ord(character) == 127 for character in file_name)
+    ):
+        raise ValueError(f"AutoCAD {release} {label} file identity is invalid.")
     if (
         not isinstance(raw["size_bytes"], int)
         or isinstance(raw["size_bytes"], bool)

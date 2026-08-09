@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Schema-v2 terminal publish receipts now bind the exact ordered PDF set by sheet index, filename,
+  byte length, and SHA-256. The .NET restart path and independent Python audit recompute the same
+  canonical digest; missing, replaced, redirected, or changed PDFs fail closed even when the
+  replacement remains a structurally valid one-page PDF. Licensed pilot evidence advances to
+  schema v6 and records the independently verified binding.
+
 - One-command, no-overwrite portable demo delivery packaging with an exact kit directory, matching
   ZIP, and outer manifest. Its embedded verifier checks safe ZIP paths, exact entry membership,
   per-entry hashes, inner manifest/SBOM identity, and false live-evidence boundaries without

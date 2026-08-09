@@ -248,6 +248,7 @@ public sealed class PublishJobTests : IDisposable
         var original = NewQueue();
         Assert.True(original.TryEnqueue(_request, out _));
         Assert.True(original.TryStartNext(out _, out _));
+        WriteSuccessfulOutputs();
         var writer = new PublishReceiptWriter(_workspaceRoot);
         Assert.Null(writer.Write(_request, PublishExecutionResult.Success()));
         original.Complete(_request.PlanId, succeeded: true);
@@ -280,6 +281,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void ExistingReceiptCannotBeQueuedAsFreshWork()
     {
+        WriteSuccessfulOutputs();
         var writer = new PublishReceiptWriter(_workspaceRoot);
         Assert.Null(writer.Write(_request, PublishExecutionResult.Success()));
         var queue = NewQueue();
@@ -950,6 +952,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void ReceiptWriterPersistsImmutableTerminalEvidence()
     {
+        WriteSuccessfulOutputs();
         var writer = new PublishReceiptWriter(_workspaceRoot);
 
         var error = writer.Write(_request, PublishExecutionResult.Success());
@@ -957,7 +960,7 @@ public sealed class PublishJobTests : IDisposable
         using var receipt = JsonDocument.Parse(File.ReadAllText(receiptPath));
 
         Assert.Null(error);
-        Assert.Equal(1, receipt.RootElement.GetProperty("schema_version").GetInt32());
+        Assert.Equal(2, receipt.RootElement.GetProperty("schema_version").GetInt32());
         Assert.Equal(_request.PlanId, receipt.RootElement.GetProperty("plan_id").GetString());
         Assert.Equal(
             _request.ManifestSha256,
@@ -965,6 +968,11 @@ public sealed class PublishJobTests : IDisposable
         );
         Assert.Equal("succeeded", receipt.RootElement.GetProperty("state").GetString());
         Assert.False(receipt.RootElement.TryGetProperty("error", out _));
+        Assert.Equal(2, receipt.RootElement.GetProperty("output_count").GetInt32());
+        Assert.Equal(
+            "3e64d2b7f0067fbbdc0f7590ad2c877d00229463820a4e04cf7efe1ac0e8ef3a",
+            receipt.RootElement.GetProperty("outputs_sha256").GetString()
+        );
         Assert.Equal(
             "receipt_exists",
             writer.Write(_request, PublishExecutionResult.Failure("plot_failed"))
@@ -984,6 +992,38 @@ public sealed class PublishJobTests : IDisposable
         Assert.Null(error);
         Assert.Equal("failed", receipt.RootElement.GetProperty("state").GetString());
         Assert.Equal("plot_failed", receipt.RootElement.GetProperty("error").GetString());
+        Assert.Equal(0, receipt.RootElement.GetProperty("output_count").GetInt32());
+        Assert.Equal(JsonValueKind.Null, receipt.RootElement.GetProperty("outputs_sha256").ValueKind);
+    }
+
+    [Fact]
+    public void SuccessfulReceiptRequiresEveryManifestOutput()
+    {
+        File.WriteAllText(Path.Combine(_request.OutputDirectory, "0001-sheet.pdf"), "first PDF");
+        var writer = new PublishReceiptWriter(_workspaceRoot);
+
+        Assert.Equal(
+            "receipt_output_missing",
+            writer.Write(_request, PublishExecutionResult.Success())
+        );
+        Assert.False(File.Exists(Path.Combine(_jobRoot, PublishReceiptWriter.ReceiptFileName)));
+    }
+
+    [Fact]
+    public void RestartRejectsAChangedPdfAfterSuccessfulReceipt()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        Assert.True(original.TryStartNext(out _, out _));
+        WriteSuccessfulOutputs();
+        var writer = new PublishReceiptWriter(_workspaceRoot);
+        Assert.Null(writer.Write(_request, PublishExecutionResult.Success()));
+        original.Complete(_request.PlanId, succeeded: true);
+        File.AppendAllText(Path.Combine(_request.OutputDirectory, "0002-sheet.pdf"), "tampered");
+
+        var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
+
+        Assert.Contains("publish_queue_receipt_output_mismatch", exception.Message);
     }
 
     [Fact]
@@ -1123,6 +1163,12 @@ public sealed class PublishJobTests : IDisposable
         _request.ManifestSha256 = Convert.ToHexString(
             SHA256.HashData(File.ReadAllBytes(_request.ManifestPath))
         ).ToLowerInvariant();
+    }
+
+    private void WriteSuccessfulOutputs()
+    {
+        File.WriteAllText(Path.Combine(_request.OutputDirectory, "0001-sheet.pdf"), "first PDF");
+        File.WriteAllText(Path.Combine(_request.OutputDirectory, "0002-sheet.pdf"), "second PDF");
     }
 
     public void Dispose()

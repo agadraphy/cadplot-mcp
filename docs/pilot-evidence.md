@@ -71,20 +71,22 @@ input, and requires each live `pluginSha256` to equal the corresponding adapter 
 manifest. It revalidates both runs, requires distinct 2016/2025 evidence, and refuses to overwrite
 its output.
 
-The schema-v5 top level contains the full `repository_commit`, `package_version`, bundle and build
+The schema-v6 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`. Each run records:
 
 - `autocad_release`, live `product` including normalized and raw ACADVER, exact `adapter`, normalized
   `runtime_series`, embedded `build_commit`, and running `plugin_sha256` identity;
 - explicit `licensed=true` and `authorized_test_asset=true` declarations;
-- approved `plan_id`, manifest digest, and matching receipt manifest digest;
+- approved `plan_id`, manifest digest, matching receipt manifest digest, receipt output count, and
+  the canonical receipt output-set SHA-256;
 - source and staged DWG SHA-256 values before and after plotting;
 - a path-redacted `template_assets` list. For every external DWG/DWT import it binds the profile id,
   layout, page setup, byte length, approved SHA-256, current company-source SHA-256, and current
   staged-copy SHA-256; an empty list proves that run used no external template asset;
-- a path-redacted `published_pdf` record containing the produced PDF's SHA-256, byte length, page
-  count, and physical width/height; plus successful receipt state, `publish_verified=true`, and
-  proof that the receipt remained readable after restart;
+- a path-redacted `published_pdf` record containing its sheet index, basename, SHA-256, byte length,
+  page count, and physical width/height; plus successful receipt state,
+  `receipt_output_binding_verified=true`, `publish_verified=true`, and proof that the receipt
+  remained readable after restart;
 - a path-redacted `visual_reference` record containing the authorized one-page office reference
   PDF's SHA-256, byte length, page count, physical width/height, and bounded comparison tolerance.
   Collection requires that file to be under an allowed root; both collection and later schema
@@ -95,14 +97,16 @@ manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`.
 
 The validator rejects missing/extra fields, duplicate releases, incorrect adapter/runtime-series
 pairs, incorrect ACADVER product identity,
-running commit/binary mismatches, changed DWG hashes, a receipt bound to another manifest,
+running commit/binary mismatches, changed DWG hashes, a receipt bound to another manifest or PDF
+set,
 changed/mismatched/redirected template assets, incomplete visual acceptance, or a run that was not
 rechecked after AutoCAD restart. A valid report
 proves the recorded gates only; the actual evidence files and licensed workstation remain
 authoritative.
 
-Schema-v3 final pilot JSON and older run JSON files are intentionally not upgraded in place.
-Re-collect both runs with the schema-v5 wheel so the exact visual reference, queue authentication,
+Schema-v5 final pilot JSON and older run JSON files are intentionally not upgraded in place.
+Re-collect both runs with the schema-v6 wheel so the exact receipt output binding, visual reference,
+queue authentication,
 and external-template
 use or non-use are derived from authorized local files and the immutable job manifest instead of
 being supplied manually.

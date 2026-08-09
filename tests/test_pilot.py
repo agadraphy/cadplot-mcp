@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from pypdf import PdfWriter
 
+from cadplot_mcp.audit import build_receipt_output_digest
 from cadplot_mcp.config import load_config
 from cadplot_mcp.pilot import (
     VISUAL_CHECKS,
@@ -42,6 +43,15 @@ def _run(
     manifest = digit * 64
     source = ("a" if release == "2016" else "b") * 64
     staged = ("c" if release == "2016" else "d") * 64
+    published_pdf = {
+        "sheet_index": 1,
+        "file": f"0001-{release}-pilot.pdf",
+        "sha256": ("e" if release == "2016" else "f") * 64,
+        "size_bytes": 2048,
+        "page_count": 1,
+        "page_width_mm": 210.0,
+        "page_height_mm": 297.0,
+    }
     return {
         "autocad_release": release,
         "product": product,
@@ -56,18 +66,15 @@ def _run(
         "manifest_sha256": manifest,
         "receipt_manifest_sha256": manifest,
         "receipt_state": "succeeded",
+        "receipt_output_count": 1,
+        "receipt_outputs_sha256": build_receipt_output_digest([published_pdf]),
+        "receipt_output_binding_verified": True,
         "source_sha256_before": source,
         "source_sha256_after": source,
         "staged_sha256_before": staged,
         "staged_sha256_after": staged,
         "template_assets": [],
-        "published_pdf": {
-            "sha256": ("e" if release == "2016" else "f") * 64,
-            "size_bytes": 2048,
-            "page_count": 1,
-            "page_width_mm": 210.0,
-            "page_height_mm": 297.0,
-        },
+        "published_pdf": published_pdf,
         "visual_reference": {
             "sha256": ("8" if release == "2016" else "9") * 64,
             "size_bytes": 1024,
@@ -96,7 +103,7 @@ def _evidence() -> dict:
     run_2016 = _run("2016", "3")
     run_2025 = _run("2025", "4")
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "repository_commit": "1" * 40,
         "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
@@ -188,11 +195,19 @@ template_roots: [templates]
     }
     manifest_path = tmp_path / "work" / "job-live" / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    output_evidence = {
+        "sheet_index": 1,
+        "file": pdf.name,
+        "size_bytes": pdf.stat().st_size,
+        "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
+    }
     receipt = {
-        "schema_version": 1,
+        "schema_version": 2,
         "plan_id": manifest["plan_id"],
         "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "state": "succeeded",
+        "output_count": 1,
+        "outputs_sha256": build_receipt_output_digest([output_evidence]),
         "completed_utc": "2026-08-08T08:10:00+00:00",
     }
     (manifest_path.parent / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
@@ -596,6 +611,10 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
         (
             lambda value: value["runs"][0].__setitem__("receipt_manifest_sha256", "8" * 64),
             "not bound",
+        ),
+        (
+            lambda value: value["runs"][0].__setitem__("receipt_outputs_sha256", "8" * 64),
+            "receipt output binding mismatch",
         ),
         (
             lambda value: value["runs"][1].__setitem__("restart_receipt_verified", False),

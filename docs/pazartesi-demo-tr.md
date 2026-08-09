@@ -101,7 +101,9 @@ taşınmaz.
    değişkeni etkili sayılmaz.
 8. Yalnız bir paftayı, staging sonucundaki tam `plan_id + manifest_sha256` ile sıraya alın.
 9. Canlı durum `Succeeded` olduktan sonra `read_publish_receipt` ve
-   `audit_publish_outputs` çalıştırın. Kabul sonucu yalnız `publish_verified=true` ise geçer.
+   `audit_publish_outputs` çalıştırın. Schema-v2 receipt için `output_count`, `outputs_sha256` ve
+   `receipt_output_binding_verified=true` gösterilmelidir. Kabul sonucu yalnız
+   `publish_verified=true` ise geçer.
 10. PDF'yi referansla yan yana açıp yön, crop, gerçek ölçek, lineweight, CTB/STB, font ve title
     block kontrolünü sorumluya yaptırın.
 
@@ -117,7 +119,8 @@ Yanlış profil fark edilirse exact `plan_id` ve `manifest_sha256` ile yalnız `
 - 2024 API compile probe, 2016 veya 2025 canlı uyumluluk kanıtı değildir.
 - 2016 sonucu 2025'i; 2025 sonucu 2016'yı kanıtlamaz. İki pilot ayrı kaydedilir.
 - Geçerli PDF dosyasının tek başına varlığı AutoCAD yürütme kanıtı değildir; başarılı receipt de
-  gerekir.
+  aynı PDF byte'larına canonical çıktı digest'iyle bağlı olmalı ve
+  `receipt_output_binding_verified=true` dönmelidir.
 - Profilde `template_layout` yoksa executor boş layout + tam sayfa viewport kurar. Kaynak DWG
   içinde tek floating viewport'lu onaylı template varsa onu klonlayabilir. Harici DWG/DWT için
   `template_roots` + exact yol/hash/layout sözleşmesi gerekir; yalnız job-local kopya import edilir.

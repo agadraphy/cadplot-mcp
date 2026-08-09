@@ -83,6 +83,10 @@ namespace CadPlotMcp.Core
             "^[A-Za-z0-9_:-]{1,128}$",
             RegexOptions.CultureInvariant
         );
+        private static readonly Regex SafeSha256Pattern = new Regex(
+            "^[0-9a-f]{64}$",
+            RegexOptions.CultureInvariant
+        );
         private readonly string _trustedWorkspaceRoot;
         private readonly PublishQueueAuthenticator _authenticator;
 
@@ -380,7 +384,7 @@ namespace CadPlotMcp.Core
         {
             var receipt = ReadRecord<PublishReceipt>(receiptPath);
             if (receipt == null
-                || receipt.SchemaVersion != 1
+                || receipt.SchemaVersion != 2
                 || !String.Equals(receipt.PlanId, request.PlanId, StringComparison.Ordinal)
                 || !String.Equals(
                     receipt.ManifestSha256,
@@ -391,11 +395,37 @@ namespace CadPlotMcp.Core
                 || !(String.Equals(receipt.State, "succeeded", StringComparison.Ordinal)
                     || String.Equals(receipt.State, "failed", StringComparison.Ordinal))
                 || (String.Equals(receipt.State, "succeeded", StringComparison.Ordinal)
-                    && receipt.Error != null)
+                    && (receipt.Error != null
+                        || receipt.OutputCount != request.SheetCount
+                        || !SafeSha256Pattern.IsMatch(receipt.OutputsSha256 ?? String.Empty)))
                 || (String.Equals(receipt.State, "failed", StringComparison.Ordinal)
                     && (String.IsNullOrWhiteSpace(receipt.Error)
-                        || !SafeErrorPattern.IsMatch(receipt.Error))))
+                        || !SafeErrorPattern.IsMatch(receipt.Error)
+                        || receipt.OutputCount != 0
+                        || receipt.OutputsSha256 != null)))
                 throw new InvalidDataException("publish_queue_receipt_invalid");
+            if (String.Equals(receipt.State, "succeeded", StringComparison.Ordinal))
+            {
+                PublishManifest manifest;
+                var manifestError = PublishManifestReader.TryReadValidated(request, out manifest);
+                var outputCount = 0;
+                string outputsSha256 = null;
+                var outputError = manifestError;
+                if (outputError == null)
+                    outputError = PublishReceiptOutputBinding.TryCompute(
+                        manifest,
+                        out outputCount,
+                        out outputsSha256
+                    );
+                if (outputError != null
+                    || outputCount != receipt.OutputCount
+                    || !String.Equals(
+                        outputsSha256,
+                        receipt.OutputsSha256,
+                        StringComparison.Ordinal
+                    ))
+                    throw new InvalidDataException("publish_queue_receipt_output_mismatch");
+            }
             return new PublishJobSnapshot
             {
                 PlanId = request.PlanId,

@@ -14,6 +14,7 @@ from cadplot_mcp.acceptance import (
     build_release_acceptance,
     validate_release_acceptance,
 )
+from cadplot_mcp.audit import build_receipt_output_digest
 from cadplot_mcp.pilot import assemble_pilot_evidence
 
 
@@ -36,6 +37,15 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
     }[release]
     source = ("a" if release == "2016" else "b") * 64
     staged = ("c" if release == "2016" else "d") * 64
+    published_pdf = {
+        "sheet_index": 1,
+        "file": f"0001-{release}-pilot.pdf",
+        "sha256": ("e" if release == "2016" else "f") * 64,
+        "size_bytes": 2048,
+        "page_count": 1,
+        "page_width_mm": 210.0,
+        "page_height_mm": 297.0,
+    }
     return {
         "autocad_release": release,
         "product": product,
@@ -50,18 +60,15 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
         "manifest_sha256": digit * 64,
         "receipt_manifest_sha256": digit * 64,
         "receipt_state": "succeeded",
+        "receipt_output_count": 1,
+        "receipt_outputs_sha256": build_receipt_output_digest([published_pdf]),
+        "receipt_output_binding_verified": True,
         "source_sha256_before": source,
         "source_sha256_after": source,
         "staged_sha256_before": staged,
         "staged_sha256_after": staged,
         "template_assets": [],
-        "published_pdf": {
-            "sha256": ("e" if release == "2016" else "f") * 64,
-            "size_bytes": 2048,
-            "page_count": 1,
-            "page_width_mm": 210.0,
-            "page_height_mm": 297.0,
-        },
+        "published_pdf": published_pdf,
         "visual_reference": {
             "sha256": ("8" if release == "2016" else "9") * 64,
             "size_bytes": 1024,

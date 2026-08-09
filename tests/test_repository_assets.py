@@ -562,11 +562,14 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
         "running plug-in binary mismatch",
-        '"schema_version": 5',
+        '"schema_version": 6',
         '"queue_authentication"',
         '"queueAuthentication"',
         '"template_assets"',
         '"published_pdf"',
+        '"receipt_output_count"',
+        '"receipt_outputs_sha256"',
+        '"receipt_output_binding_verified"',
         '"visual_reference"',
         "source_sha256_after",
         "staged_sha256_after",
@@ -809,6 +812,65 @@ def test_publish_outputs_are_staged_until_all_plots_and_dwg_discard_succeed() ->
         "File.Delete(entry.TemporaryPath)",
     ):
         assert required in transaction
+
+
+def test_success_receipts_bind_the_exact_published_pdf_set_cross_runtime() -> None:
+    receipt = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "PublishReceipt.cs"
+    ).read_text(encoding="utf-8")
+    journal = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "PublishQueueJournal.cs"
+    ).read_text(encoding="utf-8")
+    audit = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "audit.py").read_text(
+        encoding="utf-8"
+    )
+    decision = (
+        REPOSITORY_ROOT
+        / "docs"
+        / "adr"
+        / "0008-output-bound-publish-receipts.md"
+    ).read_text(encoding="utf-8")
+
+    for required in (
+        'DataMember(Name = "output_count")',
+        'DataMember(Name = "outputs_sha256")',
+        'SchemaVersion = 2',
+        '"cadplot-receipt-outputs-v1\\0"',
+        "PublishReceiptOutputBinding.TryCompute",
+        '"receipt_output_missing"',
+        '"receipt_output_changed"',
+        '"receipt_output_redirected"',
+    ):
+        assert required in receipt
+    for required in (
+        "receipt.SchemaVersion != 2",
+        '"publish_queue_receipt_output_mismatch"',
+        "PublishReceiptOutputBinding.TryCompute",
+    ):
+        assert required in journal
+    for required in (
+        'RECEIPT_OUTPUT_DOMAIN = b"cadplot-receipt-outputs-v1\\0"',
+        "build_receipt_output_digest",
+        '"receipt_output_binding_verified"',
+        'raw.get("schema_version") != 2',
+    ):
+        assert required in audit
+    for required in (
+        "schema version 2",
+        "cadplot-receipt-outputs-v1\\0",
+        "signed 64-bit big-endian",
+        "Schema-v1 receipts fail closed",
+        "integrity binding, not a third-party digital signature",
+    ):
+        assert required in decision
 
 
 def test_external_layout_templates_are_hash_bound_and_imported_only_from_job_copy() -> None:

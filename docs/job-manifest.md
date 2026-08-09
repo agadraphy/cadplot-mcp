@@ -20,9 +20,11 @@ On success it creates a unique `job-*` directory below `workspace_root` containi
 - `manifest.json`: job identity, source fingerprint, plan identity, and output states.
 
 After the AutoCAD worker reaches a terminal result, the plug-in atomically creates one immutable
-`receipt.json` beside the manifest. It binds `plan_id` and the approved manifest SHA-256 to a
-`succeeded` or `failed` state, a timezone-qualified completion timestamp, and (for failure) a
-bounded machine-safe error code. It is never overwritten on retry.
+schema-v2 `receipt.json` beside the manifest. It binds `plan_id` and the approved manifest SHA-256
+to a `succeeded` or `failed` state, a timezone-qualified completion timestamp, and (for failure) a
+bounded machine-safe error code. A successful receipt also records the exact output count and a
+canonical SHA-256 binding over every ordered sheet index, PDF filename, byte length, and PDF
+SHA-256. It is never overwritten on retry.
 
 The staging response also returns `manifest_sha256`. It is not embedded in the manifest (which
 would be self-referential). `queue_publish_job` requires the caller to approve both `plan_id` and
@@ -61,6 +63,11 @@ result for receipt/audit review.
 After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
 rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,
 and any output that is not exactly one page. Its report includes page dimensions, byte size, and
-SHA-256 digest for each valid PDF. `outputs_complete` describes only the expected PDFs;
-`execution_verified` requires a valid successful receipt; `publish_verified` is true only when
-both are true. `read_publish_receipt` exposes the same cross-checked terminal evidence directly.
+SHA-256 digest for each valid PDF, then independently recomputes the successful receipt's canonical
+output-set binding. `outputs_complete` describes only the expected PDFs; `execution_verified`
+requires a valid successful receipt whose output binding still matches; `publish_verified` is true
+only when both are true. Replacing even a structurally valid PDF after receipt creation therefore
+fails closed. `read_publish_receipt` exposes the same cross-checked terminal evidence directly.
+
+Schema-v1 receipts are intentionally not upgraded or rewritten. Preserve them for review, then
+plan, stage, and publish a new job to obtain schema-v2 evidence.

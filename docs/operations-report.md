@@ -12,7 +12,8 @@ scan, then start again without a cursor to include later work. Each page has a c
 
 The report classifies each job:
 
-- `complete`: valid successful receipt plus every expected PDF structurally valid;
+- `complete`: valid successful receipt whose canonical output-set binding still matches, plus every
+  expected PDF structurally valid;
 - `awaiting_execution`: no receipt and no existing outputs; check live plug-in status before using
   the returned exact `queue_approval`;
 - `cancelled_hold`: a structurally valid signed-marker envelope exists, so no requeue approval is
@@ -21,7 +22,9 @@ The report classifies each job:
 - `manual_review`: partial, invalid, or execution-unverified outputs exist; never overwrite them;
 - `invalid_job`: manifest, staged drawing, path boundary, receipt, or digest validation failed.
 
-The summary covers only the current page. A 300-job run is complete only after every page has been
+The summary covers only the current page. A structurally valid PDF replaced after receipt creation
+is still `manual_review`, because its output binding no longer matches. A 300-job run is complete
+only after every page has been
 read through `has_more=false` and every item is `complete`. Presence of a PDF alone is never
 execution evidence. To keep MCP responses bounded, at most 20 output issues are included per job;
 use `output_issue_count` and `output_issues_truncated` to detect a longer list.

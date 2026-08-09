@@ -97,17 +97,19 @@ Use this checklist for every alpha release.
       handoff channel because self-verification alone is not provenance.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
-- [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as
-      execution proof unless `publish_verified=true`.
+- [ ] Success, bounded-failure, and post-receipt PDF-tamper tests pass; output completeness is not
+      presented as execution proof unless the schema-v2 receipt's canonical output-set SHA-256
+      revalidates and `publish_verified=true`.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.
-- [ ] Each schema-v5 licensed pilot run contains the exact authenticated queue scheme and a
+- [ ] Each schema-v6 licensed pilot run contains the exact authenticated queue scheme and a
       path-redacted `template_assets` list; every used
       asset's approved, post-pilot source, and staged-copy SHA-256 values are identical, or the list
       is explicitly empty when that run used no external template.
 - [ ] Each run binds the exact published and authorized one-page reference PDFs by path-redacted
-      SHA-256, byte length, and page geometry; their orientation/size relationship revalidates and
+      SHA-256, byte length, and page geometry; the receipt output count/digest independently
+      revalidates against the published PDF, their orientation/size relationship revalidates, and
       all seven visual checks were separately attested by the named reviewer.
 - [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.
 - [ ] Dependency lock data has been reviewed for intended versions.

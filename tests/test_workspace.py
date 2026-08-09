@@ -6,7 +6,11 @@ from pathlib import Path
 import pytest
 from pypdf import PdfWriter
 
-from cadplot_mcp.audit import audit_publish_outputs, read_publish_receipt
+from cadplot_mcp.audit import (
+    audit_publish_outputs,
+    build_receipt_output_digest,
+    read_publish_receipt,
+)
 from cadplot_mcp.config import load_config
 from cadplot_mcp.fingerprint import fingerprint_drawing, fingerprint_template
 from cadplot_mcp.models import (
@@ -18,6 +22,40 @@ from cadplot_mcp.models import (
 from cadplot_mcp.planner import create_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
 from cadplot_mcp.workspace import stage_publish_job
+
+
+def _successful_receipt(job: dict, manifest_path: Path) -> dict:
+    evidence = [
+        {
+            "sheet_index": output["sheet_index"],
+            "file": Path(output["pdf"]).name,
+            "size_bytes": Path(output["pdf"]).stat().st_size,
+            "sha256": hashlib.sha256(Path(output["pdf"]).read_bytes()).hexdigest(),
+        }
+        for output in job["outputs"]
+    ]
+    return {
+        "schema_version": 2,
+        "plan_id": job["plan_id"],
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "state": "succeeded",
+        "output_count": len(evidence),
+        "outputs_sha256": build_receipt_output_digest(evidence),
+        "completed_utc": "2026-08-07T20:00:00+00:00",
+    }
+
+
+def _failed_receipt(job: dict, manifest_path: Path, error: str) -> dict:
+    return {
+        "schema_version": 2,
+        "plan_id": job["plan_id"],
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "state": "failed",
+        "error": error,
+        "output_count": 0,
+        "outputs_sha256": None,
+        "completed_utc": "2026-08-07T20:01:00Z",
+    }
 
 
 def _job_inputs(tmp_path: Path):
@@ -252,28 +290,74 @@ def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path)
     _, config, plan = _job_inputs(tmp_path)
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     manifest_path = Path(job["manifest"])
-    receipt = {
-        "schema_version": 1,
-        "plan_id": plan["plan_id"],
-        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-        "state": "succeeded",
-        "completed_utc": "2026-08-07T20:00:00+00:00",
-    }
-    (manifest_path.parent / "receipt.json").write_text(
-        json.dumps(receipt), encoding="utf-8"
-    )
     pdf_writer = PdfWriter()
     pdf_writer.add_blank_page(width=595, height=842)
     with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
         pdf_writer.write(stream)
+    receipt = _successful_receipt(job, manifest_path)
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
 
     result = read_publish_receipt(manifest_path, config)
     report = audit_publish_outputs(manifest_path, config)
 
     assert result == {"found": True, "receipt": receipt}
     assert report["execution_receipt"] == result
+    assert report["receipt_output_binding_verified"] is True
     assert report["execution_verified"] is True
     assert report["publish_verified"] is True
+
+
+def test_valid_replacement_pdf_cannot_reuse_successful_receipt(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    original = PdfWriter()
+    original.add_blank_page(width=595, height=842)
+    with pdf.open("wb") as stream:
+        original.write(stream)
+    receipt = _successful_receipt(job, manifest_path)
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
+    assert audit_publish_outputs(manifest_path, config)["publish_verified"] is True
+
+    replacement = PdfWriter()
+    replacement.add_blank_page(width=595, height=842)
+    replacement.add_metadata({"/Title": "replacement after receipt"})
+    with pdf.open("wb") as stream:
+        replacement.write(stream)
+
+    report = audit_publish_outputs(manifest_path, config)
+    assert report["outputs_complete"] is True
+    assert report["outputs"][0]["status"] == "valid"
+    assert report["receipt_output_binding_verified"] is False
+    assert report["execution_verified"] is False
+    assert report["publish_verified"] is False
+
+
+def test_receipt_output_digest_matches_cross_runtime_vector() -> None:
+    evidence = [
+        {
+            "sheet_index": 1,
+            "file": "0001-sheet.pdf",
+            "size_bytes": 9,
+            "sha256": hashlib.sha256(b"first PDF").hexdigest(),
+        },
+        {
+            "sheet_index": 2,
+            "file": "0002-sheet.pdf",
+            "size_bytes": 10,
+            "sha256": hashlib.sha256(b"second PDF").hexdigest(),
+        },
+    ]
+
+    assert (
+        build_receipt_output_digest(evidence)
+        == "3e64d2b7f0067fbbdc0f7590ad2c877d00229463820a4e04cf7efe1ac0e8ef3a"
+    )
 
 
 def test_receipt_reader_rejects_manifest_digest_mismatch(tmp_path: Path) -> None:
@@ -282,12 +366,14 @@ def test_receipt_reader_rejects_manifest_digest_mismatch(tmp_path: Path) -> None
     manifest_path = Path(job["manifest"])
     (manifest_path.parent / "receipt.json").write_text(
         json.dumps(
-            {
-                "schema_version": 1,
-                "plan_id": plan["plan_id"],
-                "manifest_sha256": "0" * 64,
-                "state": "succeeded",
-                "completed_utc": "2026-08-07T20:00:00+00:00",
+                {
+                    "schema_version": 2,
+                    "plan_id": plan["plan_id"],
+                    "manifest_sha256": "0" * 64,
+                    "state": "succeeded",
+                    "output_count": 1,
+                    "outputs_sha256": "0" * 64,
+                    "completed_utc": "2026-08-07T20:00:00+00:00",
             }
         ),
         encoding="utf-8",
@@ -307,14 +393,7 @@ def test_failed_receipt_allows_only_bounded_error_codes(
     _, config, plan = _job_inputs(tmp_path)
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     manifest_path = Path(job["manifest"])
-    receipt = {
-        "schema_version": 1,
-        "plan_id": plan["plan_id"],
-        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-        "state": "failed",
-        "error": error,
-        "completed_utc": "2026-08-07T20:00:00Z",
-    }
+    receipt = _failed_receipt(job, manifest_path, error)
     (manifest_path.parent / "receipt.json").write_text(
         json.dumps(receipt), encoding="utf-8"
     )
@@ -335,32 +414,19 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
     cancelled_job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
 
     complete_manifest = Path(complete_job["manifest"])
-    complete_receipt = {
-        "schema_version": 1,
-        "plan_id": plan["plan_id"],
-        "manifest_sha256": hashlib.sha256(complete_manifest.read_bytes()).hexdigest(),
-        "state": "succeeded",
-        "completed_utc": "2026-08-07T20:00:00Z",
-    }
-    (complete_manifest.parent / "receipt.json").write_text(
-        json.dumps(complete_receipt), encoding="utf-8"
-    )
     writer = PdfWriter()
     writer.add_blank_page(width=595, height=842)
     with Path(complete_job["outputs"][0]["pdf"]).open("wb") as stream:
         writer.write(stream)
+    complete_receipt = _successful_receipt(complete_job, complete_manifest)
+    (complete_manifest.parent / "receipt.json").write_text(
+        json.dumps(complete_receipt), encoding="utf-8"
+    )
 
     failed_manifest = Path(failed_job["manifest"])
     (failed_manifest.parent / "receipt.json").write_text(
         json.dumps(
-            {
-                "schema_version": 1,
-                "plan_id": plan["plan_id"],
-                "manifest_sha256": hashlib.sha256(failed_manifest.read_bytes()).hexdigest(),
-                "state": "failed",
-                "error": "plot_failed",
-                "completed_utc": "2026-08-07T20:01:00Z",
-            }
+            _failed_receipt(failed_job, failed_manifest, "plot_failed")
         ),
         encoding="utf-8",
     )

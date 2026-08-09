@@ -60,7 +60,9 @@ the loaded adapter does not match the running AutoCAD release.
 - Pending cancellation requires the exact plan and manifest digests, persists before memory state
   changes, and is idempotent. `Running` or terminal work cannot be cancelled in place.
 - All MCP tools expose closed top-level structured-output schemas; plan and receipt identities also
-  carry exact digest patterns. The real STDIO smoke test exercises this contract with `call_tool`.
+  carry exact digest patterns. Successful schema-v2 receipts bind the ordered PDF output set by
+  sheet index, filename, byte length, and SHA-256. The real STDIO smoke test exercises this contract
+  with `call_tool`.
 - MCP tool annotations distinguish local write actions from read-only tools; clients must still
   enforce their own approval policy because annotations are hints, not authorization.
 
@@ -184,13 +186,14 @@ uv run python scripts/run-synthetic-demo.py
   machine-safe failure code.
 - `get_publish_batch_status`: read up to 20 exact plan IDs in one bounded MCP call, summarize live
   states, and take one final internally consistent queue-capacity sample without writing files.
-- `read_publish_receipt`: recover immutable, digest-bound terminal execution evidence from the
-  staged job even after AutoCAD has restarted.
+- `read_publish_receipt`: recover immutable, manifest-and-output-digest-bound terminal execution
+  evidence from the staged job even after AutoCAD has restarted.
 - `create_publish_operations_report`: page through up to 50 staged workspace jobs with a stable
   cursor, terminal evidence, output issues, safe next actions, and exact requeue approvals.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
   count, expected physical paper dimensions, sizes, SHA-256 hashes, and execution evidence without
-  changing output. `publish_verified=true` requires both valid PDFs and a successful receipt.
+  changing output. `publish_verified=true` requires valid PDFs and a successful receipt whose
+  canonical output-set binding independently revalidates.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration
@@ -426,11 +429,12 @@ a source-checkout wrapper); its completed company
 evidence file stays outside the public repository. Live status exposes the embedded build commit
 and running adapter DLL SHA-256. The pilot assembler derives the release commit from the verified
 `bundle-build.json`, re-hashes every bundle ZIP entry, and refuses either version when its running
-binary does not match the corresponding adapter artifact. Pilot schema v5 also requires the exact
+binary does not match the corresponding adapter artifact. Pilot schema v6 also requires the exact
 authenticated durable-queue scheme and derives a
 path-redacted external-template record from each immutable job manifest and requires the approved,
 post-pilot company-source, and staged-copy hashes to remain identical. Each run also binds the
 authorized one-page reference PDF and published output by path-redacted SHA-256/size/page geometry,
+and independently revalidates the schema-v2 receipt's exact output count and output-set digest,
 rejects a reference outside allowed roots or with different orientation/size during collection and
 later validation, and requires seven separate visual-check attestations instead of one blanket switch.
 After both runs pass, the installed `cadplot-acceptance` finalizer binds that evidence to the exact

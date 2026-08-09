@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import struct
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT, PathPolicyError
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_RECEIPT_BYTES = 64 * 1024
 HASH_CHUNK_BYTES = 1024 * 1024
+RECEIPT_OUTPUT_DOMAIN = b"cadplot-receipt-outputs-v1\0"
 
 
 def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> dict[str, Any]:
@@ -30,8 +32,30 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
     invalid = len(results) - valid - missing
     receipt = read_publish_receipt(manifest_value, config)
     outputs_complete = valid == len(results)
+    receipt_output_binding_verified = False
+    if (
+        outputs_complete
+        and receipt["found"]
+        and receipt["receipt"]["state"] == "succeeded"
+    ):
+        output_evidence = [
+            {
+                "sheet_index": item["sheet_index"],
+                "file": Path(item["pdf"]).name,
+                "size_bytes": item["size_bytes"],
+                "sha256": item["sha256"],
+            }
+            for item in results
+        ]
+        receipt_output_binding_verified = bool(
+            receipt["receipt"]["output_count"] == len(output_evidence)
+            and receipt["receipt"]["outputs_sha256"]
+            == build_receipt_output_digest(output_evidence)
+        )
     execution_verified = bool(
-        receipt["found"] and receipt["receipt"]["state"] == "succeeded"
+        receipt["found"]
+        and receipt["receipt"]["state"] == "succeeded"
+        and receipt_output_binding_verified
     )
     return {
         "schema_version": 1,
@@ -39,6 +63,7 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
         "plan_id": manifest["plan_id"],
         "complete": outputs_complete,
         "outputs_complete": outputs_complete,
+        "receipt_output_binding_verified": receipt_output_binding_verified,
         "execution_verified": execution_verified,
         "publish_verified": outputs_complete and execution_verified,
         "summary": {
@@ -70,7 +95,7 @@ def read_publish_receipt(
         raw = json.loads(resolved.read_text(encoding="utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Publish receipt is not valid UTF-8 JSON.") from exc
-    if not isinstance(raw, dict) or raw.get("schema_version") != 1:
+    if not isinstance(raw, dict) or raw.get("schema_version") != 2:
         raise ValueError("Unsupported publish receipt schema.")
     if raw.get("plan_id") != manifest["plan_id"]:
         raise ValueError("Publish receipt plan identity mismatch.")
@@ -81,13 +106,36 @@ def read_publish_receipt(
     error = raw.get("error")
     if state not in {"succeeded", "failed"}:
         raise ValueError("Publish receipt has an invalid terminal state.")
-    if state == "succeeded" and error is not None:
-        raise ValueError("Successful publish receipt cannot contain an error.")
-    if state == "failed" and (
-        not isinstance(error, str)
-        or not re.fullmatch(r"[A-Za-z0-9_:-]{1,128}", error)
-    ):
-        raise ValueError("Failed publish receipt has an invalid error code.")
+    common_fields = {
+        "schema_version",
+        "plan_id",
+        "manifest_sha256",
+        "state",
+        "output_count",
+        "outputs_sha256",
+        "completed_utc",
+    }
+    if state == "succeeded":
+        if set(raw) != common_fields or error is not None:
+            raise ValueError("Successful publish receipt fields are not exact.")
+        if (
+            not isinstance(raw.get("output_count"), int)
+            or isinstance(raw["output_count"], bool)
+            or raw["output_count"] != len(manifest["outputs"])
+            or not isinstance(raw.get("outputs_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", raw["outputs_sha256"]) is None
+        ):
+            raise ValueError("Successful publish receipt output binding is invalid.")
+    else:
+        if set(raw) != common_fields | {"error"}:
+            raise ValueError("Failed publish receipt fields are not exact.")
+        if (
+            not isinstance(error, str)
+            or not re.fullmatch(r"[A-Za-z0-9_:-]{1,128}", error)
+        ):
+            raise ValueError("Failed publish receipt has an invalid error code.")
+        if raw.get("output_count") != 0 or raw.get("outputs_sha256") is not None:
+            raise ValueError("Failed publish receipt cannot bind successful outputs.")
     completed = raw.get("completed_utc")
     try:
         parsed = datetime.fromisoformat(completed)
@@ -96,6 +144,45 @@ def read_publish_receipt(
     if parsed.tzinfo is None:
         raise ValueError("Publish receipt completion timestamp must include a timezone.")
     return {"found": True, "receipt": raw}
+
+
+def build_receipt_output_digest(outputs: list[dict[str, Any]]) -> str:
+    """Build the cross-runtime canonical digest used by receipt schema v2."""
+    if not isinstance(outputs, list) or not 1 <= len(outputs) <= 5_000:
+        raise ValueError("Receipt output evidence must contain between 1 and 5000 items.")
+    digest = hashlib.sha256()
+    digest.update(RECEIPT_OUTPUT_DOMAIN)
+    digest.update(struct.pack(">q", len(outputs)))
+    for item in outputs:
+        if not isinstance(item, dict):
+            raise ValueError("Receipt output evidence item is invalid.")
+        sheet_index = item.get("sheet_index")
+        file_name = item.get("file")
+        size_bytes = item.get("size_bytes")
+        sha256 = item.get("sha256")
+        if (
+            not isinstance(sheet_index, int)
+            or isinstance(sheet_index, bool)
+            or sheet_index < 1
+            or not isinstance(file_name, str)
+            or not file_name
+            or Path(file_name).name != file_name
+            or Path(file_name).suffix.casefold() != ".pdf"
+            or any(ord(character) < 32 or ord(character) == 127 for character in file_name)
+            or not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or not 1 <= size_bytes <= (2**63 - 1)
+            or not isinstance(sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+        ):
+            raise ValueError("Receipt output evidence item is invalid.")
+        file_bytes = file_name.encode("utf-8")
+        digest.update(struct.pack(">q", sheet_index))
+        digest.update(struct.pack(">q", len(file_bytes)))
+        digest.update(file_bytes)
+        digest.update(struct.pack(">q", size_bytes))
+        digest.update(bytes.fromhex(sha256))
+    return digest.hexdigest()
 
 
 def load_staged_manifest(

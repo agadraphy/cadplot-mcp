@@ -9,7 +9,7 @@ enables one explicitly approved sheet and proves the real in-memory layout/viewp
 - Managed API folder containing `AcMgd.dll`, `AcDbMgd.dll`, and `AcCoreMgd.dll` for that release.
 - One anonymized/non-production DWG copy.
 - The expected one-page PDF for that DWG, kept under an approved `allowed_roots` input boundary so
-  schema-v5 pilot collection can bind its path-redacted hash, page geometry, and authenticated
+  schema-v6 pilot collection can bind its path-redacted hash, page geometry, and authenticated
   durable-queue scheme.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
 - Exact case-sensitive canonical media name reported by AutoCAD for every custom PC3 paper.
@@ -119,10 +119,12 @@ them with the pilot evidence.
    `manifest_sha256` returned by staging.
 5. Poll `get_publish_job_status`; require `Succeeded`. A failure code is evidence to diagnose, not
    permission to overwrite or bypass a gate.
-6. Call `read_publish_receipt`; require a digest-bound `succeeded` terminal receipt. Restart
-   AutoCAD once and confirm the same receipt can still be read.
-7. Call `audit_publish_outputs`; require `publish_verified=true` plus one valid, unencrypted,
-   one-page PDF with the expected physical paper dimensions.
+6. Call `read_publish_receipt`; require a schema-v2, digest-bound `succeeded` terminal receipt with
+   `output_count=1` and a valid `outputs_sha256`. Restart AutoCAD once and confirm the same receipt
+   can still be read.
+7. Call `audit_publish_outputs`; require `receipt_output_binding_verified=true` and
+   `publish_verified=true` plus one valid, unencrypted, one-page PDF with the expected physical
+   paper dimensions.
 8. Require both source and staged DWG hashes to remain unchanged.
 9. Visually compare orientation, crop, viewport scale, lineweights, plot style, text/font output,
    and title block against the office reference PDF.
@@ -150,7 +152,8 @@ collector/assembler/validator chain to return `valid=true`.
 - MCP-to-plug-in status round trip works.
 - Live build commit and running adapter DLL SHA-256 match the verified bundle build manifest.
 - Staged manifest passes the independent plug-in workspace check.
-- The queued job succeeds, its immutable receipt validates after restart, and the PDF audit reports
+- The queued job succeeds, its immutable receipt and exact output-set binding validate after
+  restart, and the PDF audit reports `receipt_output_binding_verified=true` and
   `publish_verified=true`.
 - Source and staged DWG hashes remain unchanged after plotting.
 - The authorized visual comparison is accepted for scale, crop, style, and orientation.

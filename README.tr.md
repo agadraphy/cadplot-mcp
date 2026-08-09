@@ -73,7 +73,9 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
   önce yazar, aynı istekte idempotenttir ve `Running`/terminal işi iptal etmeyi reddeder.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.
 - 20 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
-  kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.
+  kimliklerinde kesin digest kalıpları bulunur. Başarılı schema-v2 receipt, sıralı PDF kümesini
+  pafta indeksi, dosya adı, byte uzunluğu ve SHA-256 ile bağlar; gerçek STDIO `call_tool` testi bu
+  sözleşmeyi sınar.
 - Şirket DWT, PC3, PMP, CTB/STB veya DWG dosyaları repoya eklenmez.
 - `uv run python scripts/audit-source-tree.py`; tracked veya stage edilebilir CAD/plot dosyalarını,
   arşivleri, yerel config'i, Autodesk DLL'lerini ve yüksek güvenli sır kalıplarını erken reddeder.
@@ -215,9 +217,11 @@ Sunumda doğrudan kullanmak için [Pazartesi demo runbook](docs/pazartesi-demo-t
 9. Lisanslı pilotta aynı `plan_id` ve staging sonucundaki `manifest_sha256` değerlerini
    `queue_publish_job` aracına açıkça verin.
 10. `get_publish_job_status` sonucu `Succeeded` olana kadar durumu okuyun.
-11. `read_publish_receipt` ile manifest hash'ine bağlı kalıcı başarı kanıtını doğrulayın.
-12. Üretilen dosyaları `audit_publish_outputs` ile doğrulayın; ancak hem PDF'ler hem receipt
-    geçerliyse dönen `publish_verified=true` sonucunu kabul edin.
+11. `read_publish_receipt` ile manifest ve PDF çıktı kümesi hash'lerine bağlı kalıcı başarı kanıtını
+    doğrulayın.
+12. Üretilen dosyaları `audit_publish_outputs` ile doğrulayın; ancak PDF'ler geçerliyse,
+    `receipt_output_binding_verified=true` ise ve receipt doğrulanıyorsa dönen
+    `publish_verified=true` sonucunu kabul edin.
 
 300 çizim için `create_batch_publish_plans` aracını varsayılan 20'lik sayfalarla kullanın ve
 ilk sayfanın `inventory_id` değerini saklayın. `has_more=false` olana kadar her `next_offset`
