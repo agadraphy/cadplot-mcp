@@ -58,6 +58,17 @@ $env:CADPLOT_CONFIG = "$PWD\config.yaml"
 uv run cadplot-mcp
 ```
 
+For an administrator-authorized Secure MCP Tunnel developer pilot, run the same tool surface on a
+loopback-only Streamable HTTP endpoint:
+
+```powershell
+uv run cadplot-mcp-http --port 8765
+```
+
+This binds only `127.0.0.1` at `/mcp`, enforces exact Host/Origin guards, and caps requests at
+1 MiB. It is not an authenticated public server and must not be forwarded with a generic tunnel or
+reverse proxy. See [loopback Streamable HTTP transport](docs/loopback-http.md).
+
 Before connecting an MCP client, diagnose the local installation without launching AutoCAD:
 
 ```powershell
@@ -152,7 +163,7 @@ A generic local stdio client example is available at
 [examples/mcp.local.example.json](examples/mcp.local.example.json). Client configuration formats
 vary; see [deployment modes](docs/deployment-modes.md) before connecting a managed ChatGPT
 workspace. The [ChatGPT connection architecture](docs/chatgpt-connection.md) separates the
-implemented local worker from the still-unimplemented managed HTTPS bridge.
+implemented local worker/loopback tunnel target from the still-unimplemented managed HTTPS bridge.
 An optional validated Codex plugin wrapper is available under
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md). It invokes an already
 installed `cadplot-mcp` CLI and intentionally packages no DWGs, credentials, Autodesk binaries, or
@@ -218,7 +229,9 @@ count; it is not AutoCAD execution evidence.
 2. Compile-verified locally: the shared executor against installed AutoCAD 2024 API assemblies.
 3. Still required: matching-SDK bundle builds and live acceptance on licensed AutoCAD 2016 and
    2025 with authorized office page setups/plot resources.
-4. Later/optional: managed remote MCP bridge for a company ChatGPT workspace.
+4. Implemented locally: loopback Streamable HTTP tunnel target with real protocol/header smoke.
+5. Still external/optional: Secure MCP Tunnel admin provisioning or a managed authenticated remote
+   gateway for a company ChatGPT workspace.
 
 ## AutoCAD plug-in builds
 

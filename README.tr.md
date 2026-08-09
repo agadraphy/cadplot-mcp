@@ -69,6 +69,17 @@ $env:CADPLOT_CONFIG = "$PWD\config.yaml"
 uv run cadplot-mcp
 ```
 
+Şirket yöneticisinin onayladığı Secure MCP Tunnel geliştirici pilotu için aynı 18 araç yüzeyi yalnız
+loopback üzerinde Streamable HTTP olarak çalıştırılabilir:
+
+```powershell
+uv run cadplot-mcp-http --port 8765
+```
+
+Adres `http://127.0.0.1:8765/mcp` olur; Host/Origin koruması ve 1 MiB istek sınırı vardır. Bu komut
+kimlik doğrulamalı bir public sunucu değildir; genel amaçlı tünel/reverse proxy ile internete
+açılmamalıdır. Ayrıntılar: [loopback Streamable HTTP](docs/loopback-http.md).
+
 MCP istemcisini bağlamadan önce salt-okunur kurulum teşhisini çalıştırabilirsiniz:
 
 ```powershell
@@ -183,8 +194,8 @@ Repo içindeki doğrulanmış opsiyonel Codex wrapper'ı
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md) klasöründedir; yalnız
 önceden kurulmuş `cadplot-mcp` komutunu başlatır ve şirket dosyalarını paketlemez.
 [Dağıtım modları](docs/deployment-modes.md) ve
-[ChatGPT bağlantı mimarisi](docs/chatgpt-connection.md), hazır yerel işçi ile henüz uygulanmamış
-yönetilen HTTPS köprüsünü ayrı teslim kapıları olarak tanımlar.
+[ChatGPT bağlantı mimarisi](docs/chatgpt-connection.md), hazır yerel işçi/loopback tünel hedefi ile
+henüz uygulanmamış yönetilen HTTPS köprüsünü ayrı teslim kapıları olarak tanımlar.
 
 AutoCAD başlatılmadan önce aynı terminal/başlatıcı ortamında `CADPLOT_WORKSPACE_ROOT`, Python
 ayarındaki `workspace_root` ile aynı klasöre ayarlanmalıdır. Eklenti güvenilir workspace değerini

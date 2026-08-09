@@ -12,7 +12,7 @@ public AutoCAD port or file share.
 | Mode | MCP connection | AutoCAD worker | Intended use | Current status |
 | --- | --- | --- | --- | --- |
 | Local workstation | `stdio` launched by Codex or ChatGPT desktop | Same Windows workstation | First licensed pilot and normal single-user operation | Implemented |
-| ChatGPT web developer pilot | Secure MCP Tunnel or an organization-managed HTTPS `/mcp` endpoint | Workstation behind the bridge | Temporary Business/Enterprise/Edu evaluation | Bridge not implemented |
+| ChatGPT web developer pilot | Secure MCP Tunnel to loopback Streamable HTTP `/mcp` | Same Windows workstation | Temporary Business/Enterprise/Edu evaluation | Local endpoint implemented; tunnel/admin provisioning external |
 | Managed company deployment | Authenticated, publicly reachable HTTPS Streamable HTTP `/mcp` proxy | Registered company workstations | Centrally governed internal use | Architecture only |
 | Public ChatGPT plugin | Stable public HTTPS Streamable HTTP `/mcp`, verified domain, review requirements | Requires a separately designed managed worker service | Marketplace/public distribution | Not implemented or claimed |
 
@@ -45,6 +45,11 @@ licensed AutoCAD acceptance runs. Only plan/job messages should cross the bridge
 copy proprietary DWGs, PC3/PMP, CTB/STB, DWT, or title-block assets unless company policy explicitly
 authorizes it.
 
+CadPlot now ships `cadplot-mcp-http --port 8765` as the tunnel's loopback-only target. It binds only
+`127.0.0.1`, enforces exact Host headers, rejects browser Origin headers, and caps requests at 1 MiB.
+It has no public listener or application-level OAuth and must not be placed behind a generic public
+reverse proxy. See [loopback Streamable HTTP transport](loopback-http.md).
+
 ## Managed company deployment
 
 A production bridge must terminate authenticated HTTPS and forward only the explicit CadPlot MCP
@@ -59,8 +64,8 @@ The bridge must not:
 - bypass the exact `plan_id` and `manifest_sha256` approval gates;
 - claim success before `publish_verified=true` evidence exists.
 
-This repository does not yet implement that managed HTTPS proxy. The local `stdio` plugin wrapper
-must not be represented as a ChatGPT web connector.
+This repository does not yet implement that managed HTTPS proxy. The local `stdio` wrapper and
+loopback HTTP endpoint must not be represented as a production ChatGPT web connector.
 
 ## Public ChatGPT plugin
 

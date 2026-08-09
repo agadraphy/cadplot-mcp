@@ -656,11 +656,14 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "ChatGPT web developer pilot" in deployment
     assert "Managed company deployment" in deployment
     assert "Public ChatGPT plugin" in deployment
-    assert "Bridge not implemented" in deployment
+    assert "Local endpoint implemented" in deployment
+    assert "cadplot-mcp-http --port 8765" in deployment
+    assert "does not yet implement that managed HTTPS proxy" in deployment
     assert "named pipe" in deployment
     assert "publish_verified=true" in deployment
     assert "The DWG stays" in architecture
     assert "Not implemented or claimed" in architecture
+    assert "loopback-only Streamable HTTP" in architecture
 
 
 def test_server_routes_drawing_inspection_through_bounded_helper() -> None:

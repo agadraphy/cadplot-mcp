@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Loopback-only Streamable HTTP `/mcp` entry point for an authorized Secure MCP Tunnel, with fixed
+  `127.0.0.1` binding, strict Host/Origin checks, a 1 MiB request cap, real protocol smoke coverage,
+  and explicit separation from unimplemented managed OAuth/HTTPS deployment.
 - Bounded per-DWG inspection deadlines after helper startup through a killable subprocess with
   closed stdin/JSON protocol, bounded output, exact path replay, and batch-level timeout isolation
   without terminating AutoCAD.

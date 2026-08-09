@@ -24,6 +24,9 @@ Use this checklist for every alpha release.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run python scripts/smoke-mcp-stdio.py` passes real subprocess initialize/list-tools and
       verifies the exact tool/annotation/instruction contract.
+- [ ] `uv run python scripts/smoke-mcp-http.py` passes real loopback Streamable HTTP
+      initialize/list-tools/tool calls and rejects hostile Host and Origin headers without launching
+      AutoCAD; requests above 1 MiB receive `413`.
 - [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
       `audit_complete=true`, while truthfully retaining `publish_verified=false`.
 - [ ] `uv run python scripts/run-synthetic-batch-demo.py --drawings 300` reports 15 plan pages,
@@ -32,7 +35,8 @@ Use this checklist for every alpha release.
 - [ ] `uv build` and `uv run python scripts/audit-release-artifacts.py dist` pass.
 - [ ] `uv run python scripts/smoke-wheel-install.py dist` installs the exact wheel into an isolated
       temporary environment using frozen, hash-checked lock dependencies and passes the real MCP
-      STDIO/tool contract plus isolated-inspector module protocol without source-tree import.
+      STDIO/tool contract, loopback HTTP/header-guard contract, and isolated-inspector module
+      protocol without source-tree import.
 - [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection, and
       removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.

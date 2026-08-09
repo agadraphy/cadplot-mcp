@@ -247,7 +247,8 @@ try {
     }
     foreach ($docName in @(
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
-        "release-kit-install.md", "pilot-evidence.md"
+        "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
+        "chatgpt-connection.md", "loopback-http.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")

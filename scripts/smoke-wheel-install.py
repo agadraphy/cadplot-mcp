@@ -66,6 +66,9 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
     smoke_script = Path(__file__).resolve().with_name("smoke-mcp-stdio.py")
     if not smoke_script.is_file():
         raise RuntimeError("The real MCP STDIO smoke script is missing.")
+    http_smoke_script = Path(__file__).resolve().with_name("smoke-mcp-http.py")
+    if not http_smoke_script.is_file():
+        raise RuntimeError("The real MCP Streamable HTTP smoke script is missing.")
 
     environment = os.environ.copy()
     environment.pop("CADPLOT_CONFIG", None)
@@ -150,6 +153,21 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         if protocol.get("passed") is not True:
             raise RuntimeError("Installed wheel failed the real MCP STDIO smoke test.")
 
+        http_protocol_output = _run(
+            [str(interpreter), str(http_smoke_script)],
+            cwd=temporary_root,
+            environment=environment,
+        )
+        http_protocol = json.loads(http_protocol_output)
+        if (
+            http_protocol.get("passed") is not True
+            or http_protocol.get("host") != "127.0.0.1"
+            or http_protocol.get("invalid_host_blocked") is not True
+            or http_protocol.get("invalid_origin_blocked") is not True
+            or http_protocol.get("oversized_request_blocked") is not True
+        ):
+            raise RuntimeError("Installed wheel failed the loopback HTTP MCP smoke test.")
+
         inspector_output = _run(
             [str(interpreter), "-m", "cadplot_mcp.inspector_worker"],
             cwd=temporary_root,
@@ -166,6 +184,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         command_root = venv_root / ("Scripts" if os.name == "nt" else "bin")
         command_suffix = ".exe" if os.name == "nt" else ""
         pilot_commands = (
+            "cadplot-mcp-http",
             "cadplot-collect-pilot",
             "cadplot-assemble-pilot",
             "cadplot-validate-pilot",
@@ -190,6 +209,10 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "tool_count": protocol["tool_count"],
         "closed_output_schemas": protocol["closed_output_schemas"],
         "structured_output_calls": protocol["structured_output_calls"],
+        "http_transport_protocol_version": http_protocol["protocol_version"],
+        "http_transport_tool_count": http_protocol["tool_count"],
+        "http_transport_loopback_only": True,
+        "http_transport_header_guards": True,
         "pilot_cli_commands": len(pilot_commands),
         "inspector_worker_protocol": True,
         "isolated_install": True,
