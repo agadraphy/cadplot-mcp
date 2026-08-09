@@ -165,6 +165,8 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             or http_protocol.get("invalid_host_blocked") is not True
             or http_protocol.get("invalid_origin_blocked") is not True
             or http_protocol.get("oversized_request_blocked") is not True
+            or not isinstance(http_protocol.get("cleanup_retries"), int)
+            or http_protocol["cleanup_retries"] < 0
         ):
             raise RuntimeError("Installed wheel failed the loopback HTTP MCP smoke test.")
 
@@ -213,6 +215,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "http_transport_tool_count": http_protocol["tool_count"],
         "http_transport_loopback_only": True,
         "http_transport_header_guards": True,
+        "http_transport_cleanup_retries": http_protocol["cleanup_retries"],
         "pilot_cli_commands": len(pilot_commands),
         "inspector_worker_protocol": True,
         "isolated_install": True,

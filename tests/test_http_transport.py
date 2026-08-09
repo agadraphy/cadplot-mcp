@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import subprocess
 import sys
@@ -13,6 +14,12 @@ from cadplot_mcp.http_server import (
     MAX_REQUEST_BODY_BYTES,
     configure_loopback_transport,
 )
+
+HTTP_SMOKE_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "smoke-mcp-http.py"
+HTTP_SMOKE_SPEC = importlib.util.spec_from_file_location("cadplot_http_smoke", HTTP_SMOKE_SCRIPT)
+assert HTTP_SMOKE_SPEC is not None and HTTP_SMOKE_SPEC.loader is not None
+HTTP_SMOKE_MODULE = importlib.util.module_from_spec(HTTP_SMOKE_SPEC)
+HTTP_SMOKE_SPEC.loader.exec_module(HTTP_SMOKE_MODULE)
 
 
 def test_loopback_transport_is_fixed_and_bounded() -> None:
@@ -38,9 +45,8 @@ def test_loopback_transport_rejects_unsafe_ports(port: object) -> None:
 
 
 def test_real_streamable_http_transport_and_header_guards() -> None:
-    script = Path(__file__).resolve().parents[1] / "scripts" / "smoke-mcp-http.py"
     result = subprocess.run(
-        [sys.executable, str(script)],
+        [sys.executable, str(HTTP_SMOKE_SCRIPT)],
         capture_output=True,
         text=True,
         check=False,
@@ -59,5 +65,32 @@ def test_real_streamable_http_transport_and_header_guards() -> None:
     assert report["host"] == "127.0.0.1"
     assert report["path"] == "/mcp"
     assert report["request_limit_bytes"] == 1024 * 1024
+    assert report["cleanup_retries"] >= 0
     assert report["autocad_launched"] is False
     assert report["live_publish_proven"] is False
+
+
+def test_http_smoke_cleanup_retries_a_transient_directory_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "locked"
+    root.mkdir()
+    (root / "evidence.txt").write_text("temporary", encoding="utf-8")
+    real_rmtree = HTTP_SMOKE_MODULE.shutil.rmtree
+    attempts = 0
+
+    def flaky_rmtree(path: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise PermissionError("simulated transient Windows directory lock")
+        real_rmtree(path)
+
+    monkeypatch.setattr(HTTP_SMOKE_MODULE.shutil, "rmtree", flaky_rmtree)
+    monkeypatch.setattr(HTTP_SMOKE_MODULE.time, "sleep", lambda _: None)
+
+    failures = HTTP_SMOKE_MODULE._remove_tree_with_retry(root, timeout_seconds=1)
+
+    assert failures == 1
+    assert attempts == 2
+    assert not root.exists()

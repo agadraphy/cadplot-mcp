@@ -161,6 +161,11 @@ All notable changes to this project are documented in this file.
 - Clean-commit, no-overwrite bundle release directories with source/archive audits, exact build
   manifests, and independent ZIP-entry/hash verification that remains explicitly non-live evidence.
 
+### Fixed
+
+- Windows Streamable HTTP smoke cleanup now keeps the server cwd outside disposable evidence,
+  waits for process exit, and retries transient directory-lock removal with bounded regression proof.
+
 ### Notes
 
 - No public alpha has been published yet. Validate plans in dry-run mode and review all

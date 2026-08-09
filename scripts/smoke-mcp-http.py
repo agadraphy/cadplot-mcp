@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -16,6 +17,22 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 EXPECTED_TOOL_COUNT = 18
+
+
+def _remove_tree_with_retry(root: Path, *, timeout_seconds: float = 5.0) -> int:
+    deadline = time.monotonic() + timeout_seconds
+    failures = 0
+    while True:
+        try:
+            shutil.rmtree(root)
+            return failures
+        except FileNotFoundError:
+            return failures
+        except OSError:
+            failures += 1
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(min(0.05 * failures, 0.25))
 
 
 def _reserve_port() -> int:
@@ -99,8 +116,10 @@ async def _exercise(url: str, input_root: str) -> dict[str, Any]:
 
 def smoke() -> dict[str, Any]:
     port = _reserve_port()
-    with tempfile.TemporaryDirectory(prefix="cadplot-http-smoke-") as temporary:
-        root = Path(temporary)
+    temporary_manager = tempfile.TemporaryDirectory(prefix="cadplot-http-smoke-")
+    root = Path(temporary_manager.name)
+    cleanup_retries = 0
+    try:
         input_root = root / "input"
         workspace_root = root / "work"
         input_root.mkdir()
@@ -137,7 +156,8 @@ def smoke() -> dict[str, Any]:
                     "--port",
                     str(port),
                 ],
-                cwd=root,
+                # A server or inherited child must never hold the disposable evidence root as cwd.
+                cwd=Path(sys.executable).resolve().parent,
                 env=environment,
                 stdin=subprocess.DEVNULL,
                 stdout=server_log,
@@ -164,6 +184,11 @@ def smoke() -> dict[str, Any]:
                     except subprocess.TimeoutExpired:
                         process.kill()
                         process.wait(timeout=5)
+    finally:
+        try:
+            temporary_manager.cleanup()
+        except OSError:
+            cleanup_retries = 1 + _remove_tree_with_retry(root)
 
     return {
         "passed": True,
@@ -171,6 +196,7 @@ def smoke() -> dict[str, Any]:
         "host": "127.0.0.1",
         "path": "/mcp",
         "request_limit_bytes": 1024 * 1024,
+        "cleanup_retries": cleanup_retries,
         "autocad_launched": False,
         "live_publish_proven": False,
     }
