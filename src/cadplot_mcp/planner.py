@@ -284,6 +284,9 @@ def _page_setup_error(
     setup = matches[0]
     if setup.model_type:
         return f"page setup {profile.page_setup!r} is a model-space setup."
+    # ActiveX AcPlotType.acLayout is enum value 5. Missing evidence is rejected.
+    if setup.plot_type != 5:
+        return f"page setup {profile.page_setup!r} does not use the required Layout plot type."
     if (setup.plotter or "").casefold() != profile.plotter.casefold():
         return (
             f"page setup {profile.page_setup!r} uses plotter {setup.plotter!r}, "

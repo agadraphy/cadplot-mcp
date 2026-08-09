@@ -96,7 +96,8 @@ uv run python scripts/run-synthetic-demo.py
 - `validate_environment`: report configuration and AutoCAD connection readiness.
 - `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge.
 - `scan_drawings`: find DWG files under an allowed project folder.
-- `inspect_drawing`: read layouts, plot properties, and labelled rectangular frames.
+- `inspect_drawing`: read layouts, plot properties, labelled rectangular polylines, and strictly
+  validated orthogonal attribute-backed block frames.
 - `inventory_office_resources`: produce a read-only exact-name inventory for frame labels, named
   page setups, plotters, plot styles, canonical media, and candidate paper-space layouts without
   approving any mapping.
@@ -161,9 +162,9 @@ and the detected paper label are used to derive rotation and scale. Only values 
 remain blockers in the dry-run plan.
 
 With `require_page_setup_match: true` (the default), a sheet is ready only when the named page
-setup exists, its plotter and plot style match the configured profile, and its paper-space plot
-scale is verifiably 1:1. Scale-to-fit is rejected because viewport scale already carries the
-approved model-to-paper ratio. Planned layout names use
+setup exists, its plot type is exactly `Layout`, its plotter and plot style match the configured
+profile, and its paper-space plot scale is verifiably 1:1. Scale-to-fit is rejected because
+viewport scale already carries the approved model-to-paper ratio. Planned layout names use
 `layout_prefix` plus a deterministic index and frame handle; any existing-name collision blocks
 the plan instead of overwriting a layout.
 

@@ -37,6 +37,7 @@ class PageSetupSummary:
     plotter: str | None = None
     media_name: str | None = None
     plot_style: str | None = None
+    plot_type: int | None = None
     use_standard_scale: bool | None = None
     standard_scale: int | None = None
     custom_scale_numerator: float | None = None

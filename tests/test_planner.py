@@ -60,6 +60,7 @@ def _inspection(
                 plotter="DWG To PDF.pc3",
                 media_name="OFFICE_700X1000",
                 plot_style="monochrome.ctb",
+                plot_type=5,
                 use_standard_scale=True,
                 standard_scale=16,
             )
@@ -184,6 +185,7 @@ def test_publish_plan_blocks_page_setup_plotter_mismatch(tmp_path: Path) -> None
         plotter="Wrong Printer.pc3",
         media_name="OFFICE_700X1000",
         plot_style="monochrome.ctb",
+        plot_type=5,
         use_standard_scale=True,
         standard_scale=16,
     )
@@ -205,6 +207,18 @@ def test_publish_plan_blocks_model_space_page_setup(tmp_path: Path) -> None:
     assert plan["ready"] is False
     assert plan["sheets"][0]["status"] == "page_setup_mismatch"
     assert "model-space" in plan["warnings"][0]
+
+
+def test_publish_plan_blocks_non_layout_page_setup(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    inspection = _inspection([_frame("70x100")])
+    inspection.page_setups[0] = replace(inspection.page_setups[0], plot_type=1)
+
+    plan = create_publish_plan(inspection, config, drawing_fingerprint=_fingerprint())
+
+    assert plan["ready"] is False
+    assert plan["sheets"][0]["status"] == "page_setup_mismatch"
+    assert "required Layout plot type" in plan["warnings"][0]
 
 
 def test_publish_plan_blocks_scale_to_fit_page_setup(tmp_path: Path) -> None:
@@ -262,6 +276,7 @@ def test_publish_plan_requires_exact_canonical_media_case(tmp_path: Path) -> Non
         plotter="DWG To PDF.pc3",
         media_name="office_700x1000",
         plot_style="monochrome.ctb",
+        plot_type=5,
         use_standard_scale=True,
         standard_scale=16,
     )

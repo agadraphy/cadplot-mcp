@@ -49,6 +49,7 @@ paper_profiles:
                 plotter="DWG To PDF.pc3",
                 media_name="ISO_A4",
                 plot_style="monochrome.ctb",
+                plot_type=5,
                 use_standard_scale=True,
                 standard_scale=16,
             )

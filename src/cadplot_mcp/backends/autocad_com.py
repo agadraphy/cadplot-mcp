@@ -13,7 +13,7 @@ from cadplot_mcp.models import (
     LayoutSummary,
     PageSetupSummary,
 )
-from cadplot_mcp.paper import parse_paper_size
+from cadplot_mcp.paper import PaperSize, parse_paper_size
 from cadplot_mcp.security import PathPolicy
 
 
@@ -137,6 +137,7 @@ def _read_page_setups(document: Any) -> list[PageSetupSummary]:
                 plotter=_safe(setup, "ConfigName"),
                 media_name=_safe(setup, "CanonicalMediaName"),
                 plot_style=_safe(setup, "StyleSheet"),
+                plot_type=_safe(setup, "PlotType"),
                 use_standard_scale=_safe(setup, "UseStandardScale"),
                 standard_scale=_safe(setup, "StandardScale"),
                 custom_scale_numerator=custom_numerator,
@@ -161,6 +162,7 @@ def _read_custom_scale(setup: Any) -> tuple[float | None, float | None]:
 
 def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str]]:
     rectangles: list[tuple[Any, tuple[float, float, float], tuple[float, float, float]]] = []
+    block_frames: list[FrameCandidate] = []
     texts: list[tuple[str, tuple[float, float, float]]] = []
     warnings: list[str] = []
 
@@ -177,6 +179,11 @@ def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str
                 bounds = _bounds(entity)
                 if bounds and _is_axis_aligned_rectangle(entity):
                     rectangles.append((entity, bounds[0], bounds[1]))
+            elif object_name == "AcDbBlockReference":
+                block_frame, block_warnings = _read_attribute_backed_block_frame(entity)
+                warnings.extend(block_warnings)
+                if block_frame is not None:
+                    block_frames.append(block_frame)
     except Exception as exc:
         warnings.append(f"Model-space entity inspection was incomplete: {exc}")
         return [], warnings
@@ -235,7 +242,126 @@ def _read_labelled_frames(document: Any) -> tuple[list[FrameCandidate], list[str
                 confidence=0.9 if len(matching) == 1 else 0.8,
             )
         )
+    for block_frame in block_frames:
+        matching_bounds = [
+            frame
+            for frame in frames
+            if _frame_bounds_nearly_equal(frame, block_frame)
+            and _same_paper_dimensions(frame, block_frame)
+        ]
+        duplicate_blocks = [
+            frame
+            for frame in block_frames
+            if frame.handle != block_frame.handle
+            and _frame_bounds_nearly_equal(frame, block_frame)
+            and _same_paper_dimensions(frame, block_frame)
+        ]
+        if matching_bounds:
+            warnings.append(
+                f"Attribute-backed block frame {block_frame.handle} duplicates an existing "
+                "frame candidate; skipped."
+            )
+            continue
+        if duplicate_blocks:
+            warnings.append(
+                f"Attribute-backed block frame {block_frame.handle} has an equal-size "
+                "competing block candidate; skipped."
+            )
+            continue
+        frames.append(block_frame)
     return frames, warnings
+
+
+def _read_attribute_backed_block_frame(
+    entity: Any,
+) -> tuple[FrameCandidate | None, list[str]]:
+    labels: dict[tuple[float, float], PaperSize] = {}
+    for text in _block_attribute_texts(entity):
+        size = parse_paper_size(text)
+        if size is not None:
+            labels.setdefault(size.orientation_independent, size)
+    if not labels:
+        return None, []
+
+    handle = str(_safe(entity, "Handle", ""))
+    name = handle or "<no handle>"
+    if not handle:
+        return None, ["Attribute-backed block frame has no stable handle; skipped."]
+    if len(labels) != 1:
+        return None, [f"Block {name} contains conflicting paper-size attributes; skipped."]
+    if not _is_orthogonal_block_rotation(_safe(entity, "Rotation")):
+        return None, [f"Block {name} has a non-orthogonal rotation; skipped."]
+    bounds = _bounds(entity)
+    if bounds is None:
+        return None, [f"Block {name} paper-size attributes were found but bounds are invalid."]
+
+    size = next(iter(labels.values()))
+    if not _aspect_ratio_matches(size.width_mm, size.height_mm, bounds[0], bounds[1]):
+        return None, [f"Block {name} paper label {size.source!r} does not match its bounds."]
+    return (
+        FrameCandidate(
+            handle=handle,
+            layer=str(_safe(entity, "Layer", "")),
+            min_point=bounds[0],
+            max_point=bounds[1],
+            label=size.source,
+            width_mm=size.width_mm,
+            height_mm=size.height_mm,
+            confidence=0.9,
+        ),
+        [],
+    )
+
+
+def _block_attribute_texts(entity: Any) -> list[str]:
+    values: list[str] = []
+    for method_name in ("GetAttributes", "GetConstantAttributes"):
+        method = _safe(entity, method_name)
+        if not callable(method):
+            continue
+        try:
+            attributes = method()
+        except Exception:
+            continue
+        if attributes is None:
+            continue
+        if not isinstance(attributes, (list, tuple)):
+            attributes = (attributes,)
+        for attribute in attributes:
+            text = str(_safe(attribute, "TextString", "")).strip()
+            if text:
+                values.append(text)
+    return values
+
+
+def _is_orthogonal_block_rotation(value: Any, tolerance: float = 1e-6) -> bool:
+    try:
+        rotation = float(value)
+    except (TypeError, ValueError):
+        return False
+    if not math.isfinite(rotation):
+        return False
+    quarter_turns = rotation / (math.pi / 2.0)
+    return abs(quarter_turns - round(quarter_turns)) <= tolerance
+
+
+def _frame_bounds_nearly_equal(
+    left: FrameCandidate,
+    right: FrameCandidate,
+    tolerance: float = 1e-6,
+) -> bool:
+    values = zip(
+        (*left.min_point[:2], *left.max_point[:2]),
+        (*right.min_point[:2], *right.max_point[:2]),
+        strict=True,
+    )
+    return all(abs(a - b) <= tolerance * max(1.0, abs(a), abs(b)) for a, b in values)
+
+
+def _same_paper_dimensions(left: FrameCandidate, right: FrameCandidate) -> bool:
+    return tuple(sorted((left.width_mm, left.height_mm))) == tuple(
+        sorted((right.width_mm, right.height_mm))
+    )
 
 
 def _rectangle_area(

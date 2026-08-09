@@ -27,6 +27,11 @@ def build_office_inventory_report(inspection: DrawingInspection) -> dict[str, An
     if not paper_setups:
         warnings.append("No paper-space named page setups were observed.")
     for setup in paper_setups:
+        if setup.plot_type != 5:
+            warnings.append(
+                f"Named page setup {setup.name!r} is not verified as a Layout plot type "
+                "and cannot be approved for publishing."
+            )
         if not setup.has_verified_one_to_one_scale():
             warnings.append(
                 f"Named page setup {setup.name!r} is not verified at 1:1 layout plot scale "

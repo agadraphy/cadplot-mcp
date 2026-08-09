@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Read-only detection of orthogonal attribute-backed block frames with fail-closed rejection of
+  conflicting labels, mismatched bounds, non-orthogonal rotation, and equal-size competition.
+- Dry-run and onboarding enforcement that approved named page setups use `PlotType=Layout`, matching
+  the existing plug-in-side runtime guard.
 - Independent manifest geometry replay for paper orientation, derived/selected scale, tolerance,
   and frame aspect, plus read-only and plug-in-side enforcement that named paper-space page setups
   plot at exactly 1:1 rather than multiplying viewport scale with scale-to-fit/custom scaling.

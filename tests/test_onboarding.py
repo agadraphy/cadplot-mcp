@@ -30,6 +30,7 @@ def test_office_inventory_reports_exact_names_without_approving_mapping() -> Non
                 plotter="OFFICE PDF.pc3",
                 media_name="UserDefinedMetric (700.00 x 1000.00MM)",
                 plot_style="OFFICE.ctb",
+                plot_type=5,
                 use_standard_scale=True,
                 standard_scale=16,
             ),
@@ -41,6 +42,7 @@ def test_office_inventory_reports_exact_names_without_approving_mapping() -> Non
                 plotter="OFFICE PDF.pc3",
                 media_name="UserDefinedMetric (700.00 x 1000.00MM)",
                 plot_style="OFFICE.ctb",
+                plot_type=5,
                 use_standard_scale=True,
                 standard_scale=16,
             )
@@ -88,6 +90,7 @@ def test_office_inventory_warns_about_non_one_to_one_page_setup() -> None:
                 PageSetupSummary(
                     name="FIT_TO_PAPER",
                     model_type=False,
+                    plot_type=5,
                     use_standard_scale=True,
                     standard_scale=0,
                 )
@@ -96,3 +99,22 @@ def test_office_inventory_warns_about_non_one_to_one_page_setup() -> None:
     )
 
     assert any("not verified at 1:1" in warning for warning in report["warnings"])
+
+
+def test_office_inventory_warns_about_non_layout_page_setup() -> None:
+    report = build_office_inventory_report(
+        DrawingInspection(
+            path="window-plot.dwg",
+            page_setups=[
+                PageSetupSummary(
+                    name="WINDOW_SETUP",
+                    model_type=False,
+                    plot_type=1,
+                    use_standard_scale=True,
+                    standard_scale=16,
+                )
+            ],
+        )
+    )
+
+    assert any("not verified as a Layout plot type" in warning for warning in report["warnings"])

@@ -36,6 +36,7 @@ Record from the structured inspection result:
 - detected frame labels, dimensions, handles, and layers;
 - paper-space layouts and the approved title-block layout name, if any;
 - named page setup;
+- `PlotType=Layout` evidence for that named page setup;
 - exact plotter/PC3 name;
 - exact CTB/STB plot-style name;
 - exact case-sensitive canonical media name.
@@ -53,7 +54,7 @@ PC3 paper when the office requires exact media validation. Add `template_layout`
 source DWG contains the accepted paper-space layout and it has exactly one floating viewport.
 
 Run `match_paper_profile` for every observed label, then `create_publish_plan`. Any unmatched label,
-missing/mismatched/non-1:1 page setup, ambiguous frame, nonstandard scale, missing template, or
+missing/mismatched/non-Layout/non-1:1 page setup, ambiguous frame, nonstandard scale, missing template, or
 layout-name collision must remain a blocker.
 
 ## 3. Freeze and approve the local profile

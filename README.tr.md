@@ -9,7 +9,8 @@ CadPlot MCP; çok sayıdaki revize DWG dosyasını denetlenebilir biçimde incel
 Hazır olan parçalar:
 
 - yalnızca izin verilen klasörlerde DWG tarama;
-- çalışan AutoCAD üzerinden salt-okunur layout, page setup ve çerçeve inceleme;
+- çalışan AutoCAD üzerinden salt-okunur layout/page setup, dikdörtgen polyline ve yalnız güvenli
+  koşulları sağlayan attribute-backed block çerçeve inceleme;
 - `70x100`, `700x1000 mm` ve `A0-A5` gibi kâğıt etiketi tanıma;
 - çerçeve geometrisinden plot penceresi, yön ve izinli ölçek türetme;
 - PC3 ile CTB/STB değerlerini şirket profiliyle karşılaştırma;
@@ -98,9 +99,9 @@ kâğıt etiketiyle eşleşmeyen `examples/config.inventory.example.yaml` kullan
 harf kullanılarak girilmelidir.
 `pdf_page_tolerance_mm`, üretilen PDF'nin fiziksel sayfa ölçüsü kontrolünü belirler ve güvenlik
 nedeniyle 10 mm'yi geçemez.
-Named page setup ayrıca doğrulanmış 1:1 paper-space plot ölçeği kullanmalıdır. `Scale to fit` veya
-okunamayan/custom ama 1:1 olmayan setup planı bloklar; model ölçeği yalnız kilitli viewport'ta
-uygulanır.
+Named page setup `PlotType=Layout` ve doğrulanmış 1:1 paper-space plot ölçeği kullanmalıdır.
+`Scale to fit` veya okunamayan/custom ama 1:1 olmayan setup planı bloklar; model ölçeği yalnız
+kilitli viewport'ta uygulanır.
 `minimum_frame_confidence` varsayılan olarak `0.85` değerindedir; nested veya belirsiz çerçeveler
 bu eşiğin altında otomatik yayına alınmaz.
 Ofisin güvenilir bir çerçeve layer standardı varsa `frame_layers` listesi doldurulabilir; diğer
