@@ -35,7 +35,7 @@ def _run(
             "autocad-2016-net45",
         ),
         "2025": (
-            "AutoCAD 2025-2026 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "AutoCAD 2025 (ACADVER R25.0; raw 25.0s (LMS Tech))",
             "autocad-2025-net8",
         ),
     }
@@ -240,7 +240,7 @@ def _status(release: str) -> dict:
             "autocad-2016-net45",
         ),
         "2025": (
-            "AutoCAD 2025-2026 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "AutoCAD 2025 (ACADVER R25.0; raw 25.0s (LMS Tech))",
             "autocad-2025-net8",
         ),
     }[release]

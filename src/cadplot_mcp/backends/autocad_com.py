@@ -28,7 +28,7 @@ MAX_BLOCK_DEFINITION_ENTITIES = 1_000
 MAX_BLOCK_DEFINITION_TEXTS = 100
 DEFAULT_AUTOCAD_PROGID = "AutoCAD.Application"
 AUTOCAD_PROGID_PATTERN = re.compile(
-    r"^AutoCAD\.Application(?:\.(20\.1|24\.3|25\.0|25\.1))?$"
+    r"^AutoCAD\.Application(?:\.(20\.1|24\.3|25\.0))?$"
 )
 
 
@@ -40,7 +40,7 @@ def resolve_autocad_progid(value: str | None = None) -> tuple[str, str | None]:
     if match is None:
         raise ValueError(
             "CADPLOT_AUTOCAD_PROGID must be AutoCAD.Application or one of the approved "
-            "version-specific ProgIDs: 20.1, 24.3, 25.0, 25.1."
+            "version-specific ProgIDs: 20.1, 24.3, 25.0."
         )
     return selected, match.group(1)
 

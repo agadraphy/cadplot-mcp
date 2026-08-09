@@ -31,11 +31,14 @@ $env:CADPLOT_AUTOCAD_PROGID = "AutoCAD.Application.20.1"
 $env:CADPLOT_AUTOCAD_PROGID = "AutoCAD.Application.25.0"
 ```
 
-CadPlot accepts only the version-independent identity or approved exact 20.1/24.3/25.0/25.1
+CadPlot accepts only the version-independent identity or approved exact 20.1/24.3/25.0
 identities, calls `GetActiveObject` without launching AutoCAD, and checks that the returned
 application version matches the requested release. A mismatch fails closed before any DWG opens.
 `cadplot-doctor --mode full` also compares an exact ProgID to the named-pipe plug-in's
 `runtimeSeries`; `inspection_identity_matched=false` prevents a ready result.
+
+AutoCAD 2026 (`25.1`) is rejected because it is outside this project's licensed acceptance scope,
+even though Autodesk documents that release as able to use the 2025 managed SDK.
 
 The default is 120 seconds. Configuration accepts only integer values from 5 through 600 seconds.
 The helper protocol limits requests to 1 MiB, responses to 8 MiB, layouts/frames to 5,000, named

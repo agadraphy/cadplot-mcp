@@ -48,6 +48,38 @@ try {
 
     $bundleVerification = & $verifier -BundlePath $fixtureBundle -PassThru
 
+    $fixturePackagePath = Join-Path $fixtureBundle "PackageContents.xml"
+    $packageBytes = [System.IO.File]::ReadAllBytes($fixturePackagePath)
+    $routeTamperBlocked = $false
+    try {
+        $packageText = [System.Text.Encoding]::UTF8.GetString($packageBytes)
+        $tamperedPackageText = $packageText.Replace(
+            'SeriesMin="R25.0" SeriesMax="R25.0"',
+            'SeriesMin="R25.0" SeriesMax="R25.1"'
+        )
+        if ($tamperedPackageText -ceq $packageText) {
+            throw "Bundle route tamper fixture did not change PackageContents.xml."
+        }
+        [System.IO.File]::WriteAllText(
+            $fixturePackagePath,
+            $tamperedPackageText,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        try {
+            & $verifier -BundlePath $fixtureBundle -PassThru
+        }
+        catch {
+            if ($_.Exception.Message -notlike "*adapter route is not exact*") { throw }
+            $routeTamperBlocked = $true
+        }
+    }
+    finally {
+        [System.IO.File]::WriteAllBytes($fixturePackagePath, $packageBytes)
+    }
+    if (-not $routeTamperBlocked) {
+        throw "Bundle verifier accepted an expanded AutoCAD runtime route."
+    }
+
     $fixtureRelease = Split-Path -Parent $fixtureBundle
     $fixtureArchive = Join-Path $fixtureRelease "CadPlotMcp.bundle.zip"
     Compress-Archive `
@@ -306,6 +338,7 @@ try {
         passed = $true
         protocol_only_fixture = $true
         protocol_only_rejected_as_real = $protocolOnlyRejected
+        bundle_runtime_route_tamper_blocked = $routeTamperBlocked
         bundle_release_verified = $true
         bundle_release_archive_tamper_blocked = $archiveTamperBlocked
         release_kit_verified = $releaseKitSmoke.exact_tree_and_hashes_verified

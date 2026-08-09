@@ -33,7 +33,7 @@ Hazır olan parçalar:
 - orijinale dokunmadan izole çalışma klasörüne doğrulanmış DWG kopyası alma;
 - beklenen PDF'leri yol, gerçek PDF yapısı, tek sayfa, sayfa ölçüsü, boyut ve SHA-256 açısından
   denetleme;
-- AutoCAD 2016 ve 2025-2026 için ayrı .NET adaptör/bundle yapısı;
+- AutoCAD 2016 ve 2025 için ayrı, exact sürüme kilitli .NET adaptör/bundle yapısı;
 - varsayılan kapalı, ana AutoCAD thread'inde çalışan sınırlı yayın kuyruğu;
 - açık plan+manifest onayını workspace dışındaki Windows DPAPI korumalı anahtarla imzalayan restart
   güvenli kuyruk niyeti; hiç başlamamış işler aynı kimlikle geri yüklenir, yarıda kesilen işler

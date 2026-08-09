@@ -75,7 +75,31 @@ def test_bundle_routes_supported_autocad_series() -> None:
         for item in root.findall("./Components/ComponentEntry/RuntimeRequirements")
     }
 
-    assert routes == {("R20.1", "R20.1"), ("R25.0", "R25.1")}
+    assert routes == {("R20.1", "R20.1"), ("R25.0", "R25.0")}
+
+
+def test_bundle_verifier_requires_exact_module_to_runtime_routes() -> None:
+    verifier = (REPOSITORY_ROOT / "scripts" / "verify-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+    smoke = (REPOSITORY_ROOT / "scripts" / "smoke-bundle-install.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "exactly the 2016 and 2025 adapter routes",
+        'Series = "R20.1"',
+        'Series = "R25.0"',
+        'AppType -cne ".Net"',
+        'LoadReasons -cne "LoadOnAutoCADStartup"',
+        'OS -cne "Win64"',
+        'Platform -cne "AutoCAD"',
+        "SeriesMin -cne $expectedRoute.Series",
+        "SeriesMax -cne $expectedRoute.Series",
+    ):
+        assert required in verifier
+    assert 'SeriesMax="R25.1"' in smoke
+    assert "bundle_runtime_route_tamper_blocked" in smoke
 
 
 def test_repository_contains_mit_license() -> None:
@@ -127,6 +151,7 @@ def test_api_probe_is_compile_only() -> None:
     assert '"R20.1" = "net45"' in script
     assert '"R24.3" = "net48"' in script
     assert '"R25.0" = "net8.0-windows"' in script
+    assert '"R25.1" =' not in script
     assert "--framework $targetFramework" in script
     assert "[switch]$PassThru" in script
     assert "check-autocad-api-series.ps1" in script
@@ -617,8 +642,9 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "AutoCadRuntimeIdentity.IsSupported",
     ):
         assert required in runtime
-    for required in ("R20.1", "R25.0", "R25.1"):
+    for required in ("R20.1", "R25.0"):
         assert required in identity
+    assert 'String.Equals(runtimeSeries, "R25.1"' not in identity
     for required in (
         '"build_commit"',
         '"plugin_sha256"',

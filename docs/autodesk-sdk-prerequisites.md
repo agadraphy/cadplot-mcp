@@ -24,11 +24,16 @@ Official references:
 
 - [AutoCAD 2025 managed .NET project setup](https://help.autodesk.com/cloudhelp/2025/PLK/OARX-DevGuide-Managed/files/GUID-8657D153-0120-4881-A3C8-E00ED139E0D3.htm)
 - [AutoCAD 2025 compatibility table](https://help.autodesk.com/cloudhelp/2025/ENU/AutoCAD-Customization/files/GUID-C21B8F00-C7DE-4E44-8006-D5DC99199F31.htm)
+- [AutoCAD 2026 compatibility table showing release 25.1](https://help.autodesk.com/view/OARX/2026/ENU/?guid=GUID-A6C680F2-DE2E-418A-A182-E4884073338A)
 - [AutoCAD 2016 compatibility table](https://help.autodesk.com/cloudhelp/2016/ENU/AutoCAD-Customization/files/GUID-D54B0935-1638-4F97-8B37-1EC3635A1E71.htm)
 - [ObjectARX SDK licensing and download](https://aps.autodesk.com/developer/overview/autocad-objectarx-sdk-licensing)
 
 The SDK agreement is an external legal gate. CadPlot never downloads, installs, or accepts it on the
 operator's behalf.
+
+The 2025 adapter is intentionally routed only to release `R25.0`. Autodesk lists AutoCAD 2026 as
+`R25.1`; compatibility with the 2025 managed SDK is not treated as equivalent to a licensed 2026
+acceptance run, so the package loader, COM allowlist, runtime guard, and verifier all reject it.
 
 After the two exact SDK directories are available, a clean source checkout can produce and verify the
 full transfer package in one command without launching AutoCAD:

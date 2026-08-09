@@ -30,7 +30,7 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
             "R20.1",
         ),
         "2025": (
-            "AutoCAD 2025-2026 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "AutoCAD 2025 (ACADVER R25.0; raw 25.0s (LMS Tech))",
             "autocad-2025-net8",
             "R25.0",
         ),

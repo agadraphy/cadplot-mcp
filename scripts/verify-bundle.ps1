@@ -79,17 +79,44 @@ if (
 ) {
     throw "PackageContents.xml does not identify the expected CadPlot AutoCAD package."
 }
-$expectedModules = @(
-    "Contents/Windows/2016/CadPlotMcp.AutoCAD2016.dll",
-    "Contents/Windows/2025/CadPlotMcp.AutoCAD2025.dll"
-)
-$modules = @(
-    $package.Components.ComponentEntry | ForEach-Object {
-        ([string]$_.ModuleName).TrimStart('.', '/', '\').Replace('\', '/')
+$expectedRoutes = @(
+    [pscustomobject]@{
+        AppName = "CadPlot MCP (AutoCAD 2016)"
+        ModuleName = "Contents/Windows/2016/CadPlotMcp.AutoCAD2016.dll"
+        Series = "R20.1"
+    },
+    [pscustomobject]@{
+        AppName = "CadPlot MCP (AutoCAD 2025)"
+        ModuleName = "Contents/Windows/2025/CadPlotMcp.AutoCAD2025.dll"
+        Series = "R25.0"
     }
 )
-if (@($expectedModules | Where-Object { $_ -notin $modules }).Count -gt 0) {
-    throw "PackageContents.xml does not route both supported adapter modules."
+$components = @($package.SelectNodes("./Components/ComponentEntry"))
+if ($components.Count -ne $expectedRoutes.Count) {
+    throw "PackageContents.xml must contain exactly the 2016 and 2025 adapter routes."
+}
+foreach ($expectedRoute in $expectedRoutes) {
+    $matches = @($components | Where-Object {
+        ([string]$_.ModuleName).TrimStart('.', '/', '\').Replace('\', '/') -ceq
+            $expectedRoute.ModuleName
+    })
+    if ($matches.Count -ne 1) {
+        throw "PackageContents.xml has a missing or duplicate adapter route: $($expectedRoute.ModuleName)"
+    }
+    $component = $matches[0]
+    $requirements = @($component.SelectNodes("./RuntimeRequirements"))
+    if (
+        [string]$component.AppName -cne $expectedRoute.AppName -or
+        [string]$component.AppType -cne ".Net" -or
+        [string]$component.LoadReasons -cne "LoadOnAutoCADStartup" -or
+        $requirements.Count -ne 1 -or
+        [string]$requirements[0].OS -cne "Win64" -or
+        [string]$requirements[0].Platform -cne "AutoCAD" -or
+        [string]$requirements[0].SeriesMin -cne $expectedRoute.Series -or
+        [string]$requirements[0].SeriesMax -cne $expectedRoute.Series
+    ) {
+        throw "PackageContents.xml adapter route is not exact for $($expectedRoute.AppName)."
+    }
 }
 
 $dllPaths = @($expected | Where-Object { $_.EndsWith('.dll') })

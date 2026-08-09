@@ -20,7 +20,7 @@ public sealed class Plugin
         if (_runtime is not null) return;
         _runtime = new AutoCadPublishRuntime(
             "autocad-2025-net8",
-            () => "AutoCAD 2025-2026"
+            () => "AutoCAD 2025"
         );
 #else
         if (_host is not null) return;

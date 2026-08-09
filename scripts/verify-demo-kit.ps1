@@ -182,7 +182,7 @@ if ($manifest.api_probe_ran -eq $true) {
         "R20.1" = "net45"; "R21.0" = "net48"; "R22.0" = "net48"
         "R23.0" = "net48"; "R23.1" = "net48"; "R24.0" = "net48"
         "R24.1" = "net48"; "R24.2" = "net48"; "R24.3" = "net48"
-        "R25.0" = "net8.0-windows"; "R25.1" = "net8.0-windows"
+        "R25.0" = "net8.0-windows"
     }
     if ($frameworks[[string]$probe.detected_series] -cne [string]$probe.target_framework) {
         throw "Demo-kit API series and target framework do not match."

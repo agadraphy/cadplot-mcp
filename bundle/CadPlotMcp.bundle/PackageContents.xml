@@ -6,7 +6,7 @@
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R20.1" SeriesMax="R20.1" />
     </ComponentEntry>
     <ComponentEntry AppName="CadPlot MCP (AutoCAD 2025)" ModuleName="./Contents/Windows/2025/CadPlotMcp.AutoCAD2025.dll" AppType=".Net" LoadReasons="LoadOnAutoCADStartup">
-      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.1" />
+      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.0" />
     </ComponentEntry>
   </Components>
 </ApplicationPackage>

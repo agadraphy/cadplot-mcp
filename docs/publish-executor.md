@@ -49,7 +49,7 @@ $env:CADPLOT_PIPE_NAME = "cadplot-mcp"
 
 Restart AutoCAD after changing them. `get_autocad_plugin_status` reports normalized
 `runtimeSeries`, `runtimeSupported`, and `publishEnabled`. The 2016 adapter enables publishing only
-on `R20.1`; the 2025 adapter enables it only on `R25.0` or `R25.1`. Raw values such as
+on `R20.1`; the 2025 adapter enables it only on `R25.0`. Raw values such as
 `20.1s (LMS Tech)` are normalized before the fail-closed adapter check.
 The pipe name must match `[A-Za-z0-9._-]{1,128}` in both processes. Distinct matching names are
 required when multiple AutoCAD bridges are intentionally active on one workstation.
@@ -57,8 +57,9 @@ required when multiple AutoCAD bridges are intentionally active on one workstati
 ## Evidence boundaries
 
 `scripts/probe-autocad-api.ps1` first reads all three managed assembly identities, then compiles the
-shared source with the release-appropriate runtime target: `R20.1` uses `net45`, `R25.0`/`R25.1`
-uses `net8.0-windows`, and supported intervening releases use `net48`. Unknown series fail closed.
+shared source with the release-appropriate runtime target: `R20.1` uses `net45`, `R25.0` uses
+`net8.0-windows`, and supported intervening releases use `net48`. Unknown series, including
+`R25.1`, fail closed.
 It never launches AutoCAD. A passing probe proves API signatures only. It does not prove:
 
 - that the 2016 or 2025 bundle was built with its matching SDK;

@@ -331,7 +331,7 @@ count; it is not AutoCAD execution evidence.
 ## AutoCAD plug-in builds
 
 The repository contains separate adapters for AutoCAD 2016 (`net45`, release `R20.1`) and
-AutoCAD 2025–2026 (`net8.0-windows`, releases `R25.0`–`R25.1`). A normal solution build validates
+AutoCAD 2025 (`net8.0-windows`, release `R25.0`). A normal solution build validates
 the shared protocol without Autodesk binaries. A distributable bundle must be built with local
 ObjectARX/AutoCAD managed reference folders:
 

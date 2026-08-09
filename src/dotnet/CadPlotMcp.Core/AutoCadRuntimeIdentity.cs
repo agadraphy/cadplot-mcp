@@ -23,8 +23,7 @@ namespace CadPlotMcp.Core
             if (String.Equals(adapter, "autocad-2016-net45", StringComparison.Ordinal))
                 return String.Equals(runtimeSeries, "R20.1", StringComparison.Ordinal);
             if (String.Equals(adapter, "autocad-2025-net8", StringComparison.Ordinal))
-                return String.Equals(runtimeSeries, "R25.0", StringComparison.Ordinal)
-                    || String.Equals(runtimeSeries, "R25.1", StringComparison.Ordinal);
+                return String.Equals(runtimeSeries, "R25.0", StringComparison.Ordinal);
             return false;
         }
     }

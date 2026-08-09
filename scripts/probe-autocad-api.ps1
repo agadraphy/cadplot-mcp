@@ -27,7 +27,6 @@ $targetFrameworks = @{
     "R24.2" = "net48"
     "R24.3" = "net48"
     "R25.0" = "net8.0-windows"
-    "R25.1" = "net8.0-windows"
 }
 $targetFramework = $targetFrameworks[[string]$identity.DetectedSeries]
 if ([string]::IsNullOrWhiteSpace($targetFramework)) {

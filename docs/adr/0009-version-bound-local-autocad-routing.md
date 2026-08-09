@@ -24,7 +24,7 @@ The inspector and publisher must not silently address different AutoCAD releases
 Use two explicit, independently validated local identities:
 
 1. `CADPLOT_AUTOCAD_PROGID` selects read-only inspection. Accept only
-   `AutoCAD.Application` or the approved exact 20.1/24.3/25.0/25.1 ProgIDs. The inspector calls
+   `AutoCAD.Application` or the approved exact 20.1/24.3/25.0 ProgIDs. The inspector calls
    `GetActiveObject` and never `CreateObject`, verifies the returned application version, and binds
    the selected identity into the closed parent-to-worker schema.
 2. `CADPLOT_PIPE_NAME` selects publishing. Python and both AutoCAD adapters use the same value and

@@ -14,7 +14,6 @@ PROGID_RUNTIME_SERIES = {
     "AutoCAD.Application.20.1": "R20.1",
     "AutoCAD.Application.24.3": "R24.3",
     "AutoCAD.Application.25.0": "R25.0",
-    "AutoCAD.Application.25.1": "R25.1",
 }
 
 

@@ -11,6 +11,9 @@ All notable changes to this project are documented in this file.
   packaged as production adapters. The cross-version Autodesk runtime also has an explicit
   nullable context so enabling the 2025 SDK path compiles under the repository's warnings-as-errors
   policy.
+- AutoCAD package, COM selection, runtime guard, compile probe, and offline verifier now share the
+  exact support boundary `R20.1` plus `R25.0`. The former `R25.1` route was removed because Autodesk
+  identifies it as AutoCAD 2026, which has no licensed acceptance in this project.
 - Symmetric `CADPLOT_PIPE_NAME` selection in the Python client and both AutoCAD adapters, plus
   bounded version-specific `CADPLOT_AUTOCAD_PROGID` inspection. Safe pipe names are validated by
   the shared .NET protocol; COM selection accepts only approved AutoCAD identities and verifies the
@@ -154,7 +157,7 @@ All notable changes to this project are documented in this file.
   public-readiness claims remain false.
 - Initial safety-first AutoCAD drawing inspection and plot-planning MCP server.
 - Copy-only and dry-run-oriented workflow safeguards.
-- AutoCAD 2016 (`net45`) and AutoCAD 2025–2026 (`net8.0-windows`) adapter scaffolds.
+- AutoCAD 2016 (`net45`) and AutoCAD 2025 (`net8.0-windows`) adapter scaffolds.
 - Version-routed Autodesk `.bundle` manifest and guarded bundle/install scripts.
 - Whitelisted, size-limited read-only named-pipe status protocol.
 - Hash-verified, read-only publish-plan preview across the Python and .NET boundary.

@@ -35,7 +35,6 @@ class FakeComClient:
         ("AutoCAD.Application.20.1", "AutoCAD.Application.20.1", "20.1"),
         ("AutoCAD.Application.24.3", "AutoCAD.Application.24.3", "24.3"),
         ("AutoCAD.Application.25.0", "AutoCAD.Application.25.0", "25.0"),
-        ("AutoCAD.Application.25.1", "AutoCAD.Application.25.1", "25.1"),
     ],
 )
 def test_resolve_autocad_progid_is_bounded_and_version_specific(
@@ -48,6 +47,7 @@ def test_resolve_autocad_progid_is_bounded_and_version_specific(
     "configured",
     [
         "AutoCAD.Application.25",
+        "AutoCAD.Application.25.1",
         "AutoCAD.Application.20",
         "Excel.Application",
         "AutoCAD.Application.25.0.extra",
