@@ -150,6 +150,9 @@ values, and unsafe tolerance ranges are rejected at startup. Company-owned DWT, 
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
 Run `uv run python scripts/audit-source-tree.py` before publication; CI and local preflight reject
 tracked/non-ignored CAD assets, plot resources, archives, local config, and high-confidence secrets.
+The same audit requires immutable full-SHA GitHub Action references, exact read-only workflow
+permissions, non-persistent checkout credentials, and no `pull_request_target`; Dependabot is
+configured for `uv`, NuGet, and Actions updates.
 For a network-backed, lock-exact dependency check, run
 `scripts/run-local-preflight.ps1 -AuditDependencies`. It audits the exported production Python lock
 with hashes, all transitive .NET packages, and the Python license declarations. The resulting JSON

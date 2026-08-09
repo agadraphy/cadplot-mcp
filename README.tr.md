@@ -5,6 +5,8 @@ bundle hashlerini, Python envanterini ve pilot yollarını bağımsız doğrular
 değişikliği ayrıca raporlanır; AutoCAD açılmaz ve yayın etkinleştirilmez.
 `uninstall-release-kit.ps1`, aynı makbuza bağlı `-WhatIf` destekli geri alma sağlar; doğrulanmış
 bundle'ı Python'dan önce kaldırır, pilot verisini ve makbuzu bilerek korur ve yarım işlemden devam eder.
+GitHub Actions bağımlılıkları immutable tam commit SHA'larına sabitlenir; CI salt-okunur izin ve
+kalıcı olmayan checkout kimliği kullanır. Dependabot `uv`, NuGet ve Actions güncellemelerini izler.
 
 CadPlot MCP; çok sayıdaki revize DWG dosyasını denetlenebilir biçimde incelemek, pafta
 çerçevelerini şirket page setup'larıyla eşleştirmek, ölçek/layout kararlarını planlamak ve PDF

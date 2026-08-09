@@ -3,6 +3,8 @@ import re
 import xml.etree.ElementTree as element_tree
 from pathlib import Path
 
+import yaml
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -905,6 +907,9 @@ def test_github_templates_warn_against_proprietary_assets_and_false_evidence() -
 
 def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    dependabot = yaml.safe_load(
+        (REPOSITORY_ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+    )
     preflight = (REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1").read_text(
         encoding="utf-8"
     )
@@ -914,6 +919,19 @@ def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> Non
     assert "cancel-in-progress: true" in workflow
     assert "uv sync --frozen" in workflow
     assert "run-local-preflight.ps1 -SkipSync -AuditDependencies" in workflow
+    assert "persist-credentials: false" in workflow
+    action_pins = re.findall(r"uses:\s+[^\s@]+@([0-9a-f]{40})", workflow)
+    assert action_pins == [
+        "11d5960a326750d5838078e36cf38b85af677262",
+        "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
+        "a26af69be951a213d495a4c3e4e4022e16d87065",
+        "67a3573c9a986a3f9c594539f4ab511d57bb3ce9",
+    ]
+    assert {item["package-ecosystem"] for item in dependabot["updates"]} == {
+        "uv",
+        "nuget",
+        "github-actions",
+    }
     for required in (
         "scripts\\smoke-mcp-stdio.py",
         "scripts\\run-synthetic-demo.py",

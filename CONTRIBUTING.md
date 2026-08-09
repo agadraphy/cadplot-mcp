@@ -22,6 +22,14 @@ access to the configured advisory sources.
 Keep changes focused, document user-visible behavior, and add or update tests
 for changed safety rules.
 
+## Workflow supply-chain rules
+
+External actions in `.github/workflows` must be pinned to a full 40-character commit SHA with the
+release tag retained as an inline comment for Dependabot. Checkout must set
+`persist-credentials: false`; workflow permissions remain exact `contents: read`; do not introduce
+`pull_request_target`. Review automated `uv`, NuGet, and Actions update pull requests like any other
+code change and rerun the canonical preflight before merging.
+
 ## CAD safety requirements
 
 Contributions must preserve these invariants:

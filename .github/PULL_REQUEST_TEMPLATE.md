@@ -18,6 +18,7 @@ Describe the focused behavior change and why it is needed.
 - [ ] Live AutoCAD claims identify the licensed release and authorized test asset
 - [ ] Documentation and changelog updated where behavior changed
 - [ ] No company DWG/PDF/DWT/PC3/PMP/CTB/STB, credentials, or Autodesk binaries are included
+- [ ] External GitHub Actions remain full-SHA pinned with read-only permissions and no persisted checkout token
 
 ## Known limitations
 

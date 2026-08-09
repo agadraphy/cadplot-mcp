@@ -28,6 +28,12 @@ The same check runs in CI and local preflight to reject tracked or stageable CAD
 assets, archives, local configuration, Autodesk assemblies, oversized files, and
 high-confidence credential patterns. This is a guardrail, not a substitute for review.
 
+The audit also requires every external GitHub Action to use an immutable full commit SHA,
+read-only workflow permissions, checkout credential persistence disabled, and no
+`pull_request_target` trigger. `.github/dependabot.yml` schedules updates for the exact `uv` lock,
+NuGet projects, and pinned Actions. Repository administrators must separately enable Dependabot
+alerts/security updates and branch protection in GitHub settings after the repository is created.
+
 The local named pipe is restricted to the creating Windows user. .NET 8 uses
 `PipeOptions.CurrentUserOnly`; the AutoCAD 2016/.NET Framework 4.5 build uses
 a protected ACL granting full control only to the current user SID. Do not

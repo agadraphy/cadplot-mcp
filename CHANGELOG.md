@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Full-commit-pinned, read-only GitHub Actions with non-persistent checkout credentials, workflow
+  supply-chain auditing, and weekly Dependabot coverage for `uv`, NuGet, and Actions dependencies.
 - Receipt-bound resumable release uninstaller with AutoCAD process guard, full `-WhatIf` child
   preflight, bundle-before-Python removal, idempotent partial-run recovery, and deliberate pilot/
   install-receipt preservation.

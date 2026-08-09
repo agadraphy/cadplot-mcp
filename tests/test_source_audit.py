@@ -37,3 +37,62 @@ def test_source_audit_rejects_high_confidence_secret_patterns(tmp_path: Path) ->
     violations = MODULE.audit_paths(tmp_path, [secret.name])
 
     assert violations == ["high-confidence GitHub token: notes.txt"]
+
+
+def test_workflow_audit_accepts_read_only_full_sha_pins(tmp_path: Path) -> None:
+    workflow = tmp_path / ".github" / "workflows" / "tests.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        """name: tests
+permissions:
+  contents: read
+on:
+  pull_request:
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@1111111111111111111111111111111111111111
+        with:
+          persist-credentials: false
+""",
+        encoding="utf-8",
+    )
+
+    violations, workflow_count, action_count = MODULE.audit_workflows(
+        tmp_path, [str(workflow.relative_to(tmp_path))]
+    )
+
+    assert violations == []
+    assert workflow_count == 1
+    assert action_count == 1
+
+
+def test_workflow_audit_rejects_mutable_action_write_token_and_target_event(
+    tmp_path: Path,
+) -> None:
+    workflow = tmp_path / ".github" / "workflows" / "unsafe.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        """name: unsafe
+permissions: write-all
+on:
+  pull_request_target:
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+""",
+        encoding="utf-8",
+    )
+
+    violations, workflow_count, action_count = MODULE.audit_workflows(
+        tmp_path, [str(workflow.relative_to(tmp_path))]
+    )
+
+    assert workflow_count == 1
+    assert action_count == 1
+    assert any("permissions are not exact read-only" in item for item in violations)
+    assert any("uses pull_request_target" in item for item in violations)
+    assert any("not pinned to a full commit" in item for item in violations)

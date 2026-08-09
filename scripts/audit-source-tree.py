@@ -5,6 +5,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import yaml
+
 MAX_SOURCE_FILE_BYTES = 10 * 1024 * 1024
 MAX_CONTENT_SCAN_BYTES = 2 * 1024 * 1024
 FORBIDDEN_SUFFIXES = {
@@ -47,6 +49,10 @@ SECRET_PATTERNS = {
     "GitHub token": re.compile(rb"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
     "AWS access key": re.compile(rb"\bAKIA[0-9A-Z]{16}\b"),
 }
+WORKFLOW_PREFIX = ".github/workflows/"
+PINNED_ACTION_PATTERN = re.compile(
+    r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]+)?@[0-9a-f]{40}$"
+)
 
 
 def _git_paths(root: Path) -> list[str]:
@@ -109,6 +115,84 @@ def audit_paths(root: Path, relative_paths: list[str]) -> list[str]:
     return sorted(set(violations))
 
 
+def _mapping_nodes(value: object) -> list[dict[object, object]]:
+    nodes: list[dict[object, object]] = []
+    if isinstance(value, dict):
+        nodes.append(value)
+        for child in value.values():
+            nodes.extend(_mapping_nodes(child))
+    elif isinstance(value, list):
+        for child in value:
+            nodes.extend(_mapping_nodes(child))
+    return nodes
+
+
+def audit_workflows(root: Path, relative_paths: list[str]) -> tuple[list[str], int, int]:
+    workflow_paths = sorted(
+        (
+            relative
+            for relative in relative_paths
+            if relative.replace("\\", "/").startswith(WORKFLOW_PREFIX)
+            and Path(relative).suffix.casefold() in {".yml", ".yaml"}
+        ),
+        key=str.casefold,
+    )
+    violations: list[str] = []
+    action_references = 0
+    if not workflow_paths:
+        return ["GitHub Actions workflow set is empty"], 0, 0
+
+    for relative in workflow_paths:
+        display = relative.replace("\\", "/")
+        path = root / relative
+        try:
+            text = path.read_text(encoding="utf-8")
+            document = yaml.safe_load(text)
+        except (OSError, UnicodeError, yaml.YAMLError) as exc:
+            violations.append(f"invalid GitHub Actions workflow ({exc}): {display}")
+            continue
+        if not isinstance(document, dict):
+            violations.append(f"GitHub Actions workflow is not a mapping: {display}")
+            continue
+        if document.get("permissions") != {"contents": "read"}:
+            violations.append(
+                f"GitHub Actions workflow permissions are not exact read-only: {display}"
+            )
+        if re.search(r"(?m)^\s*pull_request_target\s*:", text):
+            violations.append(f"GitHub Actions workflow uses pull_request_target: {display}")
+
+        for node in _mapping_nodes(document):
+            reference = node.get("uses")
+            if not isinstance(reference, str):
+                continue
+            reference = reference.strip()
+            if reference.startswith("./"):
+                continue
+            action_references += 1
+            if reference.startswith("docker://"):
+                if not re.search(r"@sha256:[0-9a-f]{64}$", reference):
+                    violations.append(
+                        f"GitHub Actions container is not digest-pinned: {display}: {reference}"
+                    )
+                continue
+            if not PINNED_ACTION_PATTERN.fullmatch(reference):
+                violations.append(
+                    "GitHub Actions reference is not pinned to a full commit: "
+                    f"{display}: {reference}"
+                )
+                continue
+            if reference.casefold().startswith("actions/checkout@"):
+                options = node.get("with")
+                persisted = (
+                    options.get("persist-credentials") if isinstance(options, dict) else None
+                )
+                if persisted is not False and str(persisted).casefold() != "false":
+                    violations.append(
+                        f"GitHub checkout persists credentials: {display}: {reference}"
+                    )
+    return sorted(set(violations)), len(workflow_paths), action_references
+
+
 def _is_reparse_point(path: Path) -> bool:
     try:
         return bool(path.lstat().st_file_attributes & 0x400)
@@ -132,13 +216,17 @@ def main() -> int:
     try:
         paths = _git_paths(root)
         violations = audit_paths(root, paths)
+        workflow_violations, workflow_count, action_count = audit_workflows(root, paths)
+        violations.extend(workflow_violations)
     except (OSError, RuntimeError, UnicodeDecodeError) as exc:
         print(json.dumps({"passed": False, "error": str(exc)}, indent=2))
         return 1
     report = {
         "passed": not violations,
         "files_scanned": len(paths),
-        "violations": violations,
+        "workflow_files_scanned": workflow_count,
+        "workflow_action_references": action_count,
+        "violations": sorted(set(violations)),
     }
     print(json.dumps(report, indent=2))
     return 0 if report["passed"] else 1
