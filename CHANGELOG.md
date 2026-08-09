@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Resumable single-command release-kit installer that revalidates the whole transfer, rejects
+  overlapping paths, reuses only exact verified components, and exposes the AutoCAD bundle last.
+- Long-path-safe exact quarantine deletion for verified Python and AutoCAD bundle removals on
+  Windows PowerShell 5.1, covered by the orchestrated installation smoke's deep virtual environment.
 - Double-verified AutoCAD bundle removal with package/hash identity replay, atomic non-`.bundle`
   quarantine rename, fail-closed retention, and protocol-fixture quarantine cleanup proof.
 - Verified Python uninstaller with `-WhatIf`, repeated manifest/environment validation, redirected-

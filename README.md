@@ -270,6 +270,9 @@ evidence, the complete Python license inventory, and every outer ZIP entry witho
 See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
 `licensed_live_pilot_ready=false`, `public_release_ready=false`, and `live_publish_proven=false`;
 only separately retained licensed 2016/2025 pilot evidence can change those claims.
+Its `install-release-kit.ps1` provides a single `-WhatIf`-capable, resumable first-install command:
+it reuses only verified matching components, prepares pilot/Python first, and exposes the bundle last
+without launching AutoCAD, changing global PATH, or enabling publish.
 The kit's `install-python.ps1` first revalidates the whole transfer, installs exact frozen/hash-
 required dependencies plus the wheel into a unique staging venv, and atomically names a version/
 commit target without changing global PATH. `verify-python-install.ps1` rechecks its retained wheel,

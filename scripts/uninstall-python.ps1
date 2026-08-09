@@ -25,6 +25,15 @@ function Assert-NoRedirectedPath {
     }
 }
 
+function Get-ExtendedLengthPath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if ($Path.StartsWith('\\')) {
+        return "\\?\UNC\$($Path.Substring(2))"
+    }
+    return "\\?\$Path"
+}
+
 if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
     throw "InstallRoot must be an explicit CadPlot Python installation path."
 }
@@ -111,7 +120,8 @@ if (
 ) {
     throw "Renamed Python uninstall quarantine failed its final path check."
 }
-Remove-Item -LiteralPath $quarantine -Recurse -Force
+$deletePath = Get-ExtendedLengthPath -Path $quarantine
+[System.IO.Directory]::Delete($deletePath, $true)
 if (Test-Path -LiteralPath $quarantine) {
     throw "Verified Python uninstall quarantine remained after removal."
 }

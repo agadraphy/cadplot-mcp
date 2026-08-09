@@ -612,7 +612,7 @@ def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     assert "Get-BundleHashSignature" in script
     assert "Move-Item -LiteralPath $destinationBundle -Destination $quarantine" in script
     assert "^\\.cadplot-bundle-removing-[0-9a-f]{32}$" in script
-    assert "Remove-Item -LiteralPath $quarantine -Recurse -Force" in script
+    assert "[System.IO.Directory]::Delete($deletePath, $true)" in script
     assert "Remove-Item -LiteralPath $destinationBundle -Recurse" not in script
 
 
@@ -695,6 +695,9 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
     bundle_smoke = (REPOSITORY_ROOT / "scripts" / "smoke-bundle-install.ps1").read_text(
         encoding="utf-8"
     )
+    release_installer = (REPOSITORY_ROOT / "scripts" / "install-release-kit.ps1").read_text(
+        encoding="utf-8"
+    )
 
     for required in (
         "SupportsShouldProcess = $true",
@@ -726,7 +729,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "manifest changed during verification",
         "Move-Item -LiteralPath $root -Destination $quarantine",
         "^\\.cadplot-python-removing-[0-9a-f]{32}$",
-        "Remove-Item -LiteralPath $quarantine -Recurse -Force",
+        "[System.IO.Directory]::Delete($deletePath, $true)",
         "LivePublishProven = $false",
     ):
         assert required in uninstaller
@@ -735,10 +738,26 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "install-python.ps1",
         "verify-python-install.ps1",
         "uninstall-python.ps1",
+        "install-release-kit.ps1",
         "loopback-http.md",
     ):
         assert name in kit_builder
         assert name in kit_verifier
+    for required in (
+        "SupportsShouldProcess = $true",
+        "verify-release-kit.ps1",
+        "Test-PathsOverlap",
+        "must not be a drive or share root",
+        "Assert-MatchingBundleHashes",
+        "reuse_verified_structure",
+        "reuse_verified",
+        "Keep the AutoCAD-loadable bundle last",
+        "Exercise every component installer's discoverable checks before the first mutation",
+        "AutoCADLaunched = $false",
+        "PublishEnabled = $false",
+        "LivePublishProven = $false",
+    ):
+        assert required in release_installer
     for field in (
         "python_install_what_if_safe",
         "python_install_locked_dependencies",
@@ -746,6 +765,12 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "python_install_tamper_blocked",
         "python_uninstall_what_if_safe",
         "python_uninstall_verified",
+        "release_install_what_if_safe",
+        "release_install_tool_preflight_blocked",
+        "release_install_overlap_blocked",
+        "release_install_completed",
+        "release_install_resume_verified",
+        "release_install_bundle_last",
     ):
         assert field in bundle_smoke
 

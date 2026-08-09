@@ -139,7 +139,13 @@ try {
         $releaseKitSmoke.python_install_overwrite_blocked -ne $true -or
         $releaseKitSmoke.python_install_tamper_blocked -ne $true -or
         $releaseKitSmoke.python_uninstall_what_if_safe -ne $true -or
-        $releaseKitSmoke.python_uninstall_verified -ne $true
+        $releaseKitSmoke.python_uninstall_verified -ne $true -or
+        $releaseKitSmoke.release_install_what_if_safe -ne $true -or
+        $releaseKitSmoke.release_install_tool_preflight_blocked -ne $true -or
+        $releaseKitSmoke.release_install_overlap_blocked -ne $true -or
+        $releaseKitSmoke.release_install_completed -ne $true -or
+        $releaseKitSmoke.release_install_resume_verified -ne $true -or
+        $releaseKitSmoke.release_install_bundle_last -ne $true
     ) {
         throw "Protocol-only combined release-kit smoke failed."
     }
@@ -262,6 +268,12 @@ try {
         python_install_tamper_blocked = $releaseKitSmoke.python_install_tamper_blocked
         python_uninstall_what_if_safe = $releaseKitSmoke.python_uninstall_what_if_safe
         python_uninstall_verified = $releaseKitSmoke.python_uninstall_verified
+        release_install_what_if_safe = $releaseKitSmoke.release_install_what_if_safe
+        release_install_tool_preflight_blocked = $releaseKitSmoke.release_install_tool_preflight_blocked
+        release_install_overlap_blocked = $releaseKitSmoke.release_install_overlap_blocked
+        release_install_completed = $releaseKitSmoke.release_install_completed
+        release_install_resume_verified = $releaseKitSmoke.release_install_resume_verified
+        release_install_bundle_last = $releaseKitSmoke.release_install_bundle_last
         what_if_install_mutated = $false
         copied_hashes_verified = $true
         existing_install_blocked = $overwriteBlocked

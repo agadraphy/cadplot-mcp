@@ -21,6 +21,28 @@ identity, and every ZIP entry without extracting the archive. Compare the separa
 inside the same package proves integrity consistency, not publisher authenticity. Do not install a
 kit that fails.
 
+For the normal first installation, the included resumable orchestrator performs this verification,
+creates/reuses the pilot workspace, installs/reuses the exact Python environment, and makes the
+AutoCAD bundle visible last. Preview all three destinations first:
+
+```powershell
+$preview = & "$releaseRoot\CadPlotMcp.release\scripts\install-release-kit.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -PilotRoot C:\CadPlotPilot `
+  -WhatIf `
+  -PassThru
+$install = & "$releaseRoot\CadPlotMcp.release\scripts\install-release-kit.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -PilotRoot C:\CadPlotPilot `
+  -PassThru
+```
+
+The command never launches AutoCAD, changes global PATH, or enables publish. If an earlier attempt
+stopped, rerun it: an existing component is reused only after exact release hash/commit or required
+pilot-structure verification; a conflicting component fails closed. Required tools and every child
+installer's discoverable checks run before the first mutation. The separate steps below remain
+available for review, upgrades, and recovery.
+
 ## 2. Install the AutoCAD bundle
 
 Preview the exact destination first, then repeat without `-WhatIf`:
@@ -85,8 +107,8 @@ For an upgrade or removal, preview and then remove only the returned version/com
 
 The uninstaller verifies the complete environment twice, rejects redirected or modified paths, then
 atomically renames only that exact install to a unique non-loadable quarantine before recursive
-removal. A rename or removal failure retains the quarantine for inspection. It never removes the
-destination parent or an unverified directory.
+removal using Windows long-path-safe directory handling. A rename or removal failure retains the
+quarantine for inspection. It never removes the destination parent or an unverified directory.
 
 ## 4. Create the external pilot workspace
 

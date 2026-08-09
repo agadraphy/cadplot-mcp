@@ -227,6 +227,9 @@ lisans envanterini ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kur
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
 bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.
+Kitteki `install-release-kit.ps1`, `-WhatIf` destekli ve kaldığı yerden devam edebilen tek-komut ilk
+kurulum sağlar: yalnız doğrulanan eş bileşenleri yeniden kullanır, pilot/Python'u önce hazırlar ve
+bundle'ı en son görünür yapar; AutoCAD'i açmaz, global PATH'i veya publish bayrağını değiştirmez.
 Kitteki `install-python.ps1`, tüm transferi yeniden doğrular; frozen lock bağımlılıklarını zorunlu
 hashlerle ve wheel'i `--no-deps` ile benzersiz staging venv'e kurup sürüm/commit hedefini atomik
 adlandırır. Global PATH'i değiştirmez ve mevcut kurulumu ezmez. `verify-python-install.ps1` wheel,

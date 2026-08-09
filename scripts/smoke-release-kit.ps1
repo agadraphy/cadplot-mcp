@@ -29,6 +29,12 @@ if (-not $resolvedSmokeRoot.StartsWith($resolvedTempRoot, [System.StringComparis
 $installRoot = Join-Path (
     [System.IO.Path]::GetTempPath()
 ) ("cadplot-python-install-smoke-{0}" -f [Guid]::NewGuid().ToString("N"))
+$orchestratedRoot = Join-Path (
+    [System.IO.Path]::GetTempPath()
+) ("cadplot-orchestrated-install-smoke-{0}" -f [Guid]::NewGuid().ToString("N"))
+$orchestratedPythonRoot = Join-Path $orchestratedRoot "python"
+$orchestratedBundleRoot = Join-Path $orchestratedRoot "plugins"
+$orchestratedPilotRoot = Join-Path $orchestratedRoot "pilot"
 $requirementsAuditPath = Join-Path (
     [System.IO.Path]::GetTempPath()
 ) ("cadplot-requirements-audit-{0}.txt" -f [Guid]::NewGuid().ToString("N"))
@@ -52,6 +58,25 @@ function Invoke-SmokeNativeQuiet {
     }
     finally { $ErrorActionPreference = $previousPreference }
     if ($exitCode -ne 0) { throw "$FailureMessage (exit $exitCode)" }
+}
+
+function Remove-SmokeDirectory {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+    if (
+        -not $resolved.StartsWith($resolvedTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $resolved -ieq $resolvedTempRoot.TrimEnd('\')
+    ) {
+        throw "Smoke cleanup target escaped the system temporary directory: $resolved"
+    }
+    if (Test-Path -LiteralPath $resolved) {
+        $extended = if ($resolved.StartsWith('\\')) {
+            "\\?\UNC\$($resolved.Substring(2))"
+        }
+        else { "\\?\$resolved" }
+        [System.IO.Directory]::Delete($extended, $true)
+    }
 }
 
 try {
@@ -82,6 +107,7 @@ try {
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
         "verify-bundle-release.ps1", "verify-release-kit.ps1",
         "install-python.ps1", "verify-python-install.ps1", "uninstall-python.ps1",
+        "install-release-kit.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py"
@@ -320,6 +346,109 @@ try {
         throw "Verified Python installation remained after uninstall smoke."
     }
 
+    $releaseInstaller = Join-Path $kitRoot "scripts\install-release-kit.ps1"
+    $missingToolBlocked = $false
+    try {
+        & $releaseInstaller `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -PilotRoot $orchestratedPilotRoot `
+            -PythonDestinationRoot $orchestratedPythonRoot `
+            -BundleDestinationRoot $orchestratedBundleRoot `
+            -Uv (Join-Path $orchestratedRoot "missing-uv.exe") `
+            -AllowProtocolOnlyFixture `
+            -WhatIf `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*Install tool is missing*") { throw }
+        $missingToolBlocked = $true
+    }
+    if (-not $missingToolBlocked -or (Test-Path -LiteralPath $orchestratedRoot)) {
+        throw "Release installer did not reject a missing tool before mutation."
+    }
+    $overlapBlocked = $false
+    try {
+        & $releaseInstaller `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -PilotRoot (Join-Path $orchestratedPythonRoot "pilot") `
+            -PythonDestinationRoot $orchestratedPythonRoot `
+            -BundleDestinationRoot $orchestratedBundleRoot `
+            -AllowProtocolOnlyFixture `
+            -WhatIf `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*must not overlap*") { throw }
+        $overlapBlocked = $true
+    }
+    if (-not $overlapBlocked -or (Test-Path -LiteralPath $orchestratedRoot)) {
+        throw "Release installer did not reject overlapping destinations before mutation."
+    }
+    $orchestratedPreview = & $releaseInstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -PilotRoot $orchestratedPilotRoot `
+        -PythonDestinationRoot $orchestratedPythonRoot `
+        -BundleDestinationRoot $orchestratedBundleRoot `
+        -AllowProtocolOnlyFixture `
+        -WhatIf `
+        -PassThru
+    if (
+        $orchestratedPreview.WhatIf -ne $true -or
+        $orchestratedPreview.PilotAction -cne "create" -or
+        $orchestratedPreview.PythonAction -cne "install" -or
+        $orchestratedPreview.BundleAction -cne "install" -or
+        (Test-Path -LiteralPath $orchestratedRoot)
+    ) {
+        throw "Release installer -WhatIf did not safely preview all three components."
+    }
+    $orchestratedInstall = & $releaseInstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -PilotRoot $orchestratedPilotRoot `
+        -PythonDestinationRoot $orchestratedPythonRoot `
+        -BundleDestinationRoot $orchestratedBundleRoot `
+        -AllowProtocolOnlyFixture `
+        -Confirm:$false `
+        -PassThru
+    if (
+        $orchestratedInstall.Installed -ne $true -or
+        $orchestratedInstall.PilotAction -cne "create" -or
+        $orchestratedInstall.PythonAction -cne "install" -or
+        $orchestratedInstall.BundleAction -cne "install" -or
+        $orchestratedInstall.AutoCADLaunched -ne $false -or
+        $orchestratedInstall.PublishEnabled -ne $false
+    ) {
+        throw "Single-command release installation did not complete safely."
+    }
+    $orchestratedResume = & $releaseInstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -PilotRoot $orchestratedPilotRoot `
+        -PythonDestinationRoot $orchestratedPythonRoot `
+        -BundleDestinationRoot $orchestratedBundleRoot `
+        -AllowProtocolOnlyFixture `
+        -Confirm:$false `
+        -PassThru
+    if (
+        $orchestratedResume.PilotAction -cne "reuse_verified_structure" -or
+        $orchestratedResume.PythonAction -cne "reuse_verified" -or
+        $orchestratedResume.BundleAction -cne "reuse_verified"
+    ) {
+        throw "Release installer did not safely resume exact existing components."
+    }
+    $orchestratedBundleUninstall = & (Join-Path $kitRoot "scripts\uninstall-bundle.ps1") `
+        -DestinationRoot $orchestratedBundleRoot `
+        -Confirm:$false `
+        -PassThru
+    $orchestratedPythonUninstall = & $pythonUninstaller `
+        -InstallRoot $orchestratedInstall.PythonTarget `
+        -Confirm:$false `
+        -PassThru
+    if (
+        $orchestratedBundleUninstall.Removed -ne $true -or
+        $orchestratedPythonUninstall.Removed -ne $true
+    ) {
+        throw "Release installer smoke cleanup did not verify component removal."
+    }
+
     $outerBytes = [System.IO.File]::ReadAllBytes($outerPath)
     $tamperedOuter = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
     $tamperedOuter.dependency_audit.python_license_inventory.packages[0].license = "UNKNOWN"
@@ -361,6 +490,12 @@ try {
         python_install_tamper_blocked = $installTamperBlocked
         python_uninstall_what_if_safe = $true
         python_uninstall_verified = $true
+        release_install_what_if_safe = $true
+        release_install_tool_preflight_blocked = $missingToolBlocked
+        release_install_overlap_blocked = $overlapBlocked
+        release_install_completed = $true
+        release_install_resume_verified = $true
+        release_install_bundle_last = $true
         matching_sdk_bundle_built = $false
         autocad_launched = $false
         live_publish_proven = $false
@@ -368,10 +503,13 @@ try {
 }
 finally {
     if (Test-Path -LiteralPath $resolvedSmokeRoot) {
-        Remove-Item -LiteralPath $resolvedSmokeRoot -Recurse -Force
+        Remove-SmokeDirectory -Path $resolvedSmokeRoot
     }
     if (Test-Path -LiteralPath $installRoot) {
-        Remove-Item -LiteralPath $installRoot -Recurse -Force
+        Remove-SmokeDirectory -Path $installRoot
+    }
+    if (Test-Path -LiteralPath $orchestratedRoot) {
+        Remove-SmokeDirectory -Path $orchestratedRoot
     }
     if (Test-Path -LiteralPath $requirementsAuditPath -PathType Leaf) {
         Remove-Item -LiteralPath $requirementsAuditPath -Force
