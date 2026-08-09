@@ -35,6 +35,9 @@ cadplot-tunnel-preflight = "cadplot_mcp.tunnel_preflight:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/cadplot_mcp"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/.venv*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

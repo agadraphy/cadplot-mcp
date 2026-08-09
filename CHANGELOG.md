@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
 - Optional real local MCP `initialize/list_tools` probing in tunnel preflight, with exact 19-tool
   identity/instruction/annotation/schema validation and a contract digest; isolated-wheel, demo-kit,
   and release-kit evidence now bind the successful redacted probe without calling AutoCAD.
+- Root-local virtual environment variants are explicitly excluded from source distributions so
+  Python matrix environments cannot leak into release archives.
 - Flat, hash-verified Turkish Monday runbook and Secure MCP Tunnel handoff files in the portable
   local demo kit, so operators do not need to extract the commit-bound source archive first.
 - Live publish-queue capacity telemetry on status/queue/job responses plus batch response schema v2,

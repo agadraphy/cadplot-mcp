@@ -58,6 +58,15 @@ def test_repository_contains_mit_license() -> None:
     assert "Demir Eren" in license_text
 
 
+def test_source_distribution_excludes_all_local_virtual_environments() -> None:
+    pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")
+
+    assert "[tool.hatch.build.targets.sdist]" in pyproject
+    assert 'exclude = ["/.venv*"]' in pyproject
+    assert ".venv-*/" in gitignore
+
+
 def test_version_adapters_require_all_managed_autocad_references() -> None:
     for release in ("2016", "2025"):
         project = (
