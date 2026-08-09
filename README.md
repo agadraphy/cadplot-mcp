@@ -136,6 +136,11 @@ values, and unsafe tolerance ranges are rejected at startup. Company-owned DWT, 
 PC3/PMP, title blocks, and project drawings must not be committed to this repository.
 Run `uv run python scripts/audit-source-tree.py` before publication; CI and local preflight reject
 tracked/non-ignored CAD assets, plot resources, archives, local config, and high-confidence secrets.
+For a network-backed, lock-exact dependency check, run
+`scripts/run-local-preflight.ps1 -AuditDependencies`. It audits the exported production Python lock
+with hashes, all transitive .NET packages, and the Python license declarations. The resulting JSON
+is bound to `uv.lock`; unknown licenses or known vulnerabilities fail the gate. Results are a
+point-in-time database check, not a permanent security guarantee, and they do not launch AutoCAD.
 If the exact office resource names are not yet known, follow the
 [read-only office profile onboarding](docs/office-profile-onboarding.md) with the deliberately
 non-matching inventory config; do not guess production profile values.
@@ -242,8 +247,9 @@ release, the readiness-bound Python wheel, lock data, a `git archive` source sna
 scripts, the inventory-only config, pilot evidence commands, and operator runbooks. The kit carries
 its own hash-bound `verify-release-kit.ps1`, so verification and pilot collection need no separate
 source checkout. The verifier checks both
-manifests, the exact tree, embedded bundle/API evidence, and every outer ZIP entry without
-extracting it. See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
+manifests, the exact tree, embedded bundle/API evidence, current lock-bound Python/.NET vulnerability
+evidence, the complete Python license inventory, and every outer ZIP entry without extracting it.
+See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
 `licensed_live_pilot_ready=false`, `public_release_ready=false`, and `live_publish_proven=false`;
 only separately retained licensed 2016/2025 pilot evidence can change those claims.
 The smaller local demo kit carries `verify-demo-kit.ps1`; it verifies the exact flat file set and

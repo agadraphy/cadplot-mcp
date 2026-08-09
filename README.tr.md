@@ -51,6 +51,10 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
 - Şirket DWT, PC3, PMP, CTB/STB veya DWG dosyaları repoya eklenmez.
 - `uv run python scripts/audit-source-tree.py`; tracked veya stage edilebilir CAD/plot dosyalarını,
   arşivleri, yerel config'i, Autodesk DLL'lerini ve yüksek güvenli sır kalıplarını erken reddeder.
+- `scripts/run-local-preflight.ps1 -AuditDependencies`; hash zorunlu üretim Python lock'unu,
+  transitive .NET paketlerini ve tüm Python lisans beyanlarını güncel ağ veritabanlarıyla denetler.
+  Açık veya bilinmeyen lisans varsa kapı kapanır. Sonuç tarama anına aittir; AutoCAD'i açmaz ve
+  kalıcı güvenlik ya da canlı plot kanıtı değildir.
 
 ## Yerel kurulum
 
@@ -200,7 +204,8 @@ Aynı temiz commit için gerçek matching-SDK bundle ve readiness raporu oluştu
 komutlarını ve demo runbook'larını tek, üstüne yazılmayan teslim kökünde birleştirir. Kit kendi
 hash-bağlı `verify-release-kit.ps1` dosyasını taşıdığı için ayrıca repo checkout'u gerekmez. Bu
 doğrulayıcı iki manifesti, tam dosya
-ağacını, gömülü bundle/API kanıtını ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kurulum için
+ağacını, gömülü bundle/API kanıtını, `uv.lock`-bağlı Python/.NET açık taramasını, eksiksiz Python
+lisans envanterini ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kurulum için
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
 bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.

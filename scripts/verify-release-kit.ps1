@@ -76,6 +76,58 @@ foreach ($evidence in @($outer, $manifest)) {
         throw "Release-kit safety/evidence flags are invalid."
     }
 }
+foreach ($evidence in @($outer, $manifest)) {
+    $audit = $evidence.dependency_audit
+    if (
+        $evidence.dependency_audit_ran -ne $true -or
+        $null -eq $audit -or
+        $audit.passed -ne $true -or
+        $audit.lock.file -cne "uv.lock" -or
+        [string]$audit.lock.sha256 -notmatch $shaPattern -or
+        [string]$audit.lock.requirements_sha256 -notmatch $shaPattern -or
+        $audit.python.package_count -lt 1 -or
+        $audit.python.vulnerability_count -ne 0 -or
+        $audit.python_license_inventory.package_count -ne $audit.python.package_count -or
+        $audit.python_license_inventory.unknown_count -ne 0 -or
+        @($audit.python_license_inventory.packages).Count -ne $audit.python.package_count -or
+        $audit.dotnet.project_count -lt 4 -or
+        $audit.dotnet.vulnerability_count -ne 0 -or
+        $audit.dotnet.source_count -lt 1 -or
+        $audit.network_database_check -ne $true -or
+        $audit.autocad_launched -ne $false -or
+        $audit.live_publish_proven -ne $false
+    ) {
+        throw "Release-kit dependency-audit evidence is invalid."
+    }
+    $licensePackages = @($audit.python_license_inventory.packages)
+    if (@($licensePackages | Group-Object -Property name | Where-Object Count -ne 1).Count -ne 0) {
+        throw "Release-kit dependency license inventory contains duplicate package names."
+    }
+    foreach ($package in $licensePackages) {
+        if (
+            [string]::IsNullOrWhiteSpace([string]$package.name) -or
+            [string]::IsNullOrWhiteSpace([string]$package.version) -or
+            [string]::IsNullOrWhiteSpace([string]$package.license) -or
+            [string]$package.license -ceq "UNKNOWN"
+        ) {
+            throw "Release-kit dependency license inventory is incomplete."
+        }
+    }
+}
+if (
+    $outer.dependency_audit.lock.sha256 -cne $manifest.dependency_audit.lock.sha256 -or
+    $outer.dependency_audit.lock.requirements_sha256 -cne $manifest.dependency_audit.lock.requirements_sha256 -or
+    ($outer.dependency_audit.python_license_inventory | ConvertTo-Json -Compress -Depth 6) -cne
+        ($manifest.dependency_audit.python_license_inventory | ConvertTo-Json -Compress -Depth 6)
+) {
+    throw "Release-kit dependency-audit evidence is inconsistent."
+}
+$embeddedLockHash = (
+    Get-FileHash -LiteralPath (Join-Path $kitRoot "python\uv.lock") -Algorithm SHA256
+).Hash.ToLowerInvariant()
+if ($manifest.dependency_audit.lock.sha256 -cne $embeddedLockHash) {
+    throw "Release-kit dependency audit does not match its embedded uv.lock."
+}
 $batch = $manifest.synthetic_batch_rehearsal
 if (
     $batch.target_drawings -ne 300 -or
@@ -262,6 +314,7 @@ $result = [pscustomobject]@{
     ArchiveSha256 = $archiveHash
     MatchingSdkBundleBuilt = $manifest.matching_sdk_bundle_built -eq $true
     ProtocolOnlyFixture = $protocolOnlyFixture
+    DependencyAuditPassed = $true
     LocalDemoReady = $true
     AutoCADLaunched = $false
     LivePublishProven = $false

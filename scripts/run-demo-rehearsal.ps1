@@ -3,6 +3,7 @@ param(
     [string]$DotNet = "",
     [string]$AutoCADApiDir = "",
     [switch]$SkipSync,
+    [switch]$AuditDependencies,
     [switch]$WriteReport
 )
 
@@ -44,6 +45,7 @@ try {
         AutoCADApiDir = $AutoCADApiDir
         SummaryPath = $preflightSummaryPath
         SkipSync = $SkipSync
+        AuditDependencies = $AuditDependencies
     }
     & $preflight @preflightParameters
     if (-not (Test-Path -LiteralPath $preflightSummaryPath -PathType Leaf)) {
@@ -83,6 +85,30 @@ try {
     ) {
         throw "Preflight summary unexpectedly contains API evidence."
     }
+    if (
+        $AuditDependencies -and (
+            $preflightSummary.dependency_audit_ran -ne $true -or
+            $preflightSummary.dependency_audit.passed -ne $true -or
+            $preflightSummary.dependency_audit.python.vulnerability_count -ne 0 -or
+            $preflightSummary.dependency_audit.python_license_inventory.package_count -ne
+                $preflightSummary.dependency_audit.python.package_count -or
+            $preflightSummary.dependency_audit.python_license_inventory.unknown_count -ne 0 -or
+            @($preflightSummary.dependency_audit.python_license_inventory.packages).Count -ne
+                $preflightSummary.dependency_audit.python.package_count -or
+            $preflightSummary.dependency_audit.dotnet.vulnerability_count -ne 0 -or
+            $preflightSummary.dependency_audit.dotnet.source_count -lt 1
+        )
+    ) {
+        throw "Preflight summary does not contain valid dependency-audit evidence."
+    }
+    if (
+        -not $AuditDependencies -and (
+            $preflightSummary.dependency_audit_ran -ne $false -or
+            $null -ne $preflightSummary.dependency_audit
+        )
+    ) {
+        throw "Preflight summary unexpectedly contains dependency-audit evidence."
+    }
 
     $commitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
     $commit = $commitLines[0].Trim()
@@ -119,6 +145,8 @@ try {
         public_release_ready = $false
         api_probe_ran = $apiProbeRan
         api_probe = $preflightSummary.api_probe
+        dependency_audit_ran = $preflightSummary.dependency_audit_ran
+        dependency_audit = $preflightSummary.dependency_audit
         autocad_launched = $false
         live_publish_proven = $false
         company_assets_copied = $false
@@ -137,7 +165,7 @@ try {
             ("cadplot-demo-readiness-{0}.json" -f [Guid]::NewGuid().ToString("N"))
         $report["report_path"] = $reportPath
     }
-    $reportJson = $report | ConvertTo-Json -Depth 4
+    $reportJson = $report | ConvertTo-Json -Depth 6
 
     if ($WriteReport) {
         $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($reportJson)

@@ -128,6 +128,42 @@ try {
     if ($readiness.api_probe_ran -ne $true -and $null -ne $readiness.api_probe) {
         throw "Readiness report contains API evidence without a completed probe."
     }
+    $lockHash = (Get-FileHash -LiteralPath (Join-Path $repoRoot "uv.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (
+        $readiness.dependency_audit_ran -ne $true -or
+        $readiness.dependency_audit.passed -ne $true -or
+        $readiness.dependency_audit.lock.file -cne "uv.lock" -or
+        $readiness.dependency_audit.lock.sha256 -cne $lockHash -or
+        $readiness.dependency_audit.python.package_count -lt 1 -or
+        $readiness.dependency_audit.python.vulnerability_count -ne 0 -or
+        $readiness.dependency_audit.python_license_inventory.package_count -ne
+            $readiness.dependency_audit.python.package_count -or
+        $readiness.dependency_audit.python_license_inventory.unknown_count -ne 0 -or
+        @($readiness.dependency_audit.python_license_inventory.packages).Count -ne
+            $readiness.dependency_audit.python.package_count -or
+        $readiness.dependency_audit.dotnet.project_count -lt 4 -or
+        $readiness.dependency_audit.dotnet.vulnerability_count -ne 0 -or
+        $readiness.dependency_audit.dotnet.source_count -lt 1 -or
+        $readiness.dependency_audit.network_database_check -ne $true -or
+        $readiness.dependency_audit.autocad_launched -ne $false -or
+        $readiness.dependency_audit.live_publish_proven -ne $false
+    ) {
+        throw "Release kit requires current lock-bound dependency-audit evidence."
+    }
+    $licensePackages = @($readiness.dependency_audit.python_license_inventory.packages)
+    if (@($licensePackages | Group-Object -Property name | Where-Object Count -ne 1).Count -ne 0) {
+        throw "Release dependency license inventory contains duplicate package names."
+    }
+    foreach ($package in $licensePackages) {
+        if (
+            [string]::IsNullOrWhiteSpace([string]$package.name) -or
+            [string]::IsNullOrWhiteSpace([string]$package.version) -or
+            [string]::IsNullOrWhiteSpace([string]$package.license) -or
+            [string]$package.license -ceq "UNKNOWN"
+        ) {
+            throw "Release dependency license inventory is incomplete."
+        }
+    }
     $batch = $readiness.synthetic_batch_rehearsal
     if (
         $batch.target_drawings -ne 300 -or
@@ -238,6 +274,8 @@ try {
         wheel = [ordered]@{ file = "python/$wheelName"; sha256 = $wheelHash }
         source_archive = "source/$sourceName"
         files = $fileEvidence
+        dependency_audit_ran = $true
+        dependency_audit = $readiness.dependency_audit
         synthetic_batch_rehearsal = $batch
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
@@ -265,6 +303,8 @@ try {
         kit_archive_sha256 = (
             Get-FileHash -LiteralPath $kitArchive -Algorithm SHA256
         ).Hash.ToLowerInvariant()
+        dependency_audit_ran = $true
+        dependency_audit = $readiness.dependency_audit
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
         licensed_live_pilot_ready = $false
@@ -286,6 +326,7 @@ try {
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
         self_verification_passed = $verification.Passed
+        dependency_audit_passed = $verification.DependencyAuditPassed
         autocad_launched = $false
         live_publish_proven = $false
     } | ConvertTo-Json

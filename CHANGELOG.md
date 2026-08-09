@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Lock-bound, network-backed Python and .NET dependency vulnerability evidence, including a complete
+  transitive Python license inventory. CI and release kits fail closed on known vulnerabilities,
+  missing license declarations, incomplete project coverage, or a changed `uv.lock`.
 - Release-aware compile probing that targets AutoCAD 2016 `R20.1` with `net45`, AutoCAD 2025+
   `R25.x` with `net8.0-windows`, supported intervening releases with `net48`, and rejects unknown
   API series without launching AutoCAD.

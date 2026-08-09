@@ -25,4 +25,8 @@ and Autodesk are trademarks of Autodesk, Inc.; use of those names here is only
 to describe interoperability and does not imply endorsement or affiliation.
 
 For the complete, version-specific third-party license set, inspect the locked
-dependency metadata and the installed distributions used for a release.
+dependency metadata and the installed distributions used for a release. The `-AuditDependencies`
+preflight records a machine-readable inventory for every transitive production Python package and
+fails when a license declaration is unknown. Release-kit manifests retain that lock-bound inventory.
+Package metadata is evidence for review, not legal advice or a replacement for the upstream license
+texts and notices.

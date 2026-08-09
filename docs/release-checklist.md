@@ -15,8 +15,11 @@ Use this checklist for every alpha release.
 
 ## Quality
 
-- [ ] `scripts/run-local-preflight.ps1` passes and truthfully reports
+- [ ] `scripts/run-local-preflight.ps1 -AuditDependencies` passes and truthfully reports
       `autocad_launched=false`, `live_publish_proven=false` before the licensed pilot.
+- [ ] Dependency evidence matches the current `uv.lock`, covers every locked production Python
+      package and all four .NET projects, reports zero known vulnerabilities and zero unknown Python
+      license declarations, and records the scan timestamp. Treat it as point-in-time evidence.
 - [ ] `uv run ruff check .` passes.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run python scripts/smoke-mcp-stdio.py` passes real subprocess initialize/list-tools and
@@ -44,8 +47,8 @@ Use this checklist for every alpha release.
 - [ ] The matching-SDK build used a clean commit, created a new no-overwrite release root, and
       `verify-bundle-release.ps1` matched `bundle-build.json`, ZIP entries, and all file hashes.
 - [ ] `build-release-kit.ps1` bound the verified matching-SDK bundle, readiness-bound Python wheel,
-      300-drawing rehearsal digest, lock data, source archive, install scripts, and runbooks to the
-      same clean commit.
+      300-drawing rehearsal digest, dependency/license evidence, lock data, source archive, install
+      scripts, and runbooks to the same clean commit.
 - [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
       and every outer ZIP entry without extraction; its live/public readiness flags remained false.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path

@@ -116,6 +116,47 @@ try {
     if ($readiness.api_probe_ran -ne $true -and $null -ne $readiness.api_probe) {
         throw "Readiness report contains API evidence without a completed probe."
     }
+    $currentLockHash = (Get-FileHash -LiteralPath (Join-Path $repoRoot "uv.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (
+        $readiness.dependency_audit_ran -eq $true -and (
+            $readiness.dependency_audit.passed -ne $true -or
+            $readiness.dependency_audit.lock.sha256 -cne $currentLockHash -or
+            $readiness.dependency_audit.python.package_count -lt 1 -or
+            $readiness.dependency_audit.python.vulnerability_count -ne 0 -or
+            $readiness.dependency_audit.python_license_inventory.package_count -ne
+                $readiness.dependency_audit.python.package_count -or
+            $readiness.dependency_audit.python_license_inventory.unknown_count -ne 0 -or
+            @($readiness.dependency_audit.python_license_inventory.packages).Count -ne
+                $readiness.dependency_audit.python.package_count -or
+            $readiness.dependency_audit.dotnet.project_count -lt 4 -or
+            $readiness.dependency_audit.dotnet.vulnerability_count -ne 0 -or
+            $readiness.dependency_audit.dotnet.source_count -lt 1 -or
+            $readiness.dependency_audit.network_database_check -ne $true -or
+            $readiness.dependency_audit.autocad_launched -ne $false -or
+            $readiness.dependency_audit.live_publish_proven -ne $false
+        )
+    ) {
+        throw "Readiness report has invalid dependency-audit evidence."
+    }
+    if ($readiness.dependency_audit_ran -ne $true -and $null -ne $readiness.dependency_audit) {
+        throw "Readiness report contains dependency evidence without a completed audit."
+    }
+    if ($readiness.dependency_audit_ran -eq $true) {
+        $licensePackages = @($readiness.dependency_audit.python_license_inventory.packages)
+        if (@($licensePackages | Group-Object -Property name | Where-Object Count -ne 1).Count -ne 0) {
+            throw "Readiness dependency license inventory contains duplicate package names."
+        }
+        foreach ($package in $licensePackages) {
+            if (
+                [string]::IsNullOrWhiteSpace([string]$package.name) -or
+                [string]::IsNullOrWhiteSpace([string]$package.version) -or
+                [string]::IsNullOrWhiteSpace([string]$package.license) -or
+                [string]$package.license -ceq "UNKNOWN"
+            ) {
+                throw "Readiness dependency license inventory is incomplete."
+            }
+        }
+    }
     $batch = $readiness.synthetic_batch_rehearsal
     if (
         $batch.target_drawings -ne 300 -or
@@ -195,6 +236,11 @@ try {
         source_tree_audit_passed = $true
         api_probe_ran = $readiness.api_probe_ran -eq $true
         api_probe = $publicApiProbe
+        dependency_audit_ran = $readiness.dependency_audit_ran -eq $true
+        dependency_audit = if ($readiness.dependency_audit_ran -eq $true) {
+            $readiness.dependency_audit
+        }
+        else { $null }
         autocad_launched = $false
         live_publish_proven = $false
         synthetic_batch_rehearsal = $batch
@@ -232,6 +278,7 @@ try {
         synthetic_batch_evidence_digest = $batch.evidence_digest
         self_verification_passed = $true
         machine_paths_included = $false
+        dependency_audit_passed = $readiness.dependency_audit_ran -eq $true
         company_assets_copied = $false
         live_publish_proven = $false
     } | ConvertTo-Json

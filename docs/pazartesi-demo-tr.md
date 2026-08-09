@@ -5,6 +5,7 @@
 ```powershell
 .\scripts\run-demo-rehearsal.ps1 `
   -AutoCADApiDir "C:\Program Files\Autodesk\AutoCAD 2025" `
+  -AuditDependencies `
   -WriteReport
 ```
 
@@ -12,6 +13,9 @@ Bu komut tüm yerel preflight zincirini çalıştırır, ardından temiz Git com
 SHA-256 hash'ini rapora bağlar. AutoCAD'i açmaz ve canlı plot kanıtı üretmez. Son JSON'da
 `passed=true`, `local_demo_ready=true`, `worktree_clean=true` görülmeden demoya başlamayın;
 `live_publish_proven=false` değeri canlı pilot yapılana kadar doğru kalmalıdır.
+`dependency_audit.passed=true`, Python/.NET açık sayılarının `0` ve
+`python_license_inventory.unknown_count=0` olduğunu da kontrol edin. Bu tarama ağdaki güncel
+veritabanlarının o andaki sonucudur; AutoCAD veya canlı yayın kanıtı değildir.
 `-WriteReport`, aynı son JSON'u yeni ve üzerine yazılmayan bir geçici dosyada saklar; ekrandaki
 `report_path` değerini demo kaydı olarak koruyun.
 

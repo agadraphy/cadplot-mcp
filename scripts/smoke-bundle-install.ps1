@@ -130,7 +130,11 @@ try {
 
     $releaseKitSmoke = & (Join-Path $PSScriptRoot "smoke-release-kit.ps1") `
         -BundleReleaseRoot $fixtureRelease | ConvertFrom-Json
-    if ($releaseKitSmoke.passed -ne $true) {
+    if (
+        $releaseKitSmoke.passed -ne $true -or
+        $releaseKitSmoke.dependency_audit_verified -ne $true -or
+        $releaseKitSmoke.dependency_license_tamper_blocked -ne $true
+    ) {
         throw "Protocol-only combined release-kit smoke failed."
     }
 
@@ -205,6 +209,8 @@ try {
         release_kit_verified = $releaseKitSmoke.exact_tree_and_hashes_verified
         release_kit_self_verification_passed = $releaseKitSmoke.embedded_self_verification_passed
         release_kit_protocol_only_rejected_as_real = $releaseKitSmoke.protocol_only_rejected_as_real
+        release_kit_dependency_audit_verified = $releaseKitSmoke.dependency_audit_verified
+        release_kit_dependency_license_tamper_blocked = $releaseKitSmoke.dependency_license_tamper_blocked
         release_kit_archive_tamper_blocked = $releaseKitSmoke.archive_tamper_blocked
         what_if_install_mutated = $false
         copied_hashes_verified = $true

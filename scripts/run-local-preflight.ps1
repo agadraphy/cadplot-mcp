@@ -3,7 +3,8 @@ param(
     [string]$DotNet = "",
     [string]$AutoCADApiDir = "",
     [string]$SummaryPath = "",
-    [switch]$SkipSync
+    [switch]$SkipSync,
+    [switch]$AuditDependencies
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +50,57 @@ try {
     }
     Invoke-CheckedStep "source tree proprietary asset and secret audit" {
         uv run python scripts\audit-source-tree.py
+    }
+    $dependencyAuditRan = $false
+    $dependencyAuditEvidence = $null
+    if ($AuditDependencies) {
+        Write-Output "PRECHECK: locked Python and .NET dependency vulnerability audit"
+        $dependencyAuditOutput = @(
+            & uv run python scripts\audit-dependencies.py --dotnet $resolvedDotNet 2>&1
+        )
+        if ($LASTEXITCODE -ne 0) {
+            throw "Dependency vulnerability audit failed.`n$($dependencyAuditOutput -join [Environment]::NewLine)"
+        }
+        $dependencyAuditJson = $dependencyAuditOutput -join [Environment]::NewLine
+        try { $dependencyAuditEvidence = $dependencyAuditJson | ConvertFrom-Json }
+        catch { throw "Dependency vulnerability audit did not return valid JSON evidence." }
+        $lockHash = (Get-FileHash -LiteralPath (Join-Path $repoRoot "uv.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
+        if (
+            $dependencyAuditEvidence.passed -ne $true -or
+            $dependencyAuditEvidence.lock.file -cne "uv.lock" -or
+            $dependencyAuditEvidence.lock.sha256 -cne $lockHash -or
+            $dependencyAuditEvidence.python.package_count -lt 1 -or
+            $dependencyAuditEvidence.python.vulnerability_count -ne 0 -or
+            $dependencyAuditEvidence.python_license_inventory.package_count -ne
+                $dependencyAuditEvidence.python.package_count -or
+            $dependencyAuditEvidence.python_license_inventory.unknown_count -ne 0 -or
+            @($dependencyAuditEvidence.python_license_inventory.packages).Count -ne
+                $dependencyAuditEvidence.python.package_count -or
+            $dependencyAuditEvidence.dotnet.project_count -lt 4 -or
+            $dependencyAuditEvidence.dotnet.vulnerability_count -ne 0 -or
+            $dependencyAuditEvidence.dotnet.source_count -lt 1 -or
+            $dependencyAuditEvidence.network_database_check -ne $true -or
+            $dependencyAuditEvidence.autocad_launched -ne $false -or
+            $dependencyAuditEvidence.live_publish_proven -ne $false
+        ) {
+            throw "Dependency vulnerability audit crossed a required evidence boundary."
+        }
+        $licensePackages = @($dependencyAuditEvidence.python_license_inventory.packages)
+        if (@($licensePackages | Group-Object -Property name | Where-Object Count -ne 1).Count -ne 0) {
+            throw "Dependency license inventory contains duplicate package names."
+        }
+        foreach ($package in $licensePackages) {
+            if (
+                [string]::IsNullOrWhiteSpace([string]$package.name) -or
+                [string]::IsNullOrWhiteSpace([string]$package.version) -or
+                [string]::IsNullOrWhiteSpace([string]$package.license) -or
+                [string]$package.license -ceq "UNKNOWN"
+            ) {
+                throw "Dependency license inventory contains an incomplete declaration."
+            }
+        }
+        Write-Output $dependencyAuditJson
+        $dependencyAuditRan = $true
     }
     Invoke-CheckedStep "Python lint" { uv run ruff check . }
     Invoke-CheckedStep "Python tests" { uv run pytest -q }
@@ -150,6 +202,8 @@ try {
             }
         }
         else { $null }
+        dependency_audit_ran = $dependencyAuditRan
+        dependency_audit = if ($dependencyAuditRan) { $dependencyAuditEvidence } else { $null }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = $batchResult.target_drawings
             planning_pages = $batchResult.planning.pages

@@ -50,7 +50,10 @@ cadplot-validate-pilot --help
 ```
 
 The included `pyproject.toml`, `uv.lock`, and commit-bound source ZIP are retained for dependency
-review and reproducible maintenance. The wheel contains no Autodesk or company assets.
+review and reproducible maintenance. Both kit manifests retain the current, lock-bound Python/.NET
+vulnerability result and the transitive Python license inventory; the verifier rejects incomplete,
+unknown, or lock-mismatched evidence. This is point-in-time scan evidence, not a permanent security
+guarantee or legal advice. The wheel contains no Autodesk or company assets.
 
 ## 4. Create the external pilot workspace
 

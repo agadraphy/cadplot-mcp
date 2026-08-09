@@ -85,6 +85,39 @@ try {
 
     $wheelName = $wheels[0].Name
     $wheelPath = Join-Path $kitRoot "python\$wheelName"
+    $dependencyAudit = [ordered]@{
+        schema_version = 1
+        generated_utc = [DateTime]::UtcNow.ToString("o")
+        passed = $true
+        lock = [ordered]@{
+            file = "uv.lock"
+            sha256 = (Get-FileHash -LiteralPath (Join-Path $kitRoot "python\uv.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
+            requirements_sha256 = "f" * 64
+        }
+        python = [ordered]@{
+            tool = "pip-audit fixture"
+            package_count = 1
+            vulnerability_count = 0
+            database = "fixture"
+        }
+        python_license_inventory = [ordered]@{
+            package_count = 1
+            unknown_count = 0
+            packages = @(
+                [ordered]@{ name = "fixture"; version = "1.0"; license = "MIT" }
+            )
+        }
+        dotnet = [ordered]@{
+            tool = "dotnet fixture"
+            project_count = 4
+            vulnerability_count = 0
+            source_count = 1
+            database = "fixture"
+        }
+        network_database_check = $true
+        autocad_launched = $false
+        live_publish_proven = $false
+    }
     $files = @(Get-ChildItem -LiteralPath $kitRoot -File -Recurse | Sort-Object FullName | ForEach-Object {
         [ordered]@{
             path = $_.FullName.Substring($kitRoot.Length + 1).Replace('\', '/')
@@ -103,6 +136,8 @@ try {
         }
         source_archive = "source/$sourceName"
         files = $files
+        dependency_audit_ran = $true
+        dependency_audit = $dependencyAudit
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300
             planning_pages = 15
@@ -141,6 +176,8 @@ try {
         kit_archive = "CadPlotMcp.release.zip"
         kit_manifest_sha256 = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
         kit_archive_sha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        dependency_audit_ran = $true
+        dependency_audit = $dependencyAudit
         matching_sdk_bundle_built = $false
         protocol_only_fixture = $true
         local_demo_ready = $true
@@ -165,9 +202,24 @@ try {
         -ReleaseRoot $resolvedSmokeRoot `
         -PassThru `
         -AllowProtocolOnlyFixture
-    if ($embeddedResult.Passed -ne $true) {
+    if ($embeddedResult.Passed -ne $true -or $embeddedResult.DependencyAuditPassed -ne $true) {
         throw "Embedded release-kit verifier did not pass its own exact package."
     }
+
+    $outerBytes = [System.IO.File]::ReadAllBytes($outerPath)
+    $tamperedOuter = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
+    $tamperedOuter.dependency_audit.python_license_inventory.packages[0].license = "UNKNOWN"
+    Write-SmokeJson -Path $outerPath -Value $tamperedOuter
+    $licenseTamperBlocked = $false
+    try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
+    catch {
+        if ($_.Exception.Message -notlike "*license inventory*") { throw }
+        $licenseTamperBlocked = $true
+    }
+    if (-not $licenseTamperBlocked) {
+        throw "Release-kit verifier accepted an unknown dependency license."
+    }
+    [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
 
     $archiveBytes = [System.IO.File]::ReadAllBytes($archivePath)
     $archiveBytes[0] = $archiveBytes[0] -bxor 1
@@ -186,6 +238,8 @@ try {
         protocol_only_rejected_as_real = $rejectedAsReal
         exact_tree_and_hashes_verified = $true
         embedded_self_verification_passed = $true
+        dependency_audit_verified = $true
+        dependency_license_tamper_blocked = $licenseTamperBlocked
         archive_tamper_blocked = $tamperBlocked
         matching_sdk_bundle_built = $false
         autocad_launched = $false

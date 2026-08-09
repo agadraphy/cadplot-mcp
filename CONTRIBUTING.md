@@ -10,12 +10,14 @@ project's development dependencies. Before submitting a pull request, run:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File scripts/run-local-preflight.ps1
+  -File scripts/run-local-preflight.ps1 -AuditDependencies
 ```
 
 This is the same no-AutoCAD-launch gate used by CI; it includes lint/tests, real MCP transport and
 isolated-wheel smoke checks, the 300-drawing synthetic rehearsal, demo/release-kit integrity
-smokes, and .NET protocol builds/tests.
+smokes, .NET protocol builds/tests, exact locked dependency vulnerability checks, and a transitive
+Python license inventory. The vulnerability result is current only at scan time and needs network
+access to the configured advisory sources.
 
 Keep changes focused, document user-visible behavior, and add or update tests
 for changed safety rules.

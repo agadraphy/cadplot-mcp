@@ -133,6 +133,47 @@ elseif ($manifest.api_probe_ran -ne $false -or $null -ne $manifest.api_probe) {
     throw "Demo-kit API evidence is inconsistent."
 }
 
+if ($manifest.dependency_audit_ran -eq $true) {
+    $audit = $manifest.dependency_audit
+    if (
+        $null -eq $audit -or
+        $audit.passed -ne $true -or
+        $audit.lock.file -cne "uv.lock" -or
+        [string]$audit.lock.sha256 -notmatch '^[0-9a-f]{64}$' -or
+        [string]$audit.lock.requirements_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $audit.python.package_count -lt 1 -or
+        $audit.python.vulnerability_count -ne 0 -or
+        $audit.python_license_inventory.package_count -ne $audit.python.package_count -or
+        $audit.python_license_inventory.unknown_count -ne 0 -or
+        @($audit.python_license_inventory.packages).Count -ne $audit.python.package_count -or
+        $audit.dotnet.project_count -lt 4 -or
+        $audit.dotnet.vulnerability_count -ne 0 -or
+        $audit.dotnet.source_count -lt 1 -or
+        $audit.network_database_check -ne $true -or
+        $audit.autocad_launched -ne $false -or
+        $audit.live_publish_proven -ne $false
+    ) {
+        throw "Demo-kit dependency-audit evidence is invalid."
+    }
+    $licensePackages = @($audit.python_license_inventory.packages)
+    if (@($licensePackages | Group-Object -Property name | Where-Object Count -ne 1).Count -ne 0) {
+        throw "Demo-kit dependency license inventory contains duplicate package names."
+    }
+    foreach ($package in $licensePackages) {
+        if (
+            [string]::IsNullOrWhiteSpace([string]$package.name) -or
+            [string]::IsNullOrWhiteSpace([string]$package.version) -or
+            [string]::IsNullOrWhiteSpace([string]$package.license) -or
+            [string]$package.license -ceq "UNKNOWN"
+        ) {
+            throw "Demo-kit dependency license inventory is incomplete."
+        }
+    }
+}
+elseif ($manifest.dependency_audit_ran -ne $false -or $null -ne $manifest.dependency_audit) {
+    throw "Demo-kit dependency-audit evidence is inconsistent."
+}
+
 $manifestFiles = @($manifest.files)
 $filesWithoutManifest = @($expectedFiles | Where-Object { $_ -cne "demo-kit.json" })
 if ($manifestFiles.Count -ne $filesWithoutManifest.Count) {
@@ -172,6 +213,7 @@ $result = [pscustomobject]@{
     WheelSha256 = $wheelHash
     SourceSha256 = $sourceHash
     MachinePathsIncluded = $false
+    DependencyAuditPassed = $manifest.dependency_audit_ran -eq $true
     LocalDemoReady = $true
     AutoCADLaunched = $false
     LivePublishProven = $false

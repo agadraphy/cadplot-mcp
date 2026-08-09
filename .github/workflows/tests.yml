@@ -28,4 +28,4 @@ jobs:
       - name: Canonical local preflight (no AutoCAD launch)
         run: >-
           powershell.exe -NoProfile -ExecutionPolicy Bypass
-          -File scripts/run-local-preflight.ps1 -SkipSync
+          -File scripts/run-local-preflight.ps1 -SkipSync -AuditDependencies

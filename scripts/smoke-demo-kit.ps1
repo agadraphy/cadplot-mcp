@@ -51,6 +51,40 @@ try {
             live_publish_proven = $false
             evidence_scope = "compile-only"
         }
+        dependency_audit_ran = $true
+        dependency_audit = [ordered]@{
+            schema_version = 1
+            generated_utc = [DateTime]::UtcNow.ToString("o")
+            passed = $true
+            lock = [ordered]@{
+                file = "uv.lock"
+                sha256 = "e" * 64
+                requirements_sha256 = "f" * 64
+            }
+            python = [ordered]@{
+                tool = "pip-audit fixture"
+                package_count = 1
+                vulnerability_count = 0
+                database = "fixture"
+            }
+            python_license_inventory = [ordered]@{
+                package_count = 1
+                unknown_count = 0
+                packages = @(
+                    [ordered]@{ name = "fixture"; version = "1.0"; license = "MIT" }
+                )
+            }
+            dotnet = [ordered]@{
+                tool = "dotnet fixture"
+                project_count = 4
+                vulnerability_count = 0
+                source_count = 1
+                database = "fixture"
+            }
+            network_database_check = $true
+            autocad_launched = $false
+            live_publish_proven = $false
+        }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300; ready = 300; staged = 300; outputs_complete = 300
             execution_verified = 0; publish_verified = 0; manual_review_without_receipts = 300
@@ -69,9 +103,31 @@ try {
     )
 
     $result = & $verifier -KitRoot $resolvedRoot -PassThru
-    if ($result.Passed -ne $true -or $result.MachinePathsIncluded -ne $false) {
+    if (
+        $result.Passed -ne $true -or
+        $result.MachinePathsIncluded -ne $false -or
+        $result.DependencyAuditPassed -ne $true
+    ) {
         throw "Demo-kit verifier did not accept the exact path-redacted fixture."
     }
+    $manifestPath = Join-Path $resolvedRoot "demo-kit.json"
+    $manifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    $manifest.dependency_audit.python_license_inventory.packages[0].license = "UNKNOWN"
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($manifest | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $licenseTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*license inventory*") { throw }
+        $licenseTamperBlocked = $true
+    }
+    if (-not $licenseTamperBlocked) {
+        throw "Demo-kit verifier accepted an unknown dependency license."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     [System.IO.File]::AppendAllText($wheel, "tamper", [System.Text.UTF8Encoding]::new($false))
     $tamperBlocked = $false
     try { & $verifier -KitRoot $resolvedRoot -PassThru }
@@ -85,6 +141,8 @@ try {
         passed = $true
         exact_tree_and_hashes_verified = $true
         machine_paths_redacted = $true
+        dependency_audit_verified = $true
+        dependency_license_tamper_blocked = $licenseTamperBlocked
         wheel_tamper_blocked = $true
         autocad_launched = $false
         live_publish_proven = $false

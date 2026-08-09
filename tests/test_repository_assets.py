@@ -148,6 +148,9 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "smoke-bundle-install.ps1",
         "dotnet\\CadPlotMcp.sln",
         "probe-autocad-api.ps1",
+        "audit-dependencies.py",
+        "python_license_inventory",
+        "unknown_count -ne 0",
         "api_probe = if ($apiProbeRan)",
         "evidence_scope -cne \"compile-only\"",
         "autocad_launched = $false",
@@ -212,6 +215,8 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         "api_probe = $publicApiProbe",
         "Get-PublicApiProbeEvidence",
         "invalid compile-only API evidence",
+        "dependency_audit_ran",
+        "python_license_inventory",
         "not a live AutoCAD plug-in bundle",
     ):
         assert required in script
@@ -237,17 +242,20 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "Demo-kit file hash mismatch",
         "MachinePathsIncluded = $false",
         "target_drawings -ne 300",
+        "python_license_inventory",
+        "dependency license inventory is incomplete",
         "live_publish_proven -ne $false",
     ):
         assert required in verifier
     for required in (
         "verify-demo-kit.ps1",
         "machine_paths_redacted = $true",
+        "dependency_license_tamper_blocked",
         "wheel_tamper_blocked = $true",
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
     ):
         assert required in smoke
-    assert "run-local-preflight.ps1 -SkipSync" in workflow
+    assert "run-local-preflight.ps1 -SkipSync -AuditDependencies" in workflow
     assert "Start-Process" not in verifier
 
 
@@ -463,6 +471,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "pilot-evidence.md",
         "self_verification_passed = $verification.Passed",
         "Readiness report has invalid compile-only API evidence",
+        "current lock-bound dependency-audit evidence",
+        "python_license_inventory",
     ):
         assert required in builder
     assert "Remove-Item" not in builder
@@ -481,6 +491,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "MatchingSdkBundleBuilt = $manifest.matching_sdk_bundle_built -eq $true",
         "LivePublishProven = $false",
         "300-drawing synthetic batch evidence",
+        "python_license_inventory",
+        "dependency license inventory is incomplete",
         '"scripts/verify-release-kit.ps1"',
         '"scripts/new-local-pilot.ps1"',
         '"scripts/collect-pilot-run.py"',
@@ -524,6 +536,7 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "protocol_only_rejected_as_real",
         "exact_tree_and_hashes_verified",
         "archive_tamper_blocked",
+        "dependency_license_tamper_blocked",
         "AllowProtocolOnlyFixture",
         "autocad_launched = $false",
         "live_publish_proven = $false",
@@ -640,7 +653,7 @@ def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> Non
     assert "timeout-minutes: 20" in workflow
     assert "cancel-in-progress: true" in workflow
     assert "uv sync --frozen" in workflow
-    assert "run-local-preflight.ps1 -SkipSync" in workflow
+    assert "run-local-preflight.ps1 -SkipSync -AuditDependencies" in workflow
     for required in (
         "scripts\\smoke-mcp-stdio.py",
         "scripts\\run-synthetic-demo.py",
