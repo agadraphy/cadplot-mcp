@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file.
   which treats `queue_full` as retryable backpressure, defers untouched approvals, and stops further
   pipe calls until slots reopen for safer one-prompt large-run orchestration; the 300-drawing
   rehearsal and release evidence chain now enforce a saturated seven-slot exact-retry simulation.
+- A bounded read-only `get_publish_batch_status` MCP tool summarizes up to 20 exact plan IDs and
+  returns a separately sampled, internally consistent final queue telemetry view for efficient
+  large-run polling; the 300-drawing release rehearsal requires 15 identity-preserving status
+  batches.
 - Read-only bounded block-definition frame labels, including nested definitions, with no `Explode`,
   strict depth/entity/text caps, cycle/Xref/layout rejection, lower confidence, and fail-closed
   handling whenever a detected paper label came from incomplete traversal.

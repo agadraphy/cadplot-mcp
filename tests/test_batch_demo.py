@@ -42,6 +42,10 @@ def test_synthetic_batch_demo_rehearses_bounded_scale_without_live_claims(
         "deferred_results": 19,
         "pipe_attempts": 27,
         "exact_retry_identity_preserved": True,
+        "status_batches": 2,
+        "status_items": 25,
+        "status_pending": 25,
+        "status_identity_preserved": True,
         "plugin_contacted": False,
     }
     assert result["restart_report_before_outputs"]["awaiting_execution"] == 25

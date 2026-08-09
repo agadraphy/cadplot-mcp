@@ -90,6 +90,8 @@ try {
             queue_capacity = 7; queue_waves = 45; queue_approvals = 300
             queue_simulated_acceptances = 300; queue_deferred_results = 285
             queue_pipe_attempts = 330; queue_exact_retry_identity_preserved = $true
+            queue_status_batches = 15; queue_status_items = 300; queue_status_pending = 300
+            queue_status_identity_preserved = $true
             queue_plugin_contacted = $false
             execution_verified = 0; publish_verified = 0; manual_review_without_receipts = 300
             source_unchanged = $true; evidence_digest = "sha256:$('d' * 64)"; synthetic = $true

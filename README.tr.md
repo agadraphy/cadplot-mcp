@@ -193,6 +193,10 @@ orijinalleri değiştirmez; her sonuç ayrı raporlanır.
 Staging sonuçlarındaki benzersiz `(manifest_path, plan_id, manifest_sha256)` üçlülerini yine en
 fazla 20'şer adet `queue_publish_batch` çağrısıyla sıraya alın; 300 işi tek bir MCP çağrısına
 doldurmayın.
+Canlı ilerlemeyi tek tek MCP çağrılarıyla izlemek yerine en fazla 20 benzersiz plan kimliğini
+`get_publish_batch_status` aracına verin. Araç job durumlarını ayrı ayrı özetler ve çağrı sonunda
+tutarlı tek bir kuyruk kapasitesi örneği döndürür; bu örnek bütün job geçişlerinin aynı anda
+görüldüğü anlamına gelmez.
 AutoCAD kapanınca canlı kuyruk durumu silinir; terminal sonuçtaki `receipt.json` silinmez.
 Yeniden başladıktan sonra `read_publish_receipt` ile kaldığınız işi güvenle doğrulayabilirsiniz.
 Tüm çalışma alanını kaldığınız yerden taramak için `create_publish_operations_report` çağrısını

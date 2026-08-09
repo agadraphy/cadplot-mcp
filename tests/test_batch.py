@@ -1,8 +1,11 @@
+import json
+
 import pytest
 
 from cadplot_mcp.batch import (
     build_batch_page,
     build_drawing_inventory_id,
+    build_publish_batch_status,
     queue_approved_batch,
     stage_approved_batch,
 )
@@ -287,3 +290,158 @@ def test_queue_approved_batch_rejects_duplicate_manifest_approvals() -> None:
             ],
             lambda _: {"queued": True},
         )
+
+
+def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() -> None:
+    plan_ids = ["sha256:" + character * 64 for character in ("a", "b", "c", "d")]
+    responses = {
+        plan_ids[0]: {
+            "found": True,
+            "plugin": {"ok": True, "plan_id": plan_ids[0], "jobState": "Pending"},
+        },
+        plan_ids[1]: {
+            "found": True,
+            "plugin": {
+                "ok": True,
+                "plan_id": plan_ids[1],
+                "jobState": "Failed",
+                "jobError": "plot_failed",
+            },
+        },
+        plan_ids[2]: {"found": False, "plugin": {"ok": False, "error": "job_not_found"}},
+        plan_ids[3]: {"found": False, "error": "bridge_unavailable"},
+    }
+
+    result = build_publish_batch_status(
+        plan_ids,
+        responses.__getitem__,
+        lambda: {
+            "ok": True,
+            "publishEnabled": True,
+            "queueCapacity": 20,
+            "queuePending": 4,
+            "queueRunning": 1,
+            "queueAvailable": 16,
+        },
+    )
+
+    assert result["schema_version"] == 1
+    assert result["status_batch_id"].startswith("sha256:")
+    assert result["summary"] == {
+        "failed": 1,
+        "pending": 1,
+        "running": 0,
+        "succeeded": 0,
+        "not_found": 1,
+        "errors": 1,
+    }
+    assert result["queue"] == {
+        "capacity": 20,
+        "pending": 4,
+        "running": 1,
+        "available": 16,
+    }
+    assert result["queue_error"] is None
+    assert result["items"][1]["job_error"] == "plot_failed"
+
+
+@pytest.mark.parametrize(
+    "plan_ids",
+    [
+        [],
+        ["sha256:" + "a" * 64] * 2,
+        ["sha256:" + "a" * 63],
+        ["sha256:" + f"{index:064x}" for index in range(21)],
+    ],
+)
+def test_publish_batch_status_rejects_unbounded_or_ambiguous_ids(plan_ids: list[str]) -> None:
+    with pytest.raises(ValueError):
+        build_publish_batch_status(plan_ids, lambda _: {}, lambda: {})
+
+
+def test_publish_batch_status_rejects_inconsistent_queue_telemetry() -> None:
+    plan_id = "sha256:" + "a" * 64
+
+    result = build_publish_batch_status(
+        [plan_id],
+        lambda _: {"found": False, "plugin": {"ok": False, "error": "job_not_found"}},
+        lambda: {
+            "ok": True,
+            "publishEnabled": True,
+            "queueCapacity": 20,
+            "queuePending": 10,
+            "queueRunning": 0,
+            "queueAvailable": 11,
+        },
+    )
+
+    assert result["queue"] is None
+    assert result["queue_error"] == "invalid_queue_telemetry"
+
+
+def test_publish_batch_status_rejects_mismatched_plugin_plan_identity() -> None:
+    plan_id = "sha256:" + "a" * 64
+
+    result = build_publish_batch_status(
+        [plan_id],
+        lambda _: {
+            "found": True,
+            "plugin": {
+                "ok": True,
+                "plan_id": "sha256:" + "b" * 64,
+                "jobState": "Succeeded",
+            },
+        },
+        lambda: {
+            "ok": True,
+            "publishEnabled": True,
+            "queueCapacity": 20,
+            "queuePending": 0,
+            "queueRunning": 0,
+            "queueAvailable": 20,
+        },
+    )
+
+    assert result["summary"]["errors"] == 1
+    assert result["items"][0]["error"] == "invalid_status_response"
+
+
+def test_publish_batch_status_bounds_exceptions_without_echoing_messages() -> None:
+    plan_id = "sha256:" + "a" * 64
+
+    def fail(*_args: object) -> dict[str, object]:
+        raise RuntimeError("C:/secret/company/job.dwg")
+
+    result = build_publish_batch_status([plan_id], fail, fail)
+
+    assert result["items"][0]["error"] == "status_exception:RuntimeError"
+    assert result["queue_error"] == "status_exception:RuntimeError"
+    assert "secret" not in json.dumps(result)
+
+
+def test_publish_batch_status_rejects_unbounded_failed_job_error() -> None:
+    plan_id = "sha256:" + "a" * 64
+
+    result = build_publish_batch_status(
+        [plan_id],
+        lambda _: {
+            "found": True,
+            "plugin": {
+                "ok": True,
+                "plan_id": plan_id,
+                "jobState": "Failed",
+                "jobError": "x" * 129,
+            },
+        },
+        lambda: {
+            "ok": True,
+            "publishEnabled": True,
+            "queueCapacity": 20,
+            "queuePending": 0,
+            "queueRunning": 0,
+            "queueAvailable": 20,
+        },
+    )
+
+    assert result["summary"]["failed"] == 0
+    assert result["summary"]["errors"] == 1

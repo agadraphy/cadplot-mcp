@@ -131,6 +131,10 @@ try {
         $batchResult.queue_protocol_rehearsal.deferred_results -ne 285 -or
         $batchResult.queue_protocol_rehearsal.pipe_attempts -ne 330 -or
         $batchResult.queue_protocol_rehearsal.exact_retry_identity_preserved -ne $true -or
+        $batchResult.queue_protocol_rehearsal.status_batches -ne 15 -or
+        $batchResult.queue_protocol_rehearsal.status_items -ne 300 -or
+        $batchResult.queue_protocol_rehearsal.status_pending -ne 300 -or
+        $batchResult.queue_protocol_rehearsal.status_identity_preserved -ne $true -or
         $batchResult.queue_protocol_rehearsal.plugin_contacted -ne $false -or
         $batchResult.output_audit.outputs_complete -ne 300 -or
         $batchResult.output_audit.execution_verified -ne 0 -or
@@ -225,6 +229,10 @@ try {
             queue_deferred_results = $batchResult.queue_protocol_rehearsal.deferred_results
             queue_pipe_attempts = $batchResult.queue_protocol_rehearsal.pipe_attempts
             queue_exact_retry_identity_preserved = $batchResult.queue_protocol_rehearsal.exact_retry_identity_preserved
+            queue_status_batches = $batchResult.queue_protocol_rehearsal.status_batches
+            queue_status_items = $batchResult.queue_protocol_rehearsal.status_items
+            queue_status_pending = $batchResult.queue_protocol_rehearsal.status_pending
+            queue_status_identity_preserved = $batchResult.queue_protocol_rehearsal.status_identity_preserved
             queue_plugin_contacted = $batchResult.queue_protocol_rehearsal.plugin_contacted
             restart_pages_before_outputs = $batchResult.restart_report_before_outputs.pages
             restart_pages_after_outputs = $batchResult.restart_report_after_outputs.pages

@@ -208,6 +208,10 @@ try {
             queue_deferred_results = 285
             queue_pipe_attempts = 330
             queue_exact_retry_identity_preserved = $true
+            queue_status_batches = 15
+            queue_status_items = 300
+            queue_status_pending = 300
+            queue_status_identity_preserved = $true
             queue_plugin_contacted = $false
             restart_pages_before_outputs = 6
             restart_pages_after_outputs = 6

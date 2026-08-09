@@ -13,6 +13,7 @@ from cadplot_mcp.audit import audit_publish_outputs
 from cadplot_mcp.batch import (
     build_batch_page,
     build_drawing_inventory_id,
+    build_publish_batch_status,
     queue_approved_batch,
     stage_approved_batch,
 )
@@ -164,6 +165,39 @@ def run_synthetic_batch_demo(
     ):
         raise RuntimeError("Synthetic queue-protocol rehearsal lost an approval.")
 
+    status_batches = [
+        build_publish_batch_status(
+            [item["plan_id"] for item in chunk],
+            lambda plan_id: {
+                "found": True,
+                "plugin": {
+                    "ok": True,
+                    "plan_id": plan_id,
+                    "jobState": "Pending",
+                },
+            },
+            lambda: {
+                "ok": True,
+                "publishEnabled": True,
+                "queueCapacity": 20,
+                "queuePending": 0,
+                "queueRunning": 0,
+                "queueAvailable": 20,
+            },
+        )
+        for chunk in _chunks(queue_approvals, batch_size)
+    ]
+    status_plan_ids = [
+        item["plan_id"] for batch in status_batches for item in batch["items"]
+    ]
+    if (
+        sum(batch["summary"]["pending"] for batch in status_batches) != drawing_count
+        or any(batch["queue_error"] is not None for batch in status_batches)
+        or len(status_plan_ids) != len(set(status_plan_ids))
+        or set(status_plan_ids) != {item["plan_id"] for item in queue_approvals}
+    ):
+        raise RuntimeError("Synthetic batch-status rehearsal lost a live plan identity.")
+
     pdf_bytes = _blank_a4_pdf()
     for job in jobs:
         outputs = job["outputs"]
@@ -229,6 +263,12 @@ def run_synthetic_batch_demo(
             ),
             "pipe_attempts": queue_pipe_attempts,
             "exact_retry_identity_preserved": True,
+            "status_batches": len(status_batches),
+            "status_items": len(status_plan_ids),
+            "status_pending": sum(
+                batch["summary"]["pending"] for batch in status_batches
+            ),
+            "status_identity_preserved": True,
             "plugin_contacted": False,
         },
         "restart_report_before_outputs": {

@@ -10,6 +10,9 @@ from typing import Any
 PlanBuilder = Callable[[str], dict[str, Any]]
 StageBuilder = Callable[[dict[str, Any], str], dict[str, Any]]
 QueueBuilder = Callable[[dict[str, str]], dict[str, Any]]
+StatusBuilder = Callable[[str], dict[str, Any]]
+PluginStatusBuilder = Callable[[], dict[str, Any]]
+PUBLISH_JOB_STATES = {"Pending", "Running", "Succeeded", "Failed"}
 
 
 def build_drawing_inventory_id(items: Sequence[dict[str, Any]]) -> str:
@@ -241,6 +244,147 @@ def queue_approved_batch(
         },
         "items": items,
     }
+
+
+def build_publish_batch_status(
+    plan_ids: list[str],
+    status_builder: StatusBuilder,
+    plugin_status_builder: PluginStatusBuilder,
+) -> dict[str, Any]:
+    """Read up to 20 live job states plus one final atomic queue telemetry sample."""
+    normalized = _validate_status_plan_ids(plan_ids)
+    items: list[dict[str, Any]] = []
+    for plan_id in normalized:
+        try:
+            response = status_builder(plan_id)
+        except Exception as exc:
+            response = {
+                "found": False,
+                "error": f"status_exception:{type(exc).__name__}",
+            }
+        items.append(_normalize_live_status(plan_id, response))
+
+    queue: dict[str, int] | None = None
+    queue_error: str | None = None
+    try:
+        queue = _normalize_queue_telemetry(plugin_status_builder())
+    except Exception as exc:
+        queue_error = (
+            _bounded_status_error(exc)
+            if isinstance(exc, ValueError)
+            else f"status_exception:{type(exc).__name__}"
+        )
+
+    summary = {
+        state.casefold(): sum(item.get("job_state") == state for item in items)
+        for state in sorted(PUBLISH_JOB_STATES)
+    }
+    summary["not_found"] = sum(item.get("error") == "job_not_found" for item in items)
+    summary["errors"] = sum(
+        item.get("job_state") is None and item.get("error") != "job_not_found"
+        for item in items
+    )
+    payload = {
+        "schema_version": 1,
+        "summary": summary,
+        "queue": queue,
+        "queue_error": queue_error,
+        "items": items,
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return {
+        "status_batch_id": "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        **payload,
+    }
+
+
+def _validate_status_plan_ids(plan_ids: list[str]) -> list[str]:
+    if not isinstance(plan_ids, list) or not 1 <= len(plan_ids) <= 20:
+        raise ValueError("plan_ids must contain between 1 and 20 items.")
+    if any(
+        not isinstance(plan_id, str)
+        or not re.fullmatch(r"sha256:[0-9a-f]{64}", plan_id)
+        for plan_id in plan_ids
+    ):
+        raise ValueError("Each plan_id must be a SHA-256 identifier.")
+    if len(plan_ids) != len(set(plan_ids)):
+        raise ValueError("plan_ids must be unique within a batch.")
+    return list(plan_ids)
+
+
+def _normalize_live_status(plan_id: str, response: Any) -> dict[str, Any]:
+    if not isinstance(response, dict):
+        return {
+            "plan_id": plan_id,
+            "found": False,
+            "job_state": None,
+            "error": "invalid_status_response",
+        }
+    plugin = response.get("plugin")
+    if response.get("found") is True and isinstance(plugin, dict):
+        state = plugin.get("jobState")
+        job_error = plugin.get("jobError")
+        job_error_valid = (
+            isinstance(job_error, str)
+            and re.fullmatch(r"[A-Za-z0-9_:-]{1,128}", job_error) is not None
+            if state == "Failed"
+            else job_error is None
+        )
+        if (
+            plugin.get("ok") is True
+            and plugin.get("plan_id") == plan_id
+            and state in PUBLISH_JOB_STATES
+            and job_error_valid
+        ):
+            return {
+                "plan_id": plan_id,
+                "found": True,
+                "job_state": state,
+                "job_error": job_error,
+                "error": None,
+            }
+    error = response.get("error")
+    if error is None and isinstance(plugin, dict):
+        error = plugin.get("error")
+    return {
+        "plan_id": plan_id,
+        "found": False,
+        "job_state": None,
+        "error": _bounded_status_error(error or "invalid_status_response"),
+    }
+
+
+def _normalize_queue_telemetry(response: Any) -> dict[str, int]:
+    if not isinstance(response, dict) or response.get("ok") is not True:
+        error = response.get("error") if isinstance(response, dict) else None
+        raise ValueError(_bounded_status_error(error or "invalid_plugin_status"))
+    names = {
+        "capacity": "queueCapacity",
+        "pending": "queuePending",
+        "running": "queueRunning",
+        "available": "queueAvailable",
+    }
+    values = {name: response.get(wire_name) for name, wire_name in names.items()}
+    if any(
+        not isinstance(value, int) or isinstance(value, bool) or value < 0
+        for value in values.values()
+    ):
+        raise ValueError("invalid_queue_telemetry")
+    if (
+        response.get("publishEnabled") is not True
+        or not 1 <= values["capacity"] <= 1_000
+        or values["pending"] > values["capacity"]
+        or values["available"] > values["capacity"]
+        or values["running"] > 1
+        or values["pending"] + values["available"] != values["capacity"]
+    ):
+        raise ValueError("invalid_queue_telemetry")
+    return values
+
+
+def _bounded_status_error(value: Any) -> str:
+    text = "".join(character if character.isprintable() else " " for character in str(value))
+    return (text.strip() or "status_error")[:256]
 
 
 def _validate_queue_approvals(approvals: list[dict[str, str]]) -> list[dict[str, str]]:

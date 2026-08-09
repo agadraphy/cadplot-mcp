@@ -64,6 +64,7 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     tools = {tool.name: tool for tool in mcp._tool_manager.list_tools()}
     stage_schema = tools["stage_publish_batch"].parameters
     queue_schema = tools["queue_publish_batch"].parameters
+    status_schema = tools["get_publish_batch_status"].parameters
     stage_items = stage_schema["$defs"]["StageApproval"]
     queue_items = queue_schema["$defs"]["QueueApproval"]
 
@@ -75,6 +76,11 @@ def test_approval_and_bounded_inputs_have_strict_mcp_schemas() -> None:
     assert queue_items["required"] == ["manifest_path", "plan_id", "manifest_sha256"]
     assert queue_items["properties"]["manifest_sha256"]["pattern"] == r"^[0-9a-f]{64}$"
     assert tools["queue_publish_batch"].parameters["properties"]["approvals"]["maxItems"] == 20
+    assert status_schema["properties"]["plan_ids"]["minItems"] == 1
+    assert status_schema["properties"]["plan_ids"]["maxItems"] == 20
+    assert status_schema["properties"]["plan_ids"]["items"]["pattern"] == (
+        r"^sha256:[0-9a-f]{64}$"
+    )
     timeout = tools["queue_publish_job"].parameters["properties"]["timeout_ms"]
     assert timeout["minimum"] == 1
     assert timeout["maximum"] == 60_000

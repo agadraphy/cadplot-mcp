@@ -139,6 +139,8 @@ uv run python scripts/run-synthetic-demo.py
   permanent `failed` items and stops issuing pipe requests after the first `queue_full` response.
 - `get_publish_job_status`: report `Pending`, `Running`, `Succeeded`, or `Failed` plus a bounded
   machine-safe failure code.
+- `get_publish_batch_status`: read up to 20 exact plan IDs in one bounded MCP call, summarize live
+  states, and take one final internally consistent queue-capacity sample without writing files.
 - `read_publish_receipt`: recover immutable, digest-bound terminal execution evidence from the
   staged job even after AutoCAD has restarted.
 - `create_publish_operations_report`: page through up to 50 staged workspace jobs with a stable
@@ -226,6 +228,9 @@ then retry the unchanged exact approvals reported as `deferred` when slots reope
 result is backpressure, not a publish failure and not permission to alter or silently replace an
 approval. The MCP server instructions direct capable clients to keep feeding an already approved
 large run autonomously; the operator still retains AutoCAD's publish opt-in gate.
+Use `get_publish_batch_status` for bounded live polling instead of issuing one MCP call per plan;
+its queue telemetry is sampled once after the per-job reads and is not claimed to be a simultaneous
+snapshot of every job transition.
 Process-local queue status disappears when AutoCAD exits, but every terminal job writes an
 immutable `receipt.json`. Use `read_publish_receipt` or the audit report to resume verification
 without guessing from the presence of PDFs alone.
@@ -243,7 +248,8 @@ uv run python scripts/run-synthetic-batch-demo.py --drawings 300
 It creates 300 non-DWG synthetic fixtures in a temporary directory, plans them in 15 immutable
 pages, stages 300 independently hash-bound copies in 15 approval batches, saturates a synthetic
 seven-slot queue and retries only the exact deferred approvals, walks the restart report without
-repeats, and structurally audits 300 generated PDFs. It deliberately creates no plug-in
+repeats, reads all 300 plan identities through 15 bounded batch-status calls, and structurally
+audits 300 generated PDFs. It deliberately creates no plug-in
 receipt, so all 300 outputs remain `manual_review`, `execution_verified=0`, and
 `publish_verified=0`. This proves bounded local orchestration and fail-closed recovery at the target
 count; it is not AutoCAD execution evidence.

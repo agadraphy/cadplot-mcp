@@ -15,6 +15,7 @@ EXPECTED_TOOLS = {
     "create_publish_operations_report",
     "create_publish_plan",
     "get_autocad_plugin_status",
+    "get_publish_batch_status",
     "get_publish_job_status",
     "inspect_drawing",
     "inventory_office_resources",
@@ -117,6 +118,7 @@ async def smoke() -> dict[str, object]:
 
     stage_schema = tools["stage_publish_batch"].inputSchema
     queue_schema = tools["queue_publish_batch"].inputSchema
+    status_schema = tools["get_publish_batch_status"].inputSchema
     stage_approval = stage_schema["$defs"]["StageApproval"]
     queue_approval = queue_schema["$defs"]["QueueApproval"]
     if stage_approval.get("additionalProperties") is not False:
@@ -125,6 +127,8 @@ async def smoke() -> dict[str, object]:
         raise RuntimeError("Queue approval MCP schema allows unexpected fields")
     if stage_schema["properties"]["approvals"].get("maxItems") != 20:
         raise RuntimeError("Stage approval MCP schema is not bounded to 20 items")
+    if status_schema["properties"]["plan_ids"].get("maxItems") != 20:
+        raise RuntimeError("Publish batch status MCP schema is not bounded to 20 items")
     if queue_approval["properties"]["manifest_sha256"].get("pattern") != r"^[0-9a-f]{64}$":
         raise RuntimeError("Queue manifest digest MCP schema is not exact")
     inventory_schema = tools["create_batch_publish_plans"].inputSchema["properties"][

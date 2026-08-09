@@ -241,6 +241,15 @@ class PublishJobStatusOutput(_ClosedOutput):
     error: str | None = None
 
 
+class PublishBatchStatusOutput(_ClosedOutput):
+    schema_version: Literal[1]
+    status_batch_id: PlanIdString
+    summary: dict[str, int]
+    queue: dict[str, int] | None
+    queue_error: str | None
+    items: list[dict[str, Any]]
+
+
 class PublishOperationsReportOutput(_ClosedOutput):
     processed: int
     has_more: bool

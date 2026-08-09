@@ -29,3 +29,8 @@ For a live large run, use the plug-in's `queueAvailable` value as the feed windo
 IDs, and manifest digests and retry them after slots reopen. After an AutoCAD restart, live status
 is intentionally empty; regenerate this report and use only fresh `awaiting_execution`
 `queue_approval` objects.
+
+`get_publish_batch_status` accepts 1 to 20 unique exact plan IDs. It isolates per-plan connection,
+not-found, and protocol errors; summarizes `Pending`, `Running`, `Succeeded`, and `Failed`; then
+reads one final atomic queue-capacity sample. That queue sample is current at the end of the call,
+not a claim that all earlier per-job states were observed in one instant.

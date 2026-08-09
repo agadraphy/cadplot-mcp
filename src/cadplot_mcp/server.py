@@ -16,6 +16,7 @@ from cadplot_mcp.backends.isolated_autocad import IsolatedAutoCADInspector
 from cadplot_mcp.batch import (
     build_batch_page,
     build_drawing_inventory_id,
+    build_publish_batch_status,
     queue_approved_batch,
     stage_approved_batch,
 )
@@ -48,6 +49,7 @@ from cadplot_mcp.tool_outputs import (
     MatchPaperProfileOutput,
     OfficeInventoryOutput,
     PreviewPublishPlanOutput,
+    PublishBatchStatusOutput,
     PublishJobStatusOutput,
     PublishOperationsReportOutput,
     PublishPlanOutput,
@@ -67,6 +69,7 @@ from cadplot_mcp.tool_types import (
     LabelString,
     MaximumFiles,
     PathString,
+    PlanIds,
     PlanIdString,
     QueueApprovals,
     Sha256String,
@@ -331,6 +334,19 @@ def get_publish_job_status(
     except (PluginConnectionError, ValueError) as exc:
         return {"found": False, "error": str(exc)}
     return {"found": bool(response.get("ok")), "plugin": response}
+
+
+@mcp.tool(title="Get publish batch status", annotations=READ_ONLY)
+def get_publish_batch_status(
+    plan_ids: PlanIds,
+    timeout_ms: TimeoutMilliseconds = 2_000,
+) -> PublishBatchStatusOutput:
+    """Read up to 20 live job states and one final queue-capacity sample; never writes."""
+    return build_publish_batch_status(
+        plan_ids,
+        lambda plan_id: get_publish_job_status(plan_id, timeout_ms),
+        lambda: get_plugin_status(timeout_ms=timeout_ms),
+    )
 
 
 @mcp.tool(title="Read publish receipt", annotations=READ_ONLY)

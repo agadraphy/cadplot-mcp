@@ -112,3 +112,11 @@ QueueApprovals = Annotated[
         ),
     ),
 ]
+PlanIds = Annotated[
+    list[PlanIdString],
+    Field(
+        min_length=1,
+        max_length=20,
+        description="One to twenty unique exact plan IDs for a bounded live-status read.",
+    ),
+]

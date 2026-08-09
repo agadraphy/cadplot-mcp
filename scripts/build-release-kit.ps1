@@ -176,6 +176,10 @@ try {
         $batch.queue_deferred_results -ne 285 -or
         $batch.queue_pipe_attempts -ne 330 -or
         $batch.queue_exact_retry_identity_preserved -ne $true -or
+        $batch.queue_status_batches -ne 15 -or
+        $batch.queue_status_items -ne 300 -or
+        $batch.queue_status_pending -ne 300 -or
+        $batch.queue_status_identity_preserved -ne $true -or
         $batch.queue_plugin_contacted -ne $false -or
         $batch.outputs_complete -ne 300 -or
         $batch.execution_verified -ne 0 -or

@@ -68,6 +68,9 @@ try {
         $preflightSummary.synthetic_batch_rehearsal.queue_simulated_acceptances -ne 300 -or
         $preflightSummary.synthetic_batch_rehearsal.queue_deferred_results -ne 285 -or
         $preflightSummary.synthetic_batch_rehearsal.queue_exact_retry_identity_preserved -ne $true -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_status_batches -ne 15 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_status_items -ne 300 -or
+        $preflightSummary.synthetic_batch_rehearsal.queue_status_identity_preserved -ne $true -or
         $preflightSummary.synthetic_batch_rehearsal.queue_plugin_contacted -ne $false -or
         $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0
     ) {
