@@ -675,6 +675,9 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
     verifier = (REPOSITORY_ROOT / "scripts" / "verify-python-install.ps1").read_text(
         encoding="utf-8"
     )
+    uninstaller = (REPOSITORY_ROOT / "scripts" / "uninstall-python.ps1").read_text(
+        encoding="utf-8"
+    )
     kit_builder = (REPOSITORY_ROOT / "scripts" / "build-release-kit.ps1").read_text(
         encoding="utf-8"
     )
@@ -705,9 +708,27 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "cadplot-doctor.cmd",
         "cadplot-mcp-http.cmd",
         "PYTHONDONTWRITEBYTECODE",
+        "[System.IO.File]::Delete($inventoryScript)",
+        "[Environment]::SetEnvironmentVariable",
     ):
         assert required in verifier
-    for name in ("install-python.ps1", "verify-python-install.ps1", "loopback-http.md"):
+    for required in (
+        "SupportsShouldProcess = $true",
+        "verify-python-install.ps1",
+        "manifest changed during verification",
+        "Move-Item -LiteralPath $root -Destination $quarantine",
+        "^\\.cadplot-python-removing-[0-9a-f]{32}$",
+        "Remove-Item -LiteralPath $quarantine -Recurse -Force",
+        "LivePublishProven = $false",
+    ):
+        assert required in uninstaller
+    assert "Remove-Item -LiteralPath $root -Recurse" not in uninstaller
+    for name in (
+        "install-python.ps1",
+        "verify-python-install.ps1",
+        "uninstall-python.ps1",
+        "loopback-http.md",
+    ):
         assert name in kit_builder
         assert name in kit_verifier
     for field in (
@@ -715,6 +736,8 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "python_install_locked_dependencies",
         "python_install_overwrite_blocked",
         "python_install_tamper_blocked",
+        "python_uninstall_what_if_safe",
+        "python_uninstall_verified",
     ):
         assert field in bundle_smoke
 

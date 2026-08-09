@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Verified Python uninstaller with `-WhatIf`, repeated manifest/environment validation, redirected-
+  path rejection, atomic non-loadable quarantine rename, and exact-target removal smoke coverage.
 - Release-kit Python installer/verifier with embedded kit revalidation, frozen hash-required
   dependency installation, wheel `--no-deps`, isolated staging, no-overwrite atomic naming,
   installed-distribution evidence, and protocol-fixture tamper/WhatIf/overwrite smoke coverage.

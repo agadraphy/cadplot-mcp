@@ -66,6 +66,18 @@ review and reproducible maintenance. Both kit manifests retain the current, lock
 vulnerability result and transitive Python license inventory. This is point-in-time scan evidence,
 not a permanent security guarantee or legal advice. The wheel contains no Autodesk/company assets.
 
+For an upgrade or removal, preview and then remove only the returned version/commit installation:
+
+```powershell
+& "$kit\scripts\uninstall-python.ps1" -InstallRoot $pythonInstall.Target -WhatIf
+& "$kit\scripts\uninstall-python.ps1" -InstallRoot $pythonInstall.Target
+```
+
+The uninstaller verifies the complete environment twice, rejects redirected or modified paths, then
+atomically renames only that exact install to a unique non-loadable quarantine before recursive
+removal. A rename or removal failure retains the quarantine for inspection. It never removes the
+destination parent or an unverified directory.
+
 ## 4. Create the external pilot workspace
 
 Preview and then create an empty, no-overwrite workspace outside the release kit:

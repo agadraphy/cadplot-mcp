@@ -58,6 +58,8 @@ Use this checklist for every alpha release.
 - [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
       mandatory hashes, staged without overwrite, atomically renamed, and
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.
+- [ ] `uninstall-python.ps1 -WhatIf` preserved the install; the real removal reverified it, atomically
+      quarantined only the exact version/commit directory, and left no target or quarantine behind.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/

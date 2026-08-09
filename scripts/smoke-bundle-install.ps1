@@ -137,7 +137,9 @@ try {
         $releaseKitSmoke.python_install_what_if_safe -ne $true -or
         $releaseKitSmoke.python_install_locked_dependencies -ne $true -or
         $releaseKitSmoke.python_install_overwrite_blocked -ne $true -or
-        $releaseKitSmoke.python_install_tamper_blocked -ne $true
+        $releaseKitSmoke.python_install_tamper_blocked -ne $true -or
+        $releaseKitSmoke.python_uninstall_what_if_safe -ne $true -or
+        $releaseKitSmoke.python_uninstall_verified -ne $true
     ) {
         throw "Protocol-only combined release-kit smoke failed."
     }
@@ -220,6 +222,8 @@ try {
         python_install_locked_dependencies = $releaseKitSmoke.python_install_locked_dependencies
         python_install_overwrite_blocked = $releaseKitSmoke.python_install_overwrite_blocked
         python_install_tamper_blocked = $releaseKitSmoke.python_install_tamper_blocked
+        python_uninstall_what_if_safe = $releaseKitSmoke.python_uninstall_what_if_safe
+        python_uninstall_verified = $releaseKitSmoke.python_uninstall_verified
         what_if_install_mutated = $false
         copied_hashes_verified = $true
         existing_install_blocked = $overwriteBlocked

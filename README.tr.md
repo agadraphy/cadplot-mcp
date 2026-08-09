@@ -231,6 +231,8 @@ Kitteki `install-python.ps1`, tüm transferi yeniden doğrular; frozen lock bağ
 hashlerle ve wheel'i `--no-deps` ile benzersiz staging venv'e kurup sürüm/commit hedefini atomik
 adlandırır. Global PATH'i değiştirmez ve mevcut kurulumu ezmez. `verify-python-install.ps1` wheel,
 lock, requirements digest'i, komutlar ve kurulu dağıtım envanterini tekrar denetler.
+`uninstall-python.ps1` aynı sürüm/commit ortamını yeniden doğrular, `-WhatIf` ile hedefi gösterir ve
+yalnız atomik adı değiştirilmiş karantinayı siler; değiştirilmiş veya yönlendirilmiş klasör korunur.
 Küçük yerel demo kiti kendi `verify-demo-kit.ps1` doğrulayıcısını taşır; exact dosya kümesi ve
 hashleri kontrol edilirken makineye özel API klasör yolu taşınabilir manifestten çıkarılır.
 

@@ -274,6 +274,8 @@ The kit's `install-python.ps1` first revalidates the whole transfer, installs ex
 required dependencies plus the wheel into a unique staging venv, and atomically names a version/
 commit target without changing global PATH. `verify-python-install.ps1` rechecks its retained wheel,
 lock, requirements digest, command surface, and installed distribution inventory.
+`uninstall-python.ps1` revalidates that exact version/commit environment, previews with `-WhatIf`,
+and removes only an atomically renamed quarantine; modified or redirected directories are preserved.
 The smaller local demo kit carries `verify-demo-kit.ps1`; it verifies the exact flat file set and
 hashes while omitting machine-local API directory paths from its portable manifest.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,

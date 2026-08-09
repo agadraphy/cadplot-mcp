@@ -81,7 +81,7 @@ try {
     foreach ($scriptName in @(
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
         "verify-bundle-release.ps1", "verify-release-kit.ps1",
-        "install-python.ps1", "verify-python-install.ps1",
+        "install-python.ps1", "verify-python-install.ps1", "uninstall-python.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py"
@@ -274,19 +274,50 @@ try {
         $overwriteBlocked = $true
     }
     if (-not $overwriteBlocked) { throw "Python installer overwrote an existing target." }
+    $pythonUninstaller = Join-Path $kitRoot "scripts\uninstall-python.ps1"
+    $whatIfUninstall = & $pythonUninstaller `
+        -InstallRoot $pythonInstall.Target `
+        -WhatIf `
+        -PassThru
+    if (
+        $whatIfUninstall.WhatIf -ne $true -or
+        -not (Test-Path -LiteralPath $pythonInstall.Target -PathType Container)
+    ) {
+        throw "Python uninstaller -WhatIf changed the verified installation."
+    }
     $installedWheel = @(Get-ChildItem -LiteralPath (Join-Path $pythonInstall.Target "evidence") `
         -File -Filter "*.whl")
-    $installedWheelBytes = [System.IO.File]::ReadAllBytes($installedWheel[0].FullName)
-    $installedWheelBytes[0] = $installedWheelBytes[0] -bxor 1
-    [System.IO.File]::WriteAllBytes($installedWheel[0].FullName, $installedWheelBytes)
+    $originalInstalledWheelBytes = [System.IO.File]::ReadAllBytes($installedWheel[0].FullName)
+    $tamperedInstalledWheelBytes = [byte[]]$originalInstalledWheelBytes.Clone()
+    $tamperedInstalledWheelBytes[0] = $tamperedInstalledWheelBytes[0] -bxor 1
+    [System.IO.File]::WriteAllBytes($installedWheel[0].FullName, $tamperedInstalledWheelBytes)
     $installTamperBlocked = $false
-    try { & $installedVerifier -InstallRoot $pythonInstall.Target -PassThru | Out-Null }
+    try {
+        & $pythonUninstaller `
+            -InstallRoot $pythonInstall.Target `
+            -Confirm:$false `
+            -PassThru | Out-Null
+    }
     catch {
         if ($_.Exception.Message -notlike "*evidence hash mismatch*") { throw }
         $installTamperBlocked = $true
     }
-    if (-not $installTamperBlocked) {
-        throw "Python install verifier accepted modified wheel evidence."
+    if (
+        -not $installTamperBlocked -or
+        -not (Test-Path -LiteralPath $pythonInstall.Target -PathType Container)
+    ) {
+        throw "Python uninstaller did not preserve modified wheel evidence."
+    }
+    [System.IO.File]::WriteAllBytes($installedWheel[0].FullName, $originalInstalledWheelBytes)
+    $pythonUninstall = & $pythonUninstaller `
+        -InstallRoot $pythonInstall.Target `
+        -Confirm:$false `
+        -PassThru
+    if (
+        $pythonUninstall.Removed -ne $true -or
+        (Test-Path -LiteralPath $pythonInstall.Target)
+    ) {
+        throw "Verified Python installation remained after uninstall smoke."
     }
 
     $outerBytes = [System.IO.File]::ReadAllBytes($outerPath)
@@ -328,6 +359,8 @@ try {
         python_install_locked_dependencies = $true
         python_install_overwrite_blocked = $overwriteBlocked
         python_install_tamper_blocked = $installTamperBlocked
+        python_uninstall_what_if_safe = $true
+        python_uninstall_verified = $true
         matching_sdk_bundle_built = $false
         autocad_launched = $false
         live_publish_proven = $false

@@ -134,10 +134,13 @@ try {
 }
 finally {
     if (Test-Path -LiteralPath $inventoryScript -PathType Leaf) {
-        Remove-Item -LiteralPath $inventoryScript -Force
+        [System.IO.File]::Delete($inventoryScript)
     }
-    if ($null -eq $previousNoBytecode) { Remove-Item Env:PYTHONDONTWRITEBYTECODE -ErrorAction SilentlyContinue }
-    else { $env:PYTHONDONTWRITEBYTECODE = $previousNoBytecode }
+    [Environment]::SetEnvironmentVariable(
+        "PYTHONDONTWRITEBYTECODE",
+        $previousNoBytecode,
+        [EnvironmentVariableTarget]::Process
+    )
 }
 try { $inventory = $inventoryText | ConvertFrom-Json }
 catch { throw "Installed package inventory is not valid JSON." }
@@ -161,8 +164,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Installed HTTP launcher smoke failed." }
 }
 finally {
-    if ($null -eq $previousNoBytecode) { Remove-Item Env:PYTHONDONTWRITEBYTECODE -ErrorAction SilentlyContinue }
-    else { $env:PYTHONDONTWRITEBYTECODE = $previousNoBytecode }
+    [Environment]::SetEnvironmentVariable(
+        "PYTHONDONTWRITEBYTECODE",
+        $previousNoBytecode,
+        [EnvironmentVariableTarget]::Process
+    )
 }
 
 $result = [pscustomobject]@{
