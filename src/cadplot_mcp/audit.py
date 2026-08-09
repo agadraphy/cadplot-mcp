@@ -396,9 +396,11 @@ def _audit_pdf(
                     "sha256": None,
                     "page_count": page_count,
                 }
-            media_box = reader.pages[0].mediabox
+            page = reader.pages[0]
+            media_box = page.mediabox
             width_points = float(media_box.width)
             height_points = float(media_box.height)
+            rotation = int(page.get("/Rotate", 0) or 0)
     except (OSError, PdfReadError, TypeError, ValueError):
         return {
             **result,
@@ -415,14 +417,36 @@ def _audit_pdf(
             "sha256": None,
             "page_count": 1,
         }
+    if rotation % 90 != 0:
+        return {
+            **result,
+            "status": "invalid_page_rotation",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": 1,
+        }
+    if rotation % 180 != 0:
+        width_points, height_points = height_points, width_points
     geometry = item.get("plot_geometry")
     if not isinstance(geometry, dict):
         return {**result, "status": "invalid_expected_page_size", "page_count": 1}
     expected_values = (geometry.get("paper_width_mm"), geometry.get("paper_height_mm"))
-    if not all(isinstance(value, (int, float)) and value > 0 for value in expected_values):
+    expected_rotation = geometry.get("rotation_degrees")
+    if (
+        expected_rotation not in {0, 90}
+        or isinstance(expected_rotation, bool)
+        or not all(
+            isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+            for value in expected_values
+        )
+    ):
         return {**result, "status": "invalid_expected_page_size", "page_count": 1}
-    actual_mm = sorted((width_points * 25.4 / 72, height_points * 25.4 / 72))
-    expected_mm = sorted((float(expected_values[0]), float(expected_values[1])))
+    actual_mm = (width_points * 25.4 / 72, height_points * 25.4 / 72)
+    expected_mm = (
+        (float(expected_values[0]), float(expected_values[1]))
+        if expected_rotation == 0
+        else (float(expected_values[1]), float(expected_values[0]))
+    )
     dimensions = zip(actual_mm, expected_mm, strict=True)
     if any(abs(actual - expected) > page_tolerance_mm for actual, expected in dimensions):
         return {
@@ -433,8 +457,8 @@ def _audit_pdf(
             "page_count": 1,
             "page_width_mm": round(width_points * 25.4 / 72, 3),
             "page_height_mm": round(height_points * 25.4 / 72, 3),
-            "expected_paper_width_mm": expected_values[0],
-            "expected_paper_height_mm": expected_values[1],
+            "expected_paper_width_mm": expected_mm[0],
+            "expected_paper_height_mm": expected_mm[1],
         }
     return {
         **result,

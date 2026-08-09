@@ -271,7 +271,10 @@ uv run python scripts/run-synthetic-batch-demo.py --drawings 300
 
 Prova 15 değişmez plan sayfası, 15 onaylı staging batch'i, 300 bağımsız hash'li kopya, tekrarsız
 restart raporu ve 300 yapısal PDF audit'i üretir. Bilerek eklenti receipt'i oluşturmaz; bu nedenle
-300 çıktının tamamı `manual_review`, `execution_verified=0` ve `publish_verified=0` kalır. Bu kanıt
+önce portrait PDF'nin çerçeveden türetilen landscape sözleşmesini karşılayamadığını, PDF sayfa
+rotasyonu dahil doğrular ve `orientation_mismatch_rejected=true` kaydını tutar. Doğru yönlü 300
+sentetik çıktının tamamı yine
+`manual_review`, `execution_verified=0` ve `publish_verified=0` kalır. Bu kanıt
 hedef sayıda yerel orkestrasyon ve fail-closed devam davranışını gösterir; AutoCAD yürütme kanıtı
 değildir.
 

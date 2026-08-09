@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
+from pypdf.generic import NameObject, NumberObject
 
 from cadplot_mcp.audit import (
     audit_publish_outputs,
@@ -271,7 +272,7 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
 
     pdf = Path(job["outputs"][0]["pdf"])
     writer = PdfWriter()
-    writer.add_blank_page(width=595, height=842)
+    writer.add_blank_page(width=842, height=595)
     with pdf.open("wb") as stream:
         writer.write(stream)
     complete = audit_publish_outputs(job["manifest"], config)
@@ -282,8 +283,8 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
     assert complete["summary"] == {"expected": 1, "valid": 1, "missing": 0, "invalid": 0}
     assert len(complete["outputs"][0]["sha256"]) == 64
     assert complete["outputs"][0]["page_count"] == 1
-    assert complete["outputs"][0]["page_width_points"] == 595
-    assert complete["outputs"][0]["page_width_mm"] == pytest.approx(209.903, abs=0.001)
+    assert complete["outputs"][0]["page_width_points"] == 842
+    assert complete["outputs"][0]["page_width_mm"] == pytest.approx(297.039, abs=0.001)
 
 
 def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path) -> None:
@@ -291,7 +292,7 @@ def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path)
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     manifest_path = Path(job["manifest"])
     pdf_writer = PdfWriter()
-    pdf_writer.add_blank_page(width=595, height=842)
+    pdf_writer.add_blank_page(width=842, height=595)
     with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
         pdf_writer.write(stream)
     receipt = _successful_receipt(job, manifest_path)
@@ -315,7 +316,7 @@ def test_valid_replacement_pdf_cannot_reuse_successful_receipt(tmp_path: Path) -
     manifest_path = Path(job["manifest"])
     pdf = Path(job["outputs"][0]["pdf"])
     original = PdfWriter()
-    original.add_blank_page(width=595, height=842)
+    original.add_blank_page(width=842, height=595)
     with pdf.open("wb") as stream:
         original.write(stream)
     receipt = _successful_receipt(job, manifest_path)
@@ -325,7 +326,7 @@ def test_valid_replacement_pdf_cannot_reuse_successful_receipt(tmp_path: Path) -
     assert audit_publish_outputs(manifest_path, config)["publish_verified"] is True
 
     replacement = PdfWriter()
-    replacement.add_blank_page(width=595, height=842)
+    replacement.add_blank_page(width=842, height=595)
     replacement.add_metadata({"/Title": "replacement after receipt"})
     with pdf.open("wb") as stream:
         replacement.write(stream)
@@ -415,7 +416,7 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
 
     complete_manifest = Path(complete_job["manifest"])
     writer = PdfWriter()
-    writer.add_blank_page(width=595, height=842)
+    writer.add_blank_page(width=842, height=595)
     with Path(complete_job["outputs"][0]["pdf"]).open("wb") as stream:
         writer.write(stream)
     complete_receipt = _successful_receipt(complete_job, complete_manifest)
@@ -568,4 +569,84 @@ def test_output_audit_rejects_wrong_physical_page_size(tmp_path: Path) -> None:
 
     assert report["complete"] is False
     assert report["outputs"][0]["status"] == "page_size_mismatch"
-    assert report["outputs"][0]["expected_paper_width_mm"] == 210
+    assert report["outputs"][0]["expected_paper_width_mm"] == 297
+
+
+def test_output_audit_rejects_swapped_page_orientation(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["publish_verified"] is False
+    assert report["outputs"][0]["status"] == "page_size_mismatch"
+    assert report["outputs"][0]["page_width_mm"] == pytest.approx(209.903, abs=0.001)
+    assert report["outputs"][0]["page_height_mm"] == pytest.approx(297.039, abs=0.001)
+
+
+def test_output_audit_applies_pdf_page_rotation_to_physical_orientation(
+    tmp_path: Path,
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842).rotate(90)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is True
+    assert report["publish_verified"] is False
+    assert report["outputs"][0]["status"] == "valid"
+    assert report["outputs"][0]["page_width_mm"] == pytest.approx(297.039, abs=0.001)
+    assert report["outputs"][0]["page_height_mm"] == pytest.approx(209.903, abs=0.001)
+
+
+def test_output_audit_rejects_non_quarter_turn_pdf_rotation(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=842, height=595)
+    page[NameObject("/Rotate")] = NumberObject(45)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["publish_verified"] is False
+    assert report["outputs"][0]["status"] == "invalid_page_rotation"
+
+
+@pytest.mark.parametrize("rotation", [None, 180])
+def test_output_audit_fails_closed_on_invalid_expected_rotation(
+    tmp_path: Path,
+    rotation: int | None,
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if rotation is None:
+        manifest["outputs"][0]["plot_geometry"].pop("rotation_degrees")
+    else:
+        manifest["outputs"][0]["plot_geometry"]["rotation_degrees"] = rotation
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    writer = PdfWriter()
+    writer.add_blank_page(width=842, height=595)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(manifest_path, config)
+
+    assert report["outputs_complete"] is False
+    assert report["publish_verified"] is False
+    assert report["outputs"][0]["status"] == "invalid_expected_page_size"

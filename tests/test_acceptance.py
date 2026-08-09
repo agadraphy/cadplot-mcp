@@ -219,6 +219,7 @@ def _fixture(tmp_path: Path, *, prohibited_asset: bool = False) -> tuple[Path, P
             "outputs_complete": 300,
             "execution_verified": 0,
             "publish_verified": 0,
+            "orientation_mismatch_rejected": True,
             "manual_review_without_receipts": 300,
             "source_unchanged": True,
             "synthetic": True,

@@ -250,7 +250,8 @@ try {
             queue_status_batches = 15; queue_status_items = 300; queue_status_pending = 300
             queue_status_identity_preserved = $true
             queue_plugin_contacted = $false
-            execution_verified = 0; publish_verified = 0; manual_review_without_receipts = 300
+            execution_verified = 0; publish_verified = 0; orientation_mismatch_rejected = $true
+            manual_review_without_receipts = 300
             source_unchanged = $true; evidence_digest = "sha256:$('d' * 64)"; synthetic = $true
         }
         company_assets_copied = $false
@@ -430,6 +431,23 @@ try {
         throw "Demo-kit verifier accepted altered queue-backpressure evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $orientationTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $orientationTamper.synthetic_batch_rehearsal.orientation_mismatch_rejected = $false
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($orientationTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $orientationTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*300-drawing synthetic batch evidence*") { throw }
+        $orientationTamperBlocked = $true
+    }
+    if (-not $orientationTamperBlocked) {
+        throw "Demo-kit verifier accepted altered PDF-orientation evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     $durableTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
     $durableTamper.durable_queue_recovery.authentication_scheme = "unsigned"
     [System.IO.File]::WriteAllText(
@@ -517,6 +535,7 @@ try {
         archive_traversal_tamper_blocked = $archiveTraversalBlocked
         dependency_license_tamper_blocked = $licenseTamperBlocked
         queue_backpressure_tamper_blocked = $queueTamperBlocked
+        orientation_evidence_tamper_blocked = $orientationTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
         wheel_tamper_blocked = $true

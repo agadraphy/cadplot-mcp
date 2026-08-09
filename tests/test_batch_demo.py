@@ -55,6 +55,7 @@ def test_synthetic_batch_demo_rehearses_bounded_scale_without_live_claims(
         "execution_verified": 0,
         "publish_verified": 0,
         "receipts_created": False,
+        "orientation_mismatch_rejected": True,
     }
     assert result["restart_report_after_outputs"]["manual_review"] == 25
     assert result["restart_report_after_outputs"]["complete"] == 0

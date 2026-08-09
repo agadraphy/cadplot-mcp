@@ -78,7 +78,7 @@ paper_profiles:
 
     pdf = Path(job["outputs"][0]["pdf"])
     writer = PdfWriter()
-    writer.add_blank_page(width=595.276, height=841.89)
+    writer.add_blank_page(width=841.89, height=595.276)
     with pdf.open("wb") as stream:
         writer.write(stream)
     audit = audit_publish_outputs(job["manifest"], config)

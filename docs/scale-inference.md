@@ -18,5 +18,10 @@ The publish plan records the exact plot window, rotation, selected denominator, 
 denominator, and drawing-unit conversion. A distorted frame or a nonstandard scale gets
 `unsupported_scale` status and keeps the full plan `ready=false`.
 
+The selected rotation also defines the physical PDF orientation. Rotation `0` expects the declared
+paper width and height in that order; rotation `90` expects them swapped. Output auditing applies a
+PDF page's `/Rotate` value before comparing its effective width and height. It never sorts the two
+dimensions, so a portrait page cannot silently pass a landscape plan (or vice versa).
+
 Example: a `70x100` centimetre paper label in a 35,000 x 50,000 model-space rectangle with
 `drawing_unit_mm: 1` resolves to a 700 x 1,000 millimetre sheet at 1:50.

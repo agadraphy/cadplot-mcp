@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Physical page orientation is now exact across planning, AutoCAD page-setup validation, and PDF
+  audit. Ordered width/height and effective PDF `/Rotate` are checked, the 300-drawing rehearsal
+  proves a portrait-for-landscape mismatch is rejected, and delivery verifiers bind that evidence.
 - Standalone bundle installation is now bound to the full verified release root: the exact sibling
   ZIP, `bundle-build.json`, commit identity, and matching-SDK evidence are rechecked before any
   copy. Protocol-only fixtures fail normal installation and require explicit test-only consent.

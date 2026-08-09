@@ -104,6 +104,7 @@ if (
     $batch.outputs_complete -ne 300 -or
     $batch.execution_verified -ne 0 -or
     $batch.publish_verified -ne 0 -or
+    $batch.orientation_mismatch_rejected -ne $true -or
     $batch.manual_review_without_receipts -ne 300 -or
     $batch.source_unchanged -ne $true -or
     $batch.synthetic -ne $true -or

@@ -114,6 +114,24 @@ public sealed class ViewportGeometryTests
         );
     }
 
+    [Fact]
+    public void PaperDimensionValidationPreservesOrientation()
+    {
+        var geometry = Geometry(0, 0, 210, 297, denominator: 1);
+        geometry.PaperWidthMillimetres = 210;
+        geometry.PaperHeightMillimetres = 297;
+
+        Assert.True(PublishGeometryContract.PaperDimensionsMatch(geometry, 210, 297, 2));
+        Assert.False(PublishGeometryContract.PaperDimensionsMatch(geometry, 297, 210, 2));
+
+        geometry.RotationDegrees = 90;
+        Assert.True(PublishGeometryContract.PaperDimensionsMatch(geometry, 297, 210, 2));
+        Assert.False(PublishGeometryContract.PaperDimensionsMatch(geometry, 210, 297, 2));
+
+        geometry.RotationDegrees = 180;
+        Assert.False(PublishGeometryContract.PaperDimensionsMatch(geometry, 210, 297, 2));
+    }
+
     private static PublishPlotGeometry Geometry(
         double minX,
         double minY,

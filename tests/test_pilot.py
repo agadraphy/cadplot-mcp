@@ -189,7 +189,11 @@ template_roots: [templates]
                 "page_setup": "OFFICE_A4",
                 "template_layout": template_layout,
                 "template_asset_id": template_asset_id,
-                "plot_geometry": {"paper_width_mm": 210.0, "paper_height_mm": 297.0},
+                "plot_geometry": {
+                    "rotation_degrees": 0,
+                    "paper_width_mm": 210.0,
+                    "paper_height_mm": 297.0,
+                },
             }
         ],
     }

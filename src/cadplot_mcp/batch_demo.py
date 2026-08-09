@@ -201,7 +201,19 @@ def run_synthetic_batch_demo(
     ):
         raise RuntimeError("Synthetic batch-status rehearsal lost a live plan identity.")
 
-    pdf_bytes = _blank_a4_pdf()
+    first_pdf = Path(jobs[0]["outputs"][0]["pdf"])
+    first_pdf.write_bytes(_blank_a4_pdf())
+    orientation_probe = audit_publish_outputs(jobs[0]["manifest"], config)
+    orientation_mismatch_rejected = bool(
+        orientation_probe["outputs_complete"] is False
+        and orientation_probe["publish_verified"] is False
+        and orientation_probe["outputs"][0]["status"] == "page_size_mismatch"
+    )
+    if not orientation_mismatch_rejected:
+        raise RuntimeError("Synthetic PDF orientation mismatch was not rejected.")
+    first_pdf.unlink()
+
+    pdf_bytes = _blank_a4_pdf(landscape=True)
     for job in jobs:
         outputs = job["outputs"]
         if len(outputs) != 1:
@@ -286,6 +298,7 @@ def run_synthetic_batch_demo(
             "execution_verified": execution_verified,
             "publish_verified": publish_verified,
             "receipts_created": False,
+            "orientation_mismatch_rejected": orientation_mismatch_rejected,
         },
         "restart_report_after_outputs": {
             "page_size": report_page_size,
@@ -424,10 +437,11 @@ def _chunks(items: list[dict[str, str]], size: int) -> list[list[dict[str, str]]
     return [items[offset : offset + size] for offset in range(0, len(items), size)]
 
 
-def _blank_a4_pdf() -> bytes:
+def _blank_a4_pdf(*, landscape: bool = False) -> bytes:
     stream = BytesIO()
     writer = PdfWriter()
-    writer.add_blank_page(width=595.276, height=841.89)
+    width, height = (841.89, 595.276) if landscape else (595.276, 841.89)
+    writer.add_blank_page(width=width, height=height)
     writer.write(stream)
     return stream.getvalue()
 

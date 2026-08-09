@@ -313,7 +313,10 @@ pages, stages 300 independently hash-bound copies in 15 approval batches, satura
 seven-slot queue and retries only the exact deferred approvals, walks the restart report without
 repeats, reads all 300 plan identities through 15 bounded batch-status calls, and structurally
 audits 300 generated PDFs. It deliberately creates no plug-in
-receipt, so all 300 outputs remain `manual_review`, `execution_verified=0`, and
+receipt. Before the valid PDFs, it proves a portrait PDF cannot satisfy the landscape orientation
+derived from the frame and records `orientation_mismatch_rejected=true`, including effective PDF
+page rotation. All 300 valid
+synthetic outputs still remain `manual_review`, `execution_verified=0`, and
 `publish_verified=0`. This proves bounded local orchestration and fail-closed recovery at the target
 count; it is not AutoCAD execution evidence.
 

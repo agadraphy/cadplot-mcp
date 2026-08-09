@@ -348,6 +348,7 @@ def _validate_release_manifest_identity(outer: Any, manifest: Any) -> None:
             "outputs_complete": 300,
             "execution_verified": 0,
             "publish_verified": 0,
+            "orientation_mismatch_rejected": True,
             "manual_review_without_receipts": 300,
             "source_unchanged": True,
             "synthetic": True,

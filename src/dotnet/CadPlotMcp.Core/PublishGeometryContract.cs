@@ -78,6 +78,32 @@ namespace CadPlotMcp.Core
                     <= Math.Max(numerator, denominator) * 1e-9;
         }
 
+        public static bool PaperDimensionsMatch(
+            PublishPlotGeometry geometry,
+            double actualWidth,
+            double actualHeight,
+            double tolerance
+        )
+        {
+            if (geometry == null
+                || (geometry.RotationDegrees != 0 && geometry.RotationDegrees != 90))
+                return false;
+            var expectedWidth = geometry.RotationDegrees == 0
+                ? geometry.PaperWidthMillimetres
+                : geometry.PaperHeightMillimetres;
+            var expectedHeight = geometry.RotationDegrees == 0
+                ? geometry.PaperHeightMillimetres
+                : geometry.PaperWidthMillimetres;
+            return PositiveFinite(actualWidth)
+                && PositiveFinite(actualHeight)
+                && PositiveFinite(expectedWidth)
+                && PositiveFinite(expectedHeight)
+                && Finite(tolerance)
+                && tolerance >= 0
+                && Math.Abs(actualWidth - expectedWidth) <= tolerance
+                && Math.Abs(actualHeight - expectedHeight) <= tolerance;
+        }
+
         private static bool PositiveFinite(double value)
         {
             return value > 0 && Finite(value);

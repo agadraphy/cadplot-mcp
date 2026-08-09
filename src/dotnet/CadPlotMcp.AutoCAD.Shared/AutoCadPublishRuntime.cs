@@ -719,13 +719,11 @@ namespace CadPlotMcp.AutoCAD
             }
 
             var paper = EffectivePaper(settings);
-            var expectedWidth = output.PlotGeometry.PaperWidthMillimetres;
-            var expectedHeight = output.PlotGeometry.PaperHeightMillimetres;
-            if (!DimensionsMatch(
+            if (!PublishGeometryContract.PaperDimensionsMatch(
+                output.PlotGeometry,
                 paper.Item1,
                 paper.Item2,
-                expectedWidth,
-                expectedHeight
+                PaperToleranceMillimetres
             ))
                 throw new CadPlotPublishException("paper_size_mismatch");
         }
@@ -790,22 +788,6 @@ namespace CadPlotMcp.AutoCAD
             foreach (Document document in AcApplication.DocumentManager)
                 if (Object.ReferenceEquals(document, expected)) return true;
             return false;
-        }
-
-        private static bool DimensionsMatch(
-            double actualWidth,
-            double actualHeight,
-            double expectedWidth,
-            double expectedHeight
-        )
-        {
-            return (Close(actualWidth, expectedWidth) && Close(actualHeight, expectedHeight))
-                || (Close(actualWidth, expectedHeight) && Close(actualHeight, expectedWidth));
-        }
-
-        private static bool Close(double left, double right)
-        {
-            return Math.Abs(left - right) <= PaperToleranceMillimetres;
         }
 
         private static bool SameText(string left, string right)

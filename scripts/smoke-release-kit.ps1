@@ -298,6 +298,7 @@ try {
             outputs_complete = 300
             execution_verified = 0
             publish_verified = 0
+            orientation_mismatch_rejected = $true
             manual_review_without_receipts = 300
             source_unchanged = $true
             evidence_digest = "sha256:$('c' * 64)"

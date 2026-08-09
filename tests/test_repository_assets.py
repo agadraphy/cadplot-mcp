@@ -243,6 +243,7 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "queue_exact_retry_identity_preserved",
         "queue_status_identity_preserved",
         "publish_verified -ne 0",
+        "orientation_mismatch_rejected",
         "manual_review_without_receipts",
         "evidence_digest",
         "SummaryPath",
@@ -301,6 +302,7 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "unexpectedly contains API evidence",
         "target_drawings -ne 300",
         "publish_verified -ne 0",
+        "orientation_mismatch_rejected -ne $true",
         "[System.IO.FileMode]::CreateNew",
         "ReportPath",
         "Readiness report target already exists",
@@ -434,6 +436,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "installed local-target probe evidence",
         "tunnel_preflight_target_probed -ne $true",
         "queue_deferred_results -ne 285",
+        "orientation_mismatch_rejected -ne $true",
         "live_publish_proven -ne $false",
     ):
         assert required in verifier
@@ -447,6 +450,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "archive_traversal_tamper_blocked",
         "dependency_license_tamper_blocked",
         "queue_backpressure_tamper_blocked",
+        "orientation_evidence_tamper_blocked",
         "tunnel_target_probe_tamper_blocked",
         "wheel_tamper_blocked = $true",
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
@@ -822,12 +826,16 @@ def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> 
     planner = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "planner.py").read_text(
         encoding="utf-8"
     )
+    audit = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "audit.py").read_text(
+        encoding="utf-8"
+    )
 
     for required in (
         "settings.UseStandardScale",
         "StdScaleType.StdScale1To1",
         "settings.CustomPrintScale",
         "page_setup_scale_not_one_to_one",
+        "PublishGeometryContract.PaperDimensionsMatch",
     ):
         assert required in runtime
     for required in (
@@ -836,8 +844,12 @@ def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> 
         "derived_scale_mismatch",
         "plot_scale_mismatch",
         "IsOneToOneCustomScale",
+        "PaperDimensionsMatch",
     ):
         assert required in contract
+    assert 'rotation = int(page.get("/Rotate", 0) or 0)' in audit
+    assert "actual_mm = (width_points" in audit
+    assert "actual_mm = sorted" not in audit
     assert '"scale_tolerance_ratio": config.scale_tolerance_ratio' in planner
     assert "has_verified_one_to_one_scale" in planner
 
@@ -1256,6 +1268,7 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "autocad_launched = $false",
         "live_publish_proven = $false",
         "synthetic_batch_rehearsal",
+        "orientation_mismatch_rejected = $true",
         "manual_review_without_receipts = 300",
         "embedded_self_verification_passed = $true",
     ):

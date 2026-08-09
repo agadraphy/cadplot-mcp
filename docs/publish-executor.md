@@ -13,7 +13,8 @@ For every job the plug-in:
    and staged-DWG SHA-256;
 3. independently replays the manifest's window/paper/orientation/scale math and refuses existing
    output PDFs, existing target layouts, unsupported paper units, missing page setups,
-   plotter/style/media mismatches, any layout plot scale other than verified 1:1, and a busy
+   plotter/style/media mismatches, swapped physical paper orientation, any layout plot scale other
+   than verified 1:1, and a busy
    PlotEngine;
 4. opens only the staged DWG copy and makes it the current locked document;
 5. creates a unique paper-space layout, clones the explicitly approved in-drawing template, or
@@ -28,6 +29,10 @@ For every job the plug-in:
 9. atomically writes an immutable terminal `receipt.json` bound to the manifest digest and the
    exact ordered output PDF set, then exposes only bounded error codes through job status. Raw
    exception messages are not returned.
+
+Independent PDF audit compares rendered width and height in the orientation derived from the plan's
+`rotation_degrees`, after applying the PDF page's `/Rotate` value. Portrait and landscape pages with
+the same unordered dimensions are not equivalent.
 
 The executor does not run arbitrary AutoCAD commands or AutoLISP. It does not accept a source path,
 workspace root, plotter, layout name, or output path beyond the independently validated staged

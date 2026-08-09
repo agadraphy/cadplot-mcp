@@ -139,6 +139,7 @@ try {
         $batchResult.output_audit.outputs_complete -ne 300 -or
         $batchResult.output_audit.execution_verified -ne 0 -or
         $batchResult.output_audit.publish_verified -ne 0 -or
+        $batchResult.output_audit.orientation_mismatch_rejected -ne $true -or
         $batchResult.restart_report_after_outputs.manual_review -ne 300 -or
         $batchResult.restart_report_after_outputs.complete -ne 0 -or
         $batchResult.source_unchanged -ne $true -or
@@ -318,6 +319,7 @@ try {
             outputs_complete = $batchResult.output_audit.outputs_complete
             execution_verified = $batchResult.output_audit.execution_verified
             publish_verified = $batchResult.output_audit.publish_verified
+            orientation_mismatch_rejected = $batchResult.output_audit.orientation_mismatch_rejected
             manual_review_without_receipts = $batchResult.restart_report_after_outputs.manual_review
             source_unchanged = $batchResult.source_unchanged
             evidence_digest = $batchResult.evidence_digest
