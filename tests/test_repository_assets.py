@@ -151,6 +151,8 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "uv build",
         "audit-release-artifacts.py",
         "smoke-wheel-install.py",
+        "tunnel_preflight_target_probed -ne $true",
+        "wheel_install_smoke = [ordered]@{",
         "smoke-demo-kit.ps1",
         "smoke-bundle-install.ps1",
         "dotnet\\CadPlotMcp.sln",
@@ -188,6 +190,8 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "live_publish_proven = $false",
         "company_assets_copied = $false",
         "synthetic_batch_rehearsal",
+        "wheel_install_smoke = $preflightSummary.wheel_install_smoke",
+        "Installed wheel smoke hash no longer matches",
         "api_probe = $preflightSummary.api_probe",
         "unexpectedly contains API evidence",
         "target_drawings -ne 300",
@@ -281,6 +285,8 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         "invalid compile-only API evidence",
         "dependency_audit_ran",
         "python_license_inventory",
+        "installed local-target probe evidence",
+        "wheel_install_smoke = $wheelSmoke",
         "not a live AutoCAD plug-in bundle",
     ):
         assert required in script
@@ -310,6 +316,8 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "target_drawings -ne 300",
         "python_license_inventory",
         "dependency license inventory is incomplete",
+        "installed local-target probe evidence",
+        "tunnel_preflight_target_probed -ne $true",
         "queue_deferred_results -ne 285",
         "live_publish_proven -ne $false",
     ):
@@ -319,6 +327,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "machine_paths_redacted = $true",
         "dependency_license_tamper_blocked",
         "queue_backpressure_tamper_blocked",
+        "tunnel_target_probe_tamper_blocked",
         "wheel_tamper_blocked = $true",
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
     ):
@@ -349,6 +358,8 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"cadplot-acceptance"',
         '"acceptance_cli_commands": len(acceptance_commands)',
         '"tunnel_preflight_redacted": True',
+        '"tunnel_preflight_target_probed": True',
+        '"tunnel_preflight_tool_surface_sha256"',
         'or "runtime-secret-sentinel" in tunnel_output',
         '"inspector_worker_protocol": True',
     ):
@@ -728,6 +739,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "Readiness report has invalid compile-only API evidence",
         "current lock-bound dependency-audit evidence",
         "python_license_inventory",
+        "valid installed local-target probe evidence",
+        "wheel_install_smoke = $wheelSmoke",
     ):
         assert required in builder
     assert "Remove-Item" not in builder
@@ -748,6 +761,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "300-drawing synthetic batch evidence",
         "python_license_inventory",
         "dependency license inventory is incomplete",
+        "installed local-target probe evidence",
+        "tunnel_preflight_target_probed -ne $true",
         '"scripts/verify-release-kit.ps1"',
         '"scripts/new-local-pilot.ps1"',
         '"scripts/collect-pilot-run.py"',
@@ -800,6 +815,7 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "exact_tree_and_hashes_verified",
         "archive_tamper_blocked",
         "dependency_license_tamper_blocked",
+        "tunnel_target_probe_tamper_blocked",
         "AllowProtocolOnlyFixture",
         "autocad_launched = $false",
         "live_publish_proven = $false",
@@ -858,6 +874,7 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "bundle_release_verified = $true",
         "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
         "release_kit_self_verification_passed",
+        "release_kit_tunnel_target_probe_tamper_blocked",
         "copied_hashes_verified = $true",
         "bundle_install_autocad_process_blocked = $installProcessGuardBlocked",
         "existing_install_blocked = $overwriteBlocked",
@@ -915,7 +932,9 @@ def test_secure_tunnel_handoff_is_secret_free_and_keeps_live_gates_external() ->
     )
 
     for required in (
-        "cadplot-tunnel-preflight --transport stdio",
+        "cadplot-tunnel-preflight --transport stdio --probe-target",
+        "local_target_proven=true",
+        "tool_surface_sha256",
         "tunnel-client doctor --profile cadplot-local --explain",
         "--mcp-command \"cadplot-mcp\"",
         "Platform tunnel creation",

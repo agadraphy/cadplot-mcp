@@ -76,7 +76,7 @@ For the recommended private ChatGPT pilot target over STDIO, generate a secret-f
 handoff report without contacting OpenAI or launching AutoCAD:
 
 ```powershell
-uv run cadplot-tunnel-preflight --transport stdio
+uv run cadplot-tunnel-preflight --transport stdio --probe-target
 ```
 
 See [Secure MCP Tunnel administrator handoff](docs/secure-tunnel-handoff.md). Platform tunnel

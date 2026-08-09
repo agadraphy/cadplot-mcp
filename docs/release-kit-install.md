@@ -135,7 +135,7 @@ tunnel client resolves this exact verified installation; do not mutate the machi
 
 ```powershell
 $env:PATH = "$commandRoot;$env:PATH"
-cadplot-tunnel-preflight --transport stdio
+cadplot-tunnel-preflight --transport stdio --probe-target
 ```
 
 The installer first re-runs the embedded release-kit verifier, exports dependencies from the exact

@@ -9,6 +9,9 @@ All notable changes to this project are documented in this file.
 - Secret-free `cadplot-tunnel-preflight` administrator handoff for OpenAI Secure MCP Tunnel,
   including local config/command validation, STDIO-first and fixed-loopback command templates,
   redacted credential presence checks, and explicit external workspace/network/live-pilot gates.
+- Optional real local MCP `initialize/list_tools` probing in tunnel preflight, with exact 19-tool
+  identity/instruction/annotation/schema validation and a contract digest; isolated-wheel, demo-kit,
+  and release-kit evidence now bind the successful redacted probe without calling AutoCAD.
 - Flat, hash-verified Turkish Monday runbook and Secure MCP Tunnel handoff files in the portable
   local demo kit, so operators do not need to extract the commit-bound source archive first.
 - Live publish-queue capacity telemetry on status/queue/job responses plus batch response schema v2,

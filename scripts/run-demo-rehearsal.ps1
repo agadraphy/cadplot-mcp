@@ -72,9 +72,22 @@ try {
         $preflightSummary.synthetic_batch_rehearsal.queue_status_items -ne 300 -or
         $preflightSummary.synthetic_batch_rehearsal.queue_status_identity_preserved -ne $true -or
         $preflightSummary.synthetic_batch_rehearsal.queue_plugin_contacted -ne $false -or
-        $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0
+        $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0 -or
+        $preflightSummary.wheel_install_smoke.passed -ne $true -or
+        $preflightSummary.wheel_install_smoke.tool_count -ne 19 -or
+        $preflightSummary.wheel_install_smoke.http_transport_tool_count -ne 19 -or
+        $preflightSummary.wheel_install_smoke.http_transport_loopback_only -ne $true -or
+        $preflightSummary.wheel_install_smoke.http_transport_header_guards -ne $true -or
+        $preflightSummary.wheel_install_smoke.tunnel_preflight_redacted -ne $true -or
+        $preflightSummary.wheel_install_smoke.tunnel_preflight_target_probed -ne $true -or
+        [string]$preflightSummary.wheel_install_smoke.tunnel_preflight_tool_surface_sha256 `
+            -notmatch '^[0-9a-f]{64}$' -or
+        $preflightSummary.wheel_install_smoke.isolated_install -ne $true -or
+        $preflightSummary.wheel_install_smoke.autocad_launched -ne $false -or
+        $preflightSummary.wheel_install_smoke.live_tunnel_proven -ne $false -or
+        $preflightSummary.wheel_install_smoke.live_publish_proven -ne $false
     ) {
-        throw "Preflight summary does not contain the required 300-drawing rehearsal evidence."
+        throw "Preflight summary lacks required local rehearsal or target-probe evidence."
     }
     if (
         -not [string]::IsNullOrWhiteSpace($AutoCADApiDir) -and (
@@ -141,6 +154,9 @@ try {
     }
     $wheel = $wheels[0]
     $wheelHash = (Get-FileHash -LiteralPath $wheel.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ([string]$preflightSummary.wheel_install_smoke.wheel_sha256 -cne $wheelHash) {
+        throw "Installed wheel smoke hash no longer matches the demo wheel."
+    }
     $apiProbeRan = -not [string]::IsNullOrWhiteSpace($AutoCADApiDir)
 
     $report = [ordered]@{
@@ -157,6 +173,7 @@ try {
         api_probe = $preflightSummary.api_probe
         dependency_audit_ran = $preflightSummary.dependency_audit_ran
         dependency_audit = $preflightSummary.dependency_audit
+        wheel_install_smoke = $preflightSummary.wheel_install_smoke
         autocad_launched = $false
         live_publish_proven = $false
         company_assets_copied = $false

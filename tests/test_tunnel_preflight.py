@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from cadplot_mcp.tunnel_preflight import build_tunnel_preflight
+from cadplot_mcp.tunnel_preflight import build_tunnel_preflight, probe_local_target
 
 
 def _config(tmp_path: Path) -> Path:
@@ -79,6 +79,30 @@ def test_http_handoff_is_fixed_to_loopback(tmp_path: Path) -> None:
         "http://127.0.0.1:18765/mcp",
     ]
     assert report["network_check_performed"] is False
+
+
+def test_stdio_target_probe_exercises_exact_local_contract_without_autocad(
+    tmp_path: Path,
+) -> None:
+    config = _config(tmp_path)
+
+    report = probe_local_target(config=str(config), transport="stdio", port=8765)
+    encoded = json.dumps(report)
+
+    assert report["passed"] is True
+    assert report["server_name"] == "CadPlot MCP"
+    assert report["tool_count"] == 19
+    assert report["exact_tool_names"] is True
+    assert report["instructions_contract"] is True
+    assert report["annotations_contract"] is True
+    assert report["closed_output_schemas"] is True
+    assert len(report["tool_surface_sha256"]) == 64
+    assert report["secrets_included"] is False
+    assert report["machine_paths_included"] is False
+    assert report["autocad_launched"] is False
+    assert report["live_tunnel_proven"] is False
+    assert report["live_publish_proven"] is False
+    assert str(config) not in encoded
 
 
 @pytest.mark.parametrize(

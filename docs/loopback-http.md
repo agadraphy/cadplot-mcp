@@ -32,7 +32,8 @@ ChatGPT web connects to remote MCP servers, not directly to a workstation-local 
 developer pilot, an authorized workspace administrator can provision OpenAI Secure MCP Tunnel and
 target this loopback endpoint. The official client can also launch `cadplot-mcp` directly over
 STDIO, which is the recommended single-workstation handoff because no listening MCP socket is
-needed. Run `cadplot-tunnel-preflight` first; see [Secure MCP Tunnel handoff](secure-tunnel-handoff.md).
+needed. Run `cadplot-tunnel-preflight --transport stdio --probe-target` first; see
+[Secure MCP Tunnel handoff](secure-tunnel-handoff.md).
 The tunnel is responsible for the remote encrypted/authenticated edge; this local process
 deliberately does not implement OAuth or expose a public listener.
 

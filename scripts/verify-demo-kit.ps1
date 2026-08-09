@@ -104,6 +104,26 @@ if (
     throw "Demo kit has no valid 300-drawing synthetic batch evidence."
 }
 
+$wheelSmoke = $manifest.wheel_install_smoke
+if (
+    $wheelSmoke.passed -ne $true -or
+    $wheelSmoke.tool_count -ne 19 -or
+    $wheelSmoke.http_transport_tool_count -ne 19 -or
+    $wheelSmoke.http_transport_loopback_only -ne $true -or
+    $wheelSmoke.http_transport_header_guards -ne $true -or
+    $wheelSmoke.tunnel_preflight_redacted -ne $true -or
+    $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
+    [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+    $wheelSmoke.isolated_install -ne $true -or
+    $wheelSmoke.locked_dependencies -ne $true -or
+    $wheelSmoke.dependency_hashes_required -ne $true -or
+    $wheelSmoke.autocad_launched -ne $false -or
+    $wheelSmoke.live_tunnel_proven -ne $false -or
+    $wheelSmoke.live_publish_proven -ne $false
+) {
+    throw "Demo kit has no valid installed local-target probe evidence."
+}
+
 if ($manifest.api_probe_ran -eq $true) {
     $probe = $manifest.api_probe
     if (
@@ -215,7 +235,8 @@ if (
     $manifest.wheel.file -cne $wheelFiles[0].Name -or
     $manifest.wheel.sha256 -cne $wheelHash -or
     $manifest.source_archive.file -cne $sourceFiles[0].Name -or
-    $manifest.source_archive.sha256 -cne $sourceHash
+    $manifest.source_archive.sha256 -cne $sourceHash -or
+    [string]$wheelSmoke.wheel_sha256 -cne $wheelHash
 ) {
     throw "Demo-kit wheel or source archive evidence is invalid."
 }

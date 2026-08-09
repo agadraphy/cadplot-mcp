@@ -184,6 +184,25 @@ try {
     ) {
         throw "Readiness report has no valid 300-drawing synthetic batch evidence."
     }
+    $wheelSmoke = $readiness.wheel_install_smoke
+    if (
+        $wheelSmoke.passed -ne $true -or
+        $wheelSmoke.tool_count -ne 19 -or
+        $wheelSmoke.http_transport_tool_count -ne 19 -or
+        $wheelSmoke.http_transport_loopback_only -ne $true -or
+        $wheelSmoke.http_transport_header_guards -ne $true -or
+        $wheelSmoke.tunnel_preflight_redacted -ne $true -or
+        $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
+        [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $wheelSmoke.isolated_install -ne $true -or
+        $wheelSmoke.locked_dependencies -ne $true -or
+        $wheelSmoke.dependency_hashes_required -ne $true -or
+        $wheelSmoke.autocad_launched -ne $false -or
+        $wheelSmoke.live_tunnel_proven -ne $false -or
+        $wheelSmoke.live_publish_proven -ne $false
+    ) {
+        throw "Readiness report has no valid installed local-target probe evidence."
+    }
 
     $wheelPath = Join-Path $repoRoot ("dist\{0}" -f $readiness.wheel)
     if (-not (Test-Path -LiteralPath $wheelPath -PathType Leaf)) {
@@ -192,6 +211,9 @@ try {
     $wheelHash = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($wheelHash -ne $readiness.wheel_sha256) {
         throw "Wheel hash no longer matches the readiness report."
+    }
+    if ([string]$wheelSmoke.wheel_sha256 -cne $wheelHash) {
+        throw "Installed local-target probe evidence does not match the demo wheel."
     }
 
     if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
@@ -261,6 +283,7 @@ try {
             $readiness.dependency_audit
         }
         else { $null }
+        wheel_install_smoke = $wheelSmoke
         autocad_launched = $false
         live_publish_proven = $false
         synthetic_batch_rehearsal = $batch

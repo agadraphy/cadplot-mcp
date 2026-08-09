@@ -191,6 +191,25 @@ try {
     ) {
         throw "Readiness report has no valid 300-drawing synthetic batch evidence."
     }
+    $wheelSmoke = $readiness.wheel_install_smoke
+    if (
+        $wheelSmoke.passed -ne $true -or
+        $wheelSmoke.tool_count -ne 19 -or
+        $wheelSmoke.http_transport_tool_count -ne 19 -or
+        $wheelSmoke.http_transport_loopback_only -ne $true -or
+        $wheelSmoke.http_transport_header_guards -ne $true -or
+        $wheelSmoke.tunnel_preflight_redacted -ne $true -or
+        $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
+        [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $wheelSmoke.isolated_install -ne $true -or
+        $wheelSmoke.locked_dependencies -ne $true -or
+        $wheelSmoke.dependency_hashes_required -ne $true -or
+        $wheelSmoke.autocad_launched -ne $false -or
+        $wheelSmoke.live_tunnel_proven -ne $false -or
+        $wheelSmoke.live_publish_proven -ne $false
+    ) {
+        throw "Release kit requires valid installed local-target probe evidence."
+    }
 
     $wheelName = [string]$readiness.wheel
     if ($wheelName -notmatch '^cadplot_mcp-[0-9A-Za-z.]+-py3-none-any\.whl$') {
@@ -203,6 +222,9 @@ try {
     $wheelHash = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($wheelHash -cne [string]$readiness.wheel_sha256) {
         throw "Wheel hash no longer matches the readiness report."
+    }
+    if ([string]$wheelSmoke.wheel_sha256 -cne $wheelHash) {
+        throw "Installed local-target probe evidence does not match the release wheel."
     }
     if ($bundleEvidence.PackageVersion -cne (($wheelName -split '-')[1])) {
         throw "Python wheel and AutoCAD bundle versions do not match."
@@ -295,6 +317,7 @@ try {
         files = $fileEvidence
         dependency_audit_ran = $true
         dependency_audit = $readiness.dependency_audit
+        wheel_install_smoke = $wheelSmoke
         synthetic_batch_rehearsal = $batch
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
@@ -324,6 +347,7 @@ try {
         ).Hash.ToLowerInvariant()
         dependency_audit_ran = $true
         dependency_audit = $readiness.dependency_audit
+        wheel_install_smoke = $wheelSmoke
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
         licensed_live_pilot_ready = $false

@@ -98,7 +98,7 @@ açılmamalıdır. Ayrıntılar: [loopback Streamable HTTP](docs/loopback-http.m
 bilgi içermeyen yönetici devir raporu üretilebilir:
 
 ```powershell
-uv run cadplot-tunnel-preflight --transport stdio
+uv run cadplot-tunnel-preflight --transport stdio --probe-target
 ```
 
 Ayrıntılar: [Secure MCP Tunnel yönetici devri](docs/secure-tunnel-handoff.md). Platform tüneli,

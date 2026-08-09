@@ -37,6 +37,9 @@ Use this checklist for every alpha release.
       temporary environment using frozen, hash-checked lock dependencies and passes the real MCP
       STDIO/tool contract, loopback HTTP/header-guard contract, and isolated-inspector module
       protocol without source-tree import.
+- [ ] The isolated wheel smoke records `tunnel_preflight_target_probed=true`: the installed package
+      passed a secret/path-redacted local `initialize/list_tools` probe with the exact 19-tool
+      surface while `autocad_launched=false` and `live_tunnel_proven=false` stayed explicit.
 - [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection, and
       removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.

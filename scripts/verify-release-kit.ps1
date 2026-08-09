@@ -122,6 +122,33 @@ if (
 ) {
     throw "Release-kit dependency-audit evidence is inconsistent."
 }
+foreach ($evidence in @($outer, $manifest)) {
+    $wheelSmoke = $evidence.wheel_install_smoke
+    if (
+        $wheelSmoke.passed -ne $true -or
+        $wheelSmoke.tool_count -ne 19 -or
+        $wheelSmoke.http_transport_tool_count -ne 19 -or
+        $wheelSmoke.http_transport_loopback_only -ne $true -or
+        $wheelSmoke.http_transport_header_guards -ne $true -or
+        $wheelSmoke.tunnel_preflight_redacted -ne $true -or
+        $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
+        [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch $shaPattern -or
+        $wheelSmoke.isolated_install -ne $true -or
+        $wheelSmoke.locked_dependencies -ne $true -or
+        $wheelSmoke.dependency_hashes_required -ne $true -or
+        $wheelSmoke.autocad_launched -ne $false -or
+        $wheelSmoke.live_tunnel_proven -ne $false -or
+        $wheelSmoke.live_publish_proven -ne $false
+    ) {
+        throw "Release kit has no valid installed local-target probe evidence."
+    }
+}
+if (
+    ($outer.wheel_install_smoke | ConvertTo-Json -Compress -Depth 4) -cne
+        ($manifest.wheel_install_smoke | ConvertTo-Json -Compress -Depth 4)
+) {
+    throw "Release-kit installed local-target probe evidence is inconsistent."
+}
 $embeddedLockHash = (
     Get-FileHash -LiteralPath (Join-Path $kitRoot "python\uv.lock") -Algorithm SHA256
 ).Hash.ToLowerInvariant()
@@ -259,7 +286,11 @@ if (@($manifestFiles | Group-Object -Property path | Where-Object Count -ne 1).C
 
 $wheelRelative = "python/$($wheelFiles[0].Name)"
 $wheelHash = (Get-FileHash -LiteralPath $wheelFiles[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($manifest.wheel.file -cne $wheelRelative -or $manifest.wheel.sha256 -cne $wheelHash) {
+if (
+    $manifest.wheel.file -cne $wheelRelative -or
+    $manifest.wheel.sha256 -cne $wheelHash -or
+    [string]$manifest.wheel_install_smoke.wheel_sha256 -cne $wheelHash
+) {
     throw "Release-kit wheel evidence is invalid."
 }
 if ($manifest.source_archive -cne "source/$($sourceFiles[0].Name)") {

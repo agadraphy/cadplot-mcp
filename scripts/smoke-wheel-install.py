@@ -239,6 +239,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
                 str(command_root / f"cadplot-tunnel-preflight{command_suffix}"),
                 "--transport",
                 "stdio",
+                "--probe-target",
             ],
             cwd=temporary_root,
             environment=tunnel_environment,
@@ -249,6 +250,12 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             or tunnel_report.get("secrets_included") is not False
             or tunnel_report.get("machine_paths_included") is not False
             or tunnel_report.get("live_tunnel_proven") is not False
+            or tunnel_report.get("target_probe_requested") is not True
+            or tunnel_report.get("local_target_proven") is not True
+            or tunnel_report.get("target_probe", {}).get("passed") is not True
+            or tunnel_report.get("target_probe", {}).get("tool_count") != 19
+            or tunnel_report.get("target_probe", {}).get("exact_tool_names") is not True
+            or tunnel_report.get("target_probe", {}).get("autocad_launched") is not False
             or tunnel_report.get("autocad_launched") is not False
             or tunnel_report.get("live_publish_proven") is not False
             or "runtime-secret-sentinel" in tunnel_output
@@ -274,6 +281,10 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "pilot_cli_commands": len(pilot_commands),
         "acceptance_cli_commands": len(acceptance_commands),
         "tunnel_preflight_redacted": True,
+        "tunnel_preflight_target_probed": True,
+        "tunnel_preflight_tool_surface_sha256": tunnel_report["target_probe"][
+            "tool_surface_sha256"
+        ],
         "inspector_worker_protocol": True,
         "isolated_install": True,
         "locked_dependencies": True,

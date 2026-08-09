@@ -152,9 +152,29 @@ try {
     Invoke-CheckedStep "release artifact audit" {
         uv run python scripts\audit-release-artifacts.py dist
     }
-    Invoke-CheckedStep "isolated wheel install and MCP smoke" {
-        uv run python scripts\smoke-wheel-install.py dist
+    Write-Output "PRECHECK: isolated wheel install and MCP smoke"
+    $wheelSmokeOutput = @(& uv run python scripts\smoke-wheel-install.py dist 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Isolated wheel smoke failed.`n$($wheelSmokeOutput -join [Environment]::NewLine)"
     }
+    try { $wheelSmoke = ($wheelSmokeOutput -join [Environment]::NewLine) | ConvertFrom-Json }
+    catch { throw "Isolated wheel smoke did not return valid JSON evidence." }
+    if (
+        $wheelSmoke.passed -ne $true -or
+        $wheelSmoke.tool_count -ne 19 -or
+        $wheelSmoke.http_transport_tool_count -ne 19 -or
+        $wheelSmoke.http_transport_loopback_only -ne $true -or
+        $wheelSmoke.http_transport_header_guards -ne $true -or
+        $wheelSmoke.tunnel_preflight_redacted -ne $true -or
+        $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
+        [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $wheelSmoke.isolated_install -ne $true -or
+        $wheelSmoke.locked_dependencies -ne $true -or
+        $wheelSmoke.dependency_hashes_required -ne $true
+    ) {
+        throw "Isolated wheel smoke crossed a required MCP or tunnel-preflight boundary."
+    }
+    $wheelSmoke | ConvertTo-Json -Depth 4
     Invoke-CheckedStep "self-verifying path-redacted demo-kit smoke" {
         & (Join-Path $PSScriptRoot "smoke-demo-kit.ps1")
     }
@@ -216,6 +236,25 @@ try {
         else { $null }
         dependency_audit_ran = $dependencyAuditRan
         dependency_audit = if ($dependencyAuditRan) { $dependencyAuditEvidence } else { $null }
+        wheel_install_smoke = [ordered]@{
+            passed = $true
+            version = $wheelSmoke.version
+            wheel_sha256 = $wheelSmoke.wheel_sha256
+            protocol_version = $wheelSmoke.protocol_version
+            tool_count = $wheelSmoke.tool_count
+            http_transport_tool_count = $wheelSmoke.http_transport_tool_count
+            http_transport_loopback_only = $true
+            http_transport_header_guards = $true
+            tunnel_preflight_redacted = $true
+            tunnel_preflight_target_probed = $true
+            tunnel_preflight_tool_surface_sha256 = $wheelSmoke.tunnel_preflight_tool_surface_sha256
+            isolated_install = $true
+            locked_dependencies = $true
+            dependency_hashes_required = $true
+            autocad_launched = $false
+            live_tunnel_proven = $false
+            live_publish_proven = $false
+        }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = $batchResult.target_drawings
             planning_pages = $batchResult.planning.pages

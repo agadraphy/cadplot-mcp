@@ -176,6 +176,25 @@ try {
         autocad_launched = $false
         live_publish_proven = $false
     }
+    $wheelSmoke = [ordered]@{
+        passed = $true
+        version = $bundleEvidence.PackageVersion
+        wheel_sha256 = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        protocol_version = "2025-11-25"
+        tool_count = 19
+        http_transport_tool_count = 19
+        http_transport_loopback_only = $true
+        http_transport_header_guards = $true
+        tunnel_preflight_redacted = $true
+        tunnel_preflight_target_probed = $true
+        tunnel_preflight_tool_surface_sha256 = "a" * 64
+        isolated_install = $true
+        locked_dependencies = $true
+        dependency_hashes_required = $true
+        autocad_launched = $false
+        live_tunnel_proven = $false
+        live_publish_proven = $false
+    }
     $files = @(Get-ChildItem -LiteralPath $kitRoot -File -Recurse | Sort-Object FullName | ForEach-Object {
         [ordered]@{
             path = $_.FullName.Substring($kitRoot.Length + 1).Replace('\', '/')
@@ -196,6 +215,7 @@ try {
         files = $files
         dependency_audit_ran = $true
         dependency_audit = $dependencyAudit
+        wheel_install_smoke = $wheelSmoke
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300
             planning_pages = 15
@@ -248,6 +268,7 @@ try {
         kit_archive_sha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
         dependency_audit_ran = $true
         dependency_audit = $dependencyAudit
+        wheel_install_smoke = $wheelSmoke
         matching_sdk_bundle_built = $false
         protocol_only_fixture = $true
         local_demo_ready = $true
@@ -696,6 +717,20 @@ try {
     }
     [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
 
+    $targetProbeTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
+    $targetProbeTamper.wheel_install_smoke.tunnel_preflight_target_probed = $false
+    Write-SmokeJson -Path $outerPath -Value $targetProbeTamper
+    $targetProbeTamperBlocked = $false
+    try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
+    catch {
+        if ($_.Exception.Message -notlike "*local-target probe evidence*") { throw }
+        $targetProbeTamperBlocked = $true
+    }
+    if (-not $targetProbeTamperBlocked) {
+        throw "Release-kit verifier accepted altered local-target probe evidence."
+    }
+    [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
+
     $archiveBytes = [System.IO.File]::ReadAllBytes($archivePath)
     $archiveBytes[0] = $archiveBytes[0] -bxor 1
     [System.IO.File]::WriteAllBytes($archivePath, $archiveBytes)
@@ -715,6 +750,7 @@ try {
         embedded_self_verification_passed = $true
         dependency_audit_verified = $true
         dependency_license_tamper_blocked = $licenseTamperBlocked
+        tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
         archive_tamper_blocked = $tamperBlocked
         python_install_what_if_safe = $true
         python_install_locked_dependencies = $true

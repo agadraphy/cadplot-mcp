@@ -93,6 +93,25 @@ try {
             autocad_launched = $false
             live_publish_proven = $false
         }
+        wheel_install_smoke = [ordered]@{
+            passed = $true
+            version = "0.1.0"
+            wheel_sha256 = $files[1].sha256
+            protocol_version = "2025-11-25"
+            tool_count = 19
+            http_transport_tool_count = 19
+            http_transport_loopback_only = $true
+            http_transport_header_guards = $true
+            tunnel_preflight_redacted = $true
+            tunnel_preflight_target_probed = $true
+            tunnel_preflight_tool_surface_sha256 = "a" * 64
+            isolated_install = $true
+            locked_dependencies = $true
+            dependency_hashes_required = $true
+            autocad_launched = $false
+            live_tunnel_proven = $false
+            live_publish_proven = $false
+        }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300; ready = 300; staged = 300; outputs_complete = 300
             queue_capacity = 7; queue_waves = 45; queue_approvals = 300
@@ -159,6 +178,23 @@ try {
         throw "Demo-kit verifier accepted altered queue-backpressure evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $targetProbeTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $targetProbeTamper.wheel_install_smoke.tunnel_preflight_target_probed = $false
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($targetProbeTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $targetProbeTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*local-target probe evidence*") { throw }
+        $targetProbeTamperBlocked = $true
+    }
+    if (-not $targetProbeTamperBlocked) {
+        throw "Demo-kit verifier accepted altered local-target probe evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     [System.IO.File]::AppendAllText($wheel, "tamper", [System.Text.UTF8Encoding]::new($false))
     $tamperBlocked = $false
     try { & $verifier -KitRoot $resolvedRoot -PassThru }
@@ -175,6 +211,7 @@ try {
         dependency_audit_verified = $true
         dependency_license_tamper_blocked = $licenseTamperBlocked
         queue_backpressure_tamper_blocked = $queueTamperBlocked
+        tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
         wheel_tamper_blocked = $true
         autocad_launched = $false
         live_publish_proven = $false

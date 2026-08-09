@@ -46,10 +46,11 @@ copy proprietary DWGs, PC3/PMP, CTB/STB, DWT, or title-block assets unless compa
 authorizes it.
 
 OpenAI's tunnel client can launch installed `cadplot-mcp` over STDIO; this is the recommended
-single-workstation mode because it adds no listening MCP socket. `cadplot-tunnel-preflight` checks
-the local configuration and command availability while reporting tunnel IDs and runtime keys only
-as booleans. It never starts a tunnel, prints a secret, checks admin permissions, or launches
-AutoCAD. See [Secure MCP Tunnel handoff](secure-tunnel-handoff.md).
+single-workstation mode because it adds no listening MCP socket. `cadplot-tunnel-preflight
+--probe-target` checks the local configuration and performs a real MCP initialize/tool-surface
+probe while reporting tunnel IDs and runtime keys only as booleans. It never calls a CadPlot tool,
+starts a tunnel, prints a secret, checks admin permissions, or launches AutoCAD. See
+[Secure MCP Tunnel handoff](secure-tunnel-handoff.md).
 
 CadPlot also ships `cadplot-mcp-http --port 8765` as a loopback-only target. It binds only
 `127.0.0.1`, enforces exact Host headers, rejects browser Origin headers, and caps requests at 1 MiB.
