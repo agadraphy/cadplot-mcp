@@ -7,6 +7,8 @@ değişikliği ayrıca raporlanır; AutoCAD açılmaz ve yayın etkinleştirilme
 bundle'ı Python'dan önce kaldırır, pilot verisini ve makbuzu bilerek korur ve yarım işlemden devam eder.
 GitHub Actions bağımlılıkları immutable tam commit SHA'larına sabitlenir; CI salt-okunur izin ve
 kalıcı olmayan checkout kimliği kullanır. Dependabot `uv`, NuGet ve Actions güncellemelerini izler.
+Python testleri 3.11/3.12/3.13 matrisinde çalışır; ağır release/MCP/.NET preflight yalnız 3.12'de bir
+kez koşar. Tam SHA kullansa bile incelenmiş allowlist dışındaki action deposu audit tarafından reddedilir.
 
 CadPlot MCP; çok sayıdaki revize DWG dosyasını denetlenebilir biçimde incelemek, pafta
 çerçevelerini şirket page setup'larıyla eşleştirmek, ölçek/layout kararlarını planlamak ve PDF

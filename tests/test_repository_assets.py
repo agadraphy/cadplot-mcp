@@ -917,11 +917,17 @@ def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> Non
     assert "permissions:\n  contents: read" in workflow
     assert "timeout-minutes: 20" in workflow
     assert "cancel-in-progress: true" in workflow
+    assert 'python-version: ["3.11", "3.12", "3.13"]' in workflow
+    assert "fail-fast: false" in workflow
+    assert "integrated-preflight:" in workflow
     assert "uv sync --frozen" in workflow
     assert "run-local-preflight.ps1 -SkipSync -AuditDependencies" in workflow
     assert "persist-credentials: false" in workflow
     action_pins = re.findall(r"uses:\s+[^\s@]+@([0-9a-f]{40})", workflow)
     assert action_pins == [
+        "11d5960a326750d5838078e36cf38b85af677262",
+        "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
+        "a26af69be951a213d495a4c3e4e4022e16d87065",
         "11d5960a326750d5838078e36cf38b85af677262",
         "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
         "a26af69be951a213d495a4c3e4e4022e16d87065",

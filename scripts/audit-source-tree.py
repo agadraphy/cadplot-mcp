@@ -53,6 +53,12 @@ WORKFLOW_PREFIX = ".github/workflows/"
 PINNED_ACTION_PATTERN = re.compile(
     r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]+)?@[0-9a-f]{40}$"
 )
+TRUSTED_ACTION_REPOSITORIES = {
+    "actions/checkout",
+    "actions/setup-dotnet",
+    "actions/setup-python",
+    "astral-sh/setup-uv",
+}
 
 
 def _git_paths(root: Path) -> list[str]:
@@ -179,6 +185,12 @@ def audit_workflows(root: Path, relative_paths: list[str]) -> tuple[list[str], i
                 violations.append(
                     "GitHub Actions reference is not pinned to a full commit: "
                     f"{display}: {reference}"
+                )
+                continue
+            repository = reference.rsplit("@", 1)[0].casefold()
+            if repository not in TRUSTED_ACTION_REPOSITORIES:
+                violations.append(
+                    f"GitHub Actions repository is not allowlisted: {display}: {repository}"
                 )
                 continue
             if reference.casefold().startswith("actions/checkout@"):

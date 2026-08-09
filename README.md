@@ -153,6 +153,9 @@ tracked/non-ignored CAD assets, plot resources, archives, local config, and high
 The same audit requires immutable full-SHA GitHub Action references, exact read-only workflow
 permissions, non-persistent checkout credentials, and no `pull_request_target`; Dependabot is
 configured for `uv`, NuGet, and Actions updates.
+CI runs the complete Python suite on 3.11, 3.12, and 3.13, then runs the heavier canonical
+release/MCP/.NET preflight once on 3.12. Full-SHA pinning alone is insufficient: the source audit
+also rejects action repositories outside the explicit reviewed allowlist.
 For a network-backed, lock-exact dependency check, run
 `scripts/run-local-preflight.ps1 -AuditDependencies`. It audits the exported production Python lock
 with hashes, all transitive .NET packages, and the Python license declarations. The resulting JSON

@@ -29,6 +29,9 @@ release tag retained as an inline comment for Dependabot. Checkout must set
 `persist-credentials: false`; workflow permissions remain exact `contents: read`; do not introduce
 `pull_request_target`. Review automated `uv`, NuGet, and Actions update pull requests like any other
 code change and rerun the canonical preflight before merging.
+The fast compatibility job runs the complete Python suite on 3.11, 3.12, and 3.13; the heavier
+wheel, MCP, .NET, dependency, release, and 300-drawing preflight runs once on 3.12. Adding a new
+external action repository requires an explicit source-audit allowlist and test change.
 
 ## CAD safety requirements
 

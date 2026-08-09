@@ -33,6 +33,8 @@ read-only workflow permissions, checkout credential persistence disabled, and no
 `pull_request_target` trigger. `.github/dependabot.yml` schedules updates for the exact `uv` lock,
 NuGet projects, and pinned Actions. Repository administrators must separately enable Dependabot
 alerts/security updates and branch protection in GitHub settings after the repository is created.
+Only the four reviewed repositories currently used by CI are allowlisted; a full SHA from another
+repository remains rejected until that source and its permissions are deliberately reviewed.
 
 The local named pipe is restricted to the creating Windows user. .NET 8 uses
 `PipeOptions.CurrentUserOnly`; the AutoCAD 2016/.NET Framework 4.5 build uses

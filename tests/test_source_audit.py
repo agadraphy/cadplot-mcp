@@ -96,3 +96,35 @@ jobs:
     assert any("permissions are not exact read-only" in item for item in violations)
     assert any("uses pull_request_target" in item for item in violations)
     assert any("not pinned to a full commit" in item for item in violations)
+
+
+def test_workflow_audit_rejects_an_unapproved_repository_even_when_sha_pinned(
+    tmp_path: Path,
+) -> None:
+    workflow = tmp_path / ".github" / "workflows" / "unapproved.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        """name: unapproved
+permissions:
+  contents: read
+on:
+  push:
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: attacker/unreviewed@2222222222222222222222222222222222222222
+""",
+        encoding="utf-8",
+    )
+
+    violations, workflow_count, action_count = MODULE.audit_workflows(
+        tmp_path, [str(workflow.relative_to(tmp_path))]
+    )
+
+    assert workflow_count == 1
+    assert action_count == 1
+    assert violations == [
+        "GitHub Actions repository is not allowlisted: "
+        ".github/workflows/unapproved.yml: attacker/unreviewed"
+    ]
