@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$BundlePath
+    [string]$BundlePath,
+
+    [switch]$PassThru
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,12 +12,12 @@ if (-not (Test-Path -LiteralPath $root -PathType Container)) {
     throw "Bundle directory does not exist: $root"
 }
 
-$directories = @((Get-Item -LiteralPath $root)) + @(
-    Get-ChildItem -LiteralPath $root -Directory -Recurse
+$bundleItems = @((Get-Item -LiteralPath $root -Force)) + @(
+    Get-ChildItem -LiteralPath $root -Force -Recurse
 )
-foreach ($directory in $directories) {
-    if (($directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "Bundle must not contain a symlink or junction: $($directory.FullName)"
+foreach ($item in $bundleItems) {
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Bundle must not contain a symlink, junction, or redirected file: $($item.FullName)"
     }
 }
 
@@ -27,7 +29,26 @@ $expected = @(
     "Contents/Windows/2025/CadPlotMcp.AutoCAD2025.dll",
     "Contents/Windows/2025/CadPlotMcp.Core.dll"
 )
+$expectedDirectories = @(
+    "Contents",
+    "Contents/Windows",
+    "Contents/Windows/2016",
+    "Contents/Windows/2025"
+)
 $rootPrefix = $root + '\'
+$actualDirectories = @(
+    Get-ChildItem -LiteralPath $root -Directory -Recurse | ForEach-Object {
+        $_.FullName.Substring($rootPrefix.Length).Replace('\', '/')
+    }
+)
+$missingDirectories = @($expectedDirectories | Where-Object { $_ -notin $actualDirectories })
+$unexpectedDirectories = @($actualDirectories | Where-Object { $_ -notin $expectedDirectories })
+if ($missingDirectories.Count -gt 0) {
+    throw "Bundle is missing required directories: $($missingDirectories -join ', ')"
+}
+if ($unexpectedDirectories.Count -gt 0) {
+    throw "Bundle contains unexpected directories: $($unexpectedDirectories -join ', ')"
+}
 $actual = @(
     Get-ChildItem -LiteralPath $root -File -Recurse | ForEach-Object {
         if (-not $_.FullName.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -86,5 +107,15 @@ $hashes = foreach ($relative in $expected) {
         Sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
     }
 }
-Write-Output "Verified CadPlot MCP bundle: $root"
-$hashes
+$result = [pscustomobject]@{
+    Passed = $true
+    BundlePath = $root
+    Hashes = @($hashes)
+}
+if ($PassThru) {
+    $result
+}
+else {
+    Write-Output "Verified CadPlot MCP bundle: $root"
+    $hashes
+}

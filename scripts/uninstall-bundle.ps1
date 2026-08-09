@@ -32,6 +32,9 @@ $expectedProductCode = "{C2E79B66-6076-40D4-AE45-E725A644B288}"
 if ($package.Name -ne "CadPlot MCP" -or $package.ProductCode -ne $expectedProductCode) {
     throw "Refusing to remove a directory that is not the expected CadPlot MCP package."
 }
+$null = & (Join-Path $PSScriptRoot "verify-bundle.ps1") `
+    -BundlePath $destinationBundle `
+    -PassThru
 
 if ($PSCmdlet.ShouldProcess($destinationBundle, "Remove verified CadPlot MCP bundle")) {
     Remove-Item -LiteralPath $destinationBundle -Recurse -Force

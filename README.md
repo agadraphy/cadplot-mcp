@@ -215,10 +215,20 @@ Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact s
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.
 
+Installation copies into a uniquely named non-loadable staging directory, verifies every copied
+file hash against the already verified source, and only then atomically renames it to
+`CadPlotMcp.bundle`. The verifier rejects redirected files as well as redirected directories.
+If copying or hash verification fails, the uniquely named non-loadable staging directory is
+retained for explicit inspection instead of being recursively deleted by the installer.
+`scripts/run-local-preflight.ps1` exercises `-WhatIf`, installation, copied-hash verification,
+`-WhatIf` removal, and removal with a clearly labelled protocol-only fixture; this smoke never
+launches AutoCAD and is not a matching-SDK or live-publish result.
+
 The installer never overwrites an existing bundle. For an upgrade, close AutoCAD, preview the
 exact removal with `scripts/uninstall-bundle.ps1 -WhatIf`, run it only after checking the target,
 then install the newly verified bundle. The uninstaller rejects junctions and any directory whose
-package name/ProductCode does not match CadPlot MCP.
+package name/ProductCode does not match CadPlot MCP. It also requires the exact verified bundle
+contents before recursively removing the package directory.
 
 To compile-check the shared executor against a locally installed API without launching AutoCAD:
 

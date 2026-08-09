@@ -35,6 +35,8 @@ Use this checklist for every alpha release.
 - [ ] `scripts/verify-bundle.ps1` passes on the extracted bundle and its printed hashes are retained.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
+- [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/
+      uninstall test and is not represented as matching-SDK or live AutoCAD evidence.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
 - [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as

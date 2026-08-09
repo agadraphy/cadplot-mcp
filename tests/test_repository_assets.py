@@ -189,12 +189,29 @@ def test_build_and_install_require_exact_bundle_verification() -> None:
         "GetAssemblyName",
         "Get-FileHash",
         "ReparsePoint",
+        "redirected file",
+        "$expectedDirectories",
+        "$PassThru",
     ):
         assert required in verifier
 
-    for script_name in ("build-bundle.ps1", "install-bundle.ps1"):
+    for script_name in ("build-bundle.ps1", "install-bundle.ps1", "uninstall-bundle.ps1"):
         script = (REPOSITORY_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
         assert "verify-bundle.ps1" in script
+
+    installer = (REPOSITORY_ROOT / "scripts" / "install-bundle.ps1").read_text(
+        encoding="utf-8"
+    )
+    for required in (
+        "Assert-NoRedirectedAncestor",
+        "Assert-SameBundleHashes",
+        ".CadPlotMcp.bundle.installing-",
+        "[System.IO.Directory]::Move",
+        "Installed verified bundle atomically",
+        "non-loadable staging directory was retained",
+    ):
+        assert required in installer
+    assert "Remove-Item" not in installer
 
 
 def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
@@ -204,7 +221,29 @@ def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     assert "C2E79B66-6076-40D4-AE45-E725A644B288" in script
     assert "ReparsePoint" in script
     assert "ShouldProcess($destinationBundle" in script
+    assert "verify-bundle.ps1" in script
     assert "Remove-Item -LiteralPath $destinationBundle" in script
+
+
+def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "smoke-bundle-install.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "install-bundle.ps1",
+        "uninstall-bundle.ps1",
+        "verify-bundle.ps1",
+        "-WhatIf",
+        "protocol_only_fixture = $true",
+        "copied_hashes_verified = $true",
+        "existing_install_blocked = $overwriteBlocked",
+        "unexpected_file_uninstall_blocked = $unexpectedFileBlocked",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+    ):
+        assert required in script
+    assert "Start-Process" not in script
 
 
 def test_codex_plugin_manifest_routes_installed_cadplot_cli() -> None:

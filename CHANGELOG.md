@@ -95,6 +95,9 @@ All notable changes to this project are documented in this file.
   folder changes between offsets, preventing silent skips or duplicates in 300-drawing runs.
 - Early source-tree audit for tracked or stageable proprietary CAD/plot assets, archives, local
   configuration, Autodesk assemblies, oversized files, and high-confidence credential patterns.
+- Transactional AutoCAD bundle installation through a non-loadable staging directory, exact
+  source/copy hash comparison, atomic final rename, redirected-file rejection, and a protocol-only
+  install/verify/uninstall smoke that never launches AutoCAD.
 
 ### Notes
 

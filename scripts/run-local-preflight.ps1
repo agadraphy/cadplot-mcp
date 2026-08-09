@@ -72,6 +72,9 @@ try {
             src\dotnet\CadPlotMcp.Core.Tests\CadPlotMcp.Core.Tests.csproj `
             --configuration Release --no-build --nologo
     }
+    Invoke-CheckedStep "transactional bundle install/uninstall smoke" {
+        & (Join-Path $PSScriptRoot "smoke-bundle-install.ps1")
+    }
 
     $apiProbeRan = $false
     if (-not [string]::IsNullOrWhiteSpace($AutoCADApiDir)) {

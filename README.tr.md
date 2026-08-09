@@ -167,7 +167,13 @@ reddedilir. Yanlış yazılmış config alanları, boş AutoCAD kaynak adları v
 iş başlamadan hata verir.
 
 Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
-Script yalnız CadPlot MCP adı ve ProductCode'u eşleşen paketi kaldırır, junction üzerinden silmez.
+Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini
+eşleştirir ve ancak sonra atomik olarak `CadPlotMcp.bundle` adına taşır; mevcut kurulumu ezmez.
+Kopya/doğrulama hatasında staging klasörünü otomatik ve recursive silmez, inceleme için bırakır.
+`run-local-preflight.ps1`, protokol-only bir fixture ile `WhatIf → kur → doğrula → WhatIf kaldır →
+kaldır` smoke zincirini çalıştırır. Bu test AutoCAD'i açmaz ve canlı uyumluluk kanıtı değildir.
+Kaldırıcı yalnız CadPlot MCP adı/ProductCode'u ve tam dosya kümesi doğrulanan paketi kaldırır;
+junction veya beklenmeyen dosya üzerinden silmez.
 
 Merkezi ChatGPT Business/Enterprise/Edu ortamında ise şirket yöneticisinin MCP bağlantısını
 onaylaması ve merkezi servis ile AutoCAD iş istasyonu arasında yönetilen güvenli bağlantı kurması
