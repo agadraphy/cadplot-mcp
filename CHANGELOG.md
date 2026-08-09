@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
   API series without launching AutoCAD.
 - Runtime `ACADVER` normalization and adapter/release gating that keeps publishing disabled when a
   2016 or 2025 plug-in is loaded into an unsupported AutoCAD runtime.
+- Self-verifying local demo kits with exact-tree/hash and tamper checks, plus redacted compile-only
+  API evidence that does not expose the build workstation's local API directory.
 - Self-verifying transfer kits that carry their exact verifier, portable pilot-workspace setup,
   licensed-run evidence tools, and installed `cadplot-collect-pilot`, `cadplot-assemble-pilot`, and
   `cadplot-validate-pilot` commands without requiring a separate source checkout.

@@ -204,6 +204,8 @@ ağacını, gömülü bundle/API kanıtını ve dış ZIP'in her girdisini arşi
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
 bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.
+Küçük yerel demo kiti kendi `verify-demo-kit.ps1` doğrulayıcısını taşır; exact dosya kümesi ve
+hashleri kontrol edilirken makineye özel API klasör yolu taşınabilir manifestten çıkarılır.
 
 Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
 Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini

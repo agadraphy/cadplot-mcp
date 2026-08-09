@@ -91,6 +91,9 @@ try {
     Invoke-CheckedStep "isolated wheel install and MCP smoke" {
         uv run python scripts\smoke-wheel-install.py dist
     }
+    Invoke-CheckedStep "self-verifying path-redacted demo-kit smoke" {
+        & (Join-Path $PSScriptRoot "smoke-demo-kit.ps1")
+    }
     Invoke-CheckedStep ".NET protocol build" {
         & $resolvedDotNet build src\dotnet\CadPlotMcp.sln --configuration Release --nologo
     }

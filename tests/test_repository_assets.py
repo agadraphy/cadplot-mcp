@@ -144,6 +144,7 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "uv build",
         "audit-release-artifacts.py",
         "smoke-wheel-install.py",
+        "smoke-demo-kit.ps1",
         "smoke-bundle-install.ps1",
         "dotnet\\CadPlotMcp.sln",
         "probe-autocad-api.ps1",
@@ -199,18 +200,55 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         "current commit",
         "packaging never overwrites",
         "[System.IO.FileMode]::CreateNew",
+        "Assert-NoRedirectedAncestor",
+        "verify-demo-kit.ps1",
+        "self_verification_passed = $true",
+        "machine_paths_included = $false",
         "company_assets_copied = $false",
         "autodesk_binaries_included = $false",
         "live_publish_proven = $false",
         "300-drawing synthetic batch evidence",
         "synthetic_batch_rehearsal = $batch",
-        "api_probe = $readiness.api_probe",
+        "api_probe = $publicApiProbe",
+        "Get-PublicApiProbeEvidence",
         "invalid compile-only API evidence",
         "not a live AutoCAD plug-in bundle",
     ):
         assert required in script
     assert "Remove-Item" not in script
     assert "Start-Process" not in script
+
+
+def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
+    verifier = (REPOSITORY_ROOT / "scripts" / "verify-demo-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+    smoke = (REPOSITORY_ROOT / "scripts" / "smoke-demo-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "tests.yml").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "schema_version -ne 2",
+        '"api_directory"',
+        "Demo-kit file set is not exact",
+        "Demo-kit file hash mismatch",
+        "MachinePathsIncluded = $false",
+        "target_drawings -ne 300",
+        "live_publish_proven -ne $false",
+    ):
+        assert required in verifier
+    for required in (
+        "verify-demo-kit.ps1",
+        "machine_paths_redacted = $true",
+        "wheel_tamper_blocked = $true",
+        "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
+    ):
+        assert required in smoke
+    assert "run-local-preflight.ps1 -SkipSync" in workflow
+    assert "Start-Process" not in verifier
 
 
 def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> None:
@@ -594,12 +632,20 @@ def test_github_templates_warn_against_proprietary_assets_and_false_evidence() -
 
 def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    preflight = (REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1").read_text(
+        encoding="utf-8"
+    )
 
     assert "permissions:\n  contents: read" in workflow
     assert "timeout-minutes: 20" in workflow
     assert "cancel-in-progress: true" in workflow
-    assert "scripts/smoke-mcp-stdio.py" in workflow
-    assert "scripts/run-synthetic-demo.py" in workflow
     assert "uv sync --frozen" in workflow
-    assert "scripts/audit-source-tree.py" in workflow
-    assert "scripts/smoke-wheel-install.py" in workflow
+    assert "run-local-preflight.ps1 -SkipSync" in workflow
+    for required in (
+        "scripts\\smoke-mcp-stdio.py",
+        "scripts\\run-synthetic-demo.py",
+        "scripts\\audit-source-tree.py",
+        "scripts\\smoke-wheel-install.py",
+        '"smoke-demo-kit.ps1"',
+    ):
+        assert required in preflight

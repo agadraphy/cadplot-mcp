@@ -1,0 +1,180 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$KitRoot,
+
+    [switch]$PassThru
+)
+
+$ErrorActionPreference = "Stop"
+$root = [System.IO.Path]::GetFullPath($KitRoot).TrimEnd('\')
+if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+    throw "Demo-kit directory does not exist: $root"
+}
+
+$allItems = @((Get-Item -LiteralPath $root -Force)) + @(
+    Get-ChildItem -LiteralPath $root -Force -Recurse
+)
+foreach ($item in $allItems) {
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Demo kit must not contain a symlink, junction, or redirected file: $($item.FullName)"
+    }
+}
+if (@(Get-ChildItem -LiteralPath $root -Directory -Force).Count -ne 0) {
+    throw "Demo-kit directory must be flat and contain no subdirectories."
+}
+
+$manifestPath = Join-Path $root "demo-kit.json"
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+    throw "Demo-kit manifest is missing."
+}
+$manifestItem = Get-Item -LiteralPath $manifestPath -Force
+if ($manifestItem.Length -gt 1MB) { throw "Demo-kit manifest exceeds the 1 MiB safety limit." }
+try {
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+catch { throw "Demo-kit manifest is not valid UTF-8 JSON." }
+
+$wheelFiles = @(Get-ChildItem -LiteralPath $root -File -Filter "*.whl")
+$sourceFiles = @(Get-ChildItem -LiteralPath $root -File -Filter "*.zip")
+if (
+    $wheelFiles.Count -ne 1 -or
+    $wheelFiles[0].Name -notmatch '^cadplot_mcp-[0-9A-Za-z.]+-py3-none-any\.whl$' -or
+    $sourceFiles.Count -ne 1 -or
+    $sourceFiles[0].Name -notmatch '^cadplot-mcp-source-[0-9a-f]{7}\.zip$'
+) {
+    throw "Demo kit must contain exactly one conventionally named wheel and source archive."
+}
+$expectedFiles = @(
+    "demo-kit.json",
+    "verify-demo-kit.ps1",
+    $wheelFiles[0].Name,
+    $sourceFiles[0].Name
+)
+$actualFiles = @(Get-ChildItem -LiteralPath $root -File -Force | Select-Object -ExpandProperty Name)
+if (
+    $actualFiles.Count -ne $expectedFiles.Count -or
+    @($expectedFiles | Where-Object { $_ -notin $actualFiles }).Count -ne 0
+) {
+    throw "Demo-kit file set is not exact."
+}
+
+if (
+    $manifest.schema_version -ne 2 -or
+    $manifest.exact_commit -notmatch '^[0-9a-f]{40}$' -or
+    $manifest.local_demo_ready -ne $true -or
+    $manifest.licensed_live_pilot_ready -ne $false -or
+    $manifest.public_release_ready -ne $false -or
+    $manifest.company_assets_copied -ne $false -or
+    $manifest.autodesk_binaries_included -ne $false -or
+    $manifest.autocad_launched -ne $false -or
+    $manifest.live_publish_proven -ne $false -or
+    $manifest.source_tree_audit_passed -ne $true
+) {
+    throw "Demo-kit identity or safety/evidence flags are invalid."
+}
+
+$batch = $manifest.synthetic_batch_rehearsal
+if (
+    $batch.target_drawings -ne 300 -or
+    $batch.ready -ne 300 -or
+    $batch.staged -ne 300 -or
+    $batch.outputs_complete -ne 300 -or
+    $batch.execution_verified -ne 0 -or
+    $batch.publish_verified -ne 0 -or
+    $batch.manual_review_without_receipts -ne 300 -or
+    $batch.source_unchanged -ne $true -or
+    $batch.synthetic -ne $true -or
+    [string]$batch.evidence_digest -notmatch '^sha256:[0-9a-f]{64}$'
+) {
+    throw "Demo kit has no valid 300-drawing synthetic batch evidence."
+}
+
+if ($manifest.api_probe_ran -eq $true) {
+    $probe = $manifest.api_probe
+    if (
+        $null -eq $probe -or
+        $probe.PSObject.Properties.Name -contains "api_directory" -or
+        $probe.passed -ne $true -or
+        $probe.detected_series -notmatch '^R[0-9]{2}\.[0-9]$' -or
+        $probe.evidence_scope -cne "compile-only" -or
+        $probe.autocad_launched -ne $false -or
+        $probe.live_publish_proven -ne $false
+    ) {
+        throw "Demo-kit compile-only API evidence is invalid or contains a machine path."
+    }
+    $frameworks = @{
+        "R20.1" = "net45"; "R21.0" = "net48"; "R22.0" = "net48"
+        "R23.0" = "net48"; "R23.1" = "net48"; "R24.0" = "net48"
+        "R24.1" = "net48"; "R24.2" = "net48"; "R24.3" = "net48"
+        "R25.0" = "net8.0-windows"; "R25.1" = "net8.0-windows"
+    }
+    if ($frameworks[[string]$probe.detected_series] -cne [string]$probe.target_framework) {
+        throw "Demo-kit API series and target framework do not match."
+    }
+    $assemblies = @($probe.assemblies)
+    $expectedAssemblies = @("AcMgd.dll", "AcDbMgd.dll", "AcCoreMgd.dll")
+    if (
+        $assemblies.Count -ne 3 -or
+        @($expectedAssemblies | Where-Object { $_ -notin @($assemblies.Name) }).Count -ne 0
+    ) {
+        throw "Demo-kit API evidence does not contain the exact managed assembly set."
+    }
+    foreach ($assembly in $assemblies) {
+        if (
+            [string]$assembly.Series -cne [string]$probe.detected_series -or
+            [string]$assembly.Sha256 -notmatch '^[0-9a-f]{64}$'
+        ) {
+            throw "Demo-kit API assembly identity is invalid."
+        }
+    }
+}
+elseif ($manifest.api_probe_ran -ne $false -or $null -ne $manifest.api_probe) {
+    throw "Demo-kit API evidence is inconsistent."
+}
+
+$manifestFiles = @($manifest.files)
+$filesWithoutManifest = @($expectedFiles | Where-Object { $_ -cne "demo-kit.json" })
+if ($manifestFiles.Count -ne $filesWithoutManifest.Count) {
+    throw "Demo-kit file evidence count is invalid."
+}
+if (@($manifestFiles | Group-Object -Property path | Where-Object Count -ne 1).Count -ne 0) {
+    throw "Demo-kit manifest contains duplicate file evidence."
+}
+foreach ($relative in $filesWithoutManifest) {
+    $matches = @($manifestFiles | Where-Object { $_.path -ceq $relative })
+    $actualHash = (Get-FileHash -LiteralPath (Join-Path $root $relative) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $recordedHash = if ($matches.Count -eq 1) { [string]$matches[0].sha256 } else { "<missing-or-duplicate>" }
+    if (
+        $matches.Count -ne 1 -or
+        $recordedHash -notmatch '^[0-9a-f]{64}$' -or
+        $recordedHash -cne $actualHash
+    ) {
+        throw "Demo-kit file hash mismatch: $relative (recorded=$recordedHash actual=$actualHash)"
+    }
+}
+
+$wheelHash = (Get-FileHash -LiteralPath $wheelFiles[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+$sourceHash = (Get-FileHash -LiteralPath $sourceFiles[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+if (
+    $manifest.wheel.file -cne $wheelFiles[0].Name -or
+    $manifest.wheel.sha256 -cne $wheelHash -or
+    $manifest.source_archive.file -cne $sourceFiles[0].Name -or
+    $manifest.source_archive.sha256 -cne $sourceHash
+) {
+    throw "Demo-kit wheel or source archive evidence is invalid."
+}
+
+$result = [pscustomobject]@{
+    Passed = $true
+    KitRoot = $root
+    ExactCommit = $manifest.exact_commit
+    WheelSha256 = $wheelHash
+    SourceSha256 = $sourceHash
+    MachinePathsIncluded = $false
+    LocalDemoReady = $true
+    AutoCADLaunched = $false
+    LivePublishProven = $false
+}
+if ($PassThru) { $result }
+else { $result | ConvertTo-Json -Depth 3 }

@@ -9,11 +9,13 @@ Use Python 3.11 or newer, create an isolated environment, and install the
 project's development dependencies. Before submitting a pull request, run:
 
 ```powershell
-uv run ruff check .
-uv run pytest
-dotnet build src/dotnet/CadPlotMcp.sln --configuration Release
-dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-local-preflight.ps1
 ```
+
+This is the same no-AutoCAD-launch gate used by CI; it includes lint/tests, real MCP transport and
+isolated-wheel smoke checks, the 300-drawing synthetic rehearsal, demo/release-kit integrity
+smokes, and .NET protocol builds/tests.
 
 Keep changes focused, document user-visible behavior, and add or update tests
 for changed safety rules.

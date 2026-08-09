@@ -30,6 +30,8 @@ Use this checklist for every alpha release.
 - [ ] `uv run python scripts/smoke-wheel-install.py dist` installs the exact wheel into an isolated
       temporary environment using frozen, hash-checked lock dependencies and passes the real MCP
       STDIO/tool contract without source-tree import.
+- [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection, and
+      removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
 - [ ] The compile-only API probe passes against an installed managed API folder, is labelled
@@ -50,6 +52,8 @@ Use this checklist for every alpha release.
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/
       uninstall test and is not represented as matching-SDK or live AutoCAD evidence.
+- [ ] The portable demo folder passes its embedded `verify-demo-kit.ps1`; its commit/hash is also
+      compared through a trusted handoff channel because self-verification alone is not provenance.
 - [ ] Package version and `CHANGELOG.md` are updated.
 - [ ] README and API examples match the released behavior, where changed.
 - [ ] Success and bounded-failure receipt tests pass; output completeness is not presented as

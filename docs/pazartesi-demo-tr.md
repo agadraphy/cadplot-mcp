@@ -30,6 +30,16 @@ Taşınabilir yerel demo kitini yalnız bu rapordan üretin:
 Kit, tam commit'e bağlı kaynak ZIP'ini, izole kurulumu denenmiş wheel'i ve hash manifestini içerir.
 Şirket varlığı veya Autodesk DLL'i içermez; canlı AutoCAD eklenti bundle'ı değildir.
 
+Klasörü göstermeden veya başka bilgisayara taşımadan önce paketin içindeki doğrulayıcıyı çalıştırın:
+
+```powershell
+.\verify-demo-kit.ps1 -KitRoot .
+```
+
+Sonuçta `Passed=true`, `MachinePathsIncluded=false`, `AutoCADLaunched=false` ve
+`LivePublishProven=false` görülmelidir. Kontrol exact dosya kümesini ve hashleri doğrular; paketin
+kimden geldiğini kanıtlamak için commit/hash değerini ayrıca güvenilir kanaldan karşılaştırın.
+
 `licensed_live_pilot_ready=false` hata değildir: lisanslı hedef makine, yetkili şirket plot kaynakları
 ve tek-pafta görsel kanıtı olmadan canlı başarı iddiası üretilmesini özellikle engeller.
 

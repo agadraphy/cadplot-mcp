@@ -246,6 +246,8 @@ manifests, the exact tree, embedded bundle/API evidence, and every outer ZIP ent
 extracting it. See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
 `licensed_live_pilot_ready=false`, `public_release_ready=false`, and `live_publish_proven=false`;
 only separately retained licensed 2016/2025 pilot evidence can change those claims.
+The smaller local demo kit carries `verify-demo-kit.ps1`; it verifies the exact flat file set and
+hashes while omitting machine-local API directory paths from its portable manifest.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.
