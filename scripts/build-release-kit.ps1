@@ -188,14 +188,17 @@ try {
 
     foreach ($scriptName in @(
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
-        "verify-bundle-release.ps1", "check-autocad-api-series.ps1"
+        "verify-bundle-release.ps1", "verify-release-kit.ps1",
+        "check-autocad-api-series.ps1", "new-local-pilot.ps1",
+        "collect-pilot-run.py", "assemble-pilot-evidence.py",
+        "validate-pilot-evidence.py"
     )) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $scriptName) `
             -Destination (Join-Path $kitRoot "scripts\$scriptName")
     }
     foreach ($docName in @(
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
-        "release-kit-install.md"
+        "release-kit-install.md", "pilot-evidence.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")
@@ -259,7 +262,7 @@ try {
         live_publish_proven = $false
     })
 
-    $verification = & (Join-Path $PSScriptRoot "verify-release-kit.ps1") `
+    $verification = & (Join-Path $kitRoot "scripts\verify-release-kit.ps1") `
         -ReleaseRoot $resolvedOutputRoot `
         -PassThru
     [ordered]@{
@@ -269,6 +272,7 @@ try {
         package_version = $bundleEvidence.PackageVersion
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
+        self_verification_passed = $verification.Passed
         autocad_launched = $false
         live_publish_proven = $false
     } | ConvertTo-Json

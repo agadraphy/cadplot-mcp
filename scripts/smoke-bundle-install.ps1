@@ -203,6 +203,7 @@ try {
         bundle_release_verified = $true
         bundle_release_archive_tamper_blocked = $archiveTamperBlocked
         release_kit_verified = $releaseKitSmoke.exact_tree_and_hashes_verified
+        release_kit_self_verification_passed = $releaseKitSmoke.embedded_self_verification_passed
         release_kit_protocol_only_rejected_as_real = $releaseKitSmoke.protocol_only_rejected_as_real
         release_kit_archive_tamper_blocked = $releaseKitSmoke.archive_tamper_blocked
         what_if_install_mutated = $false

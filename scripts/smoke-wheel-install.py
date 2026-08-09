@@ -143,6 +143,23 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         if protocol.get("passed") is not True:
             raise RuntimeError("Installed wheel failed the real MCP STDIO smoke test.")
 
+        command_root = venv_root / ("Scripts" if os.name == "nt" else "bin")
+        command_suffix = ".exe" if os.name == "nt" else ""
+        pilot_commands = (
+            "cadplot-collect-pilot",
+            "cadplot-assemble-pilot",
+            "cadplot-validate-pilot",
+        )
+        for command_name in pilot_commands:
+            command_path = command_root / f"{command_name}{command_suffix}"
+            if not command_path.is_file():
+                raise RuntimeError(f"Installed wheel is missing command: {command_name}")
+            _run(
+                [str(command_path), "--help"],
+                cwd=temporary_root,
+                environment=environment,
+            )
+
     return {
         "passed": True,
         "wheel": wheel.name,
@@ -153,6 +170,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "tool_count": protocol["tool_count"],
         "closed_output_schemas": protocol["closed_output_schemas"],
         "structured_output_calls": protocol["structured_output_calls"],
+        "pilot_cli_commands": len(pilot_commands),
         "isolated_install": True,
         "locked_dependencies": True,
         "dependency_hashes_required": True,

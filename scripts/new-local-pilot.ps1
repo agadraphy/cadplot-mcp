@@ -6,12 +6,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$template = Join-Path $repoRoot "examples\config.inventory.example.yaml"
+$templateCandidates = @(
+    (Join-Path $repoRoot "examples\config.inventory.example.yaml"),
+    (Join-Path $repoRoot "config\config.inventory.example.yaml")
+)
+$templates = @($templateCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+if ($templates.Count -ne 1) {
+    throw "Expected exactly one inventory configuration template beside the source checkout or release kit."
+}
+$template = $templates[0]
 $target = [System.IO.Path]::GetFullPath($DestinationRoot)
 
-if (-not (Test-Path -LiteralPath $template -PathType Leaf)) {
-    throw "Inventory configuration template is missing: $template"
-}
 if (Test-Path -LiteralPath $target) {
     throw "Destination already exists; setup never overwrites: $target"
 }
@@ -57,6 +62,6 @@ if ($PSCmdlet.ShouldProcess($target, "Create empty CadPlot pilot workspace")) {
         isolated_workspace = $workspaceRoot
         company_assets_copied = $false
         publish_enabled = $false
-        next_command = "`$env:CADPLOT_CONFIG = '$config'; uv run cadplot-doctor --mode config"
+        next_command = "cadplot-doctor --config '$config' --mode config"
     } | ConvertTo-Json
 }

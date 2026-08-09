@@ -237,7 +237,9 @@ checks the directory, manifest, ZIP entry set, and every inner file hash without
 After the clean matching-SDK bundle and a readiness report exist for the same commit,
 `scripts/build-release-kit.ps1` creates a no-overwrite transfer root containing that full bundle
 release, the readiness-bound Python wheel, lock data, a `git archive` source snapshot, safe install
-scripts, the inventory-only config, and operator runbooks. `verify-release-kit.ps1` checks both
+scripts, the inventory-only config, pilot evidence commands, and operator runbooks. The kit carries
+its own hash-bound `verify-release-kit.ps1`, so verification and pilot collection need no separate
+source checkout. The verifier checks both
 manifests, the exact tree, embedded bundle/API evidence, and every outer ZIP entry without
 extracting it. See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
 `licensed_live_pilot_ready=false`, `public_release_ready=false`, and `live_publish_proven=false`;
@@ -273,8 +275,9 @@ This is only an API-signature probe. It does not validate plotting or version co
 See [publish executor](docs/publish-executor.md) and the
 [licensed-workstation pilot](docs/monday-pilot.md). A concise Turkish presentation flow is in the
 [Monday demo runbook](docs/pazartesi-demo-tr.md).
-The final two-version acceptance record is checked by
-[`scripts/validate-pilot-evidence.py`](scripts/validate-pilot-evidence.py); its completed company
+The final two-version acceptance record is checked by the installed `cadplot-validate-pilot`
+command (with [`scripts/validate-pilot-evidence.py`](scripts/validate-pilot-evidence.py) retained as
+a source-checkout wrapper); its completed company
 evidence file stays outside the public repository. Live status exposes the embedded build commit
 and running adapter DLL SHA-256. The pilot assembler derives the release commit from the verified
 `bundle-build.json`, re-hashes every bundle ZIP entry, and refuses either version when its running

@@ -62,14 +62,17 @@ try {
 
     foreach ($scriptName in @(
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
-        "verify-bundle-release.ps1", "check-autocad-api-series.ps1"
+        "verify-bundle-release.ps1", "verify-release-kit.ps1",
+        "check-autocad-api-series.ps1", "new-local-pilot.ps1",
+        "collect-pilot-run.py", "assemble-pilot-evidence.py",
+        "validate-pilot-evidence.py"
     )) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $scriptName) `
             -Destination (Join-Path $kitRoot "scripts\$scriptName")
     }
     foreach ($docName in @(
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
-        "release-kit-install.md"
+        "release-kit-install.md", "pilot-evidence.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")
@@ -157,7 +160,14 @@ try {
         $rejectedAsReal = $true
     }
     if (-not $rejectedAsReal) { throw "Release-kit verifier accepted a protocol fixture as real." }
-    $null = & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture
+    $embeddedVerifier = Join-Path $kitRoot "scripts\verify-release-kit.ps1"
+    $embeddedResult = & $embeddedVerifier `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -PassThru `
+        -AllowProtocolOnlyFixture
+    if ($embeddedResult.Passed -ne $true) {
+        throw "Embedded release-kit verifier did not pass its own exact package."
+    }
 
     $archiveBytes = [System.IO.File]::ReadAllBytes($archivePath)
     $archiveBytes[0] = $archiveBytes[0] -bxor 1
@@ -175,6 +185,7 @@ try {
         protocol_only_fixture = $true
         protocol_only_rejected_as_real = $rejectedAsReal
         exact_tree_and_hashes_verified = $true
+        embedded_self_verification_passed = $true
         archive_tamper_blocked = $tamperBlocked
         matching_sdk_bundle_built = $false
         autocad_launched = $false

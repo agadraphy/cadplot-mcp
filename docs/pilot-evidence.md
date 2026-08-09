@@ -4,7 +4,7 @@ Live acceptance is complete only when one AutoCAD 2016 run and one AutoCAD 2025 
 in a local JSON file and pass:
 
 ```powershell
-uv run python scripts/validate-pilot-evidence.py C:\CadPlotPilot\pilot-evidence.json
+cadplot-validate-pilot C:\CadPlotPilot\pilot-evidence.json
 ```
 
 Keep the completed evidence under the company's approved audit location; do not commit internal
@@ -16,7 +16,7 @@ After the one-sheet job has succeeded, AutoCAD has been restarted, the persisten
 rechecked, and the authorized CAD reviewer has accepted all seven visual checks, collect each run:
 
 ```powershell
-uv run python scripts/collect-pilot-run.py C:\CadPlotPilot\2016-job\manifest.json `
+cadplot-collect-pilot C:\CadPlotPilot\2016-job\manifest.json `
   --release 2016 `
   --approved-by "Authorized CAD manager" `
   --output C:\CadPlotPilot\run-2016.json `
@@ -38,17 +38,19 @@ bundle archive and `bundle-build.json`:
 
 ```powershell
 .\scripts\verify-bundle-release.ps1 -ReleaseRoot C:\CadPlotPilot\bundle-release
-uv run python scripts/assemble-pilot-evidence.py `
+cadplot-assemble-pilot `
   --run-2016 C:\CadPlotPilot\run-2016.json `
   --run-2025 C:\CadPlotPilot\run-2025.json `
   --bundle C:\CadPlotPilot\bundle-release\CadPlotMcp.bundle.zip `
   --bundle-build-manifest C:\CadPlotPilot\bundle-release\bundle-build.json `
   --output C:\CadPlotPilot\pilot-evidence.json
 
-uv run python scripts/validate-pilot-evidence.py C:\CadPlotPilot\pilot-evidence.json
+cadplot-validate-pilot C:\CadPlotPilot\pilot-evidence.json
 ```
 
-The assembler independently re-hashes and inspects every bundle ZIP entry, validates the exact
+These commands are installed by the same verified wheel included in the release kit. The source
+checkout retains equivalent thin scripts for development and review. The assembler independently
+re-hashes and inspects every bundle ZIP entry, validates the exact
 `R20.1`/`R25.0` SDK identities and build flags, derives the commit instead of accepting operator
 input, and requires each live `pluginSha256` to equal the corresponding adapter DLL hash in the
 manifest. It revalidates both runs, requires distinct 2016/2025 evidence, and refuses to overwrite

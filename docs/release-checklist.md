@@ -65,11 +65,11 @@ Use this checklist for every alpha release.
 - [ ] A maintainer has reviewed the release artifacts before publication.
 - [ ] Licensed AutoCAD 2016 and 2025 live results are recorded separately; one version's result is
       not treated as proof for the other.
-- [ ] `scripts/validate-pilot-evidence.py` returns `valid=true` for the locally retained two-version
+- [ ] `cadplot-validate-pilot` returns `valid=true` for the locally retained two-version
       acceptance record.
-- [ ] `collect-pilot-run.py` produced each run from the live plug-in and immutable job evidence;
+- [ ] `cadplot-collect-pilot` produced each run from the live plug-in and immutable job evidence;
       live `buildCommit`/`pluginSha256` matched the corresponding adapter entry, and
-      `assemble-pilot-evidence.py` bound both runs to the exact verified bundle/build manifest.
+      `cadplot-assemble-pilot` bound both runs to the exact verified bundle/build manifest.
 - [ ] The demo operator reviewed `docs/pazartesi-demo-tr.md` and can state the title-block and
       managed-ChatGPT boundaries without overstating readiness.
 

@@ -205,6 +205,10 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         'environment.pop("PYTHONPATH", None)',
         'environment["PYTHONNOUSERSITE"] = "1"',
         '"source_tree_imported": False',
+        '"cadplot-collect-pilot"',
+        '"cadplot-assemble-pilot"',
+        '"cadplot-validate-pilot"',
+        '"pilot_cli_commands": len(pilot_commands)',
     ):
         assert required in script
 
@@ -217,6 +221,10 @@ def test_local_pilot_initializer_is_no_overwrite_and_reparse_gated() -> None:
     assert "FileAttributes]::ReparsePoint" in script
     assert "company_assets_copied = $false" in script
     assert "publish_enabled = $false" in script
+    assert r"examples\config.inventory.example.yaml" in script
+    assert r"config\config.inventory.example.yaml" in script
+    assert "cadplot-doctor --config" in script
+    assert "uv run cadplot-doctor" not in script
     assert "Remove-Item" not in script
 
 
@@ -311,7 +319,7 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
     pilot = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "pilot.py").read_text(
         encoding="utf-8"
     )
-    assembler = (REPOSITORY_ROOT / "scripts" / "assemble-pilot-evidence.py").read_text(
+    assembler = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "pilot_cli.py").read_text(
         encoding="utf-8"
     )
 
@@ -367,6 +375,13 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "verify-release-kit.ps1",
         "300-drawing synthetic batch evidence",
         "synthetic_batch_rehearsal = $batch",
+        r'Join-Path $kitRoot "scripts\verify-release-kit.ps1"',
+        "collect-pilot-run.py",
+        "assemble-pilot-evidence.py",
+        "validate-pilot-evidence.py",
+        "new-local-pilot.ps1",
+        "pilot-evidence.md",
+        "self_verification_passed = $verification.Passed",
     ):
         assert required in builder
     assert "Remove-Item" not in builder
@@ -385,6 +400,12 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "MatchingSdkBundleBuilt = $manifest.matching_sdk_bundle_built -eq $true",
         "LivePublishProven = $false",
         "300-drawing synthetic batch evidence",
+        '"scripts/verify-release-kit.ps1"',
+        '"scripts/new-local-pilot.ps1"',
+        '"scripts/collect-pilot-run.py"',
+        '"scripts/assemble-pilot-evidence.py"',
+        '"scripts/validate-pilot-evidence.py"',
+        '"docs/pilot-evidence.md"',
     ):
         assert required in verifier
     assert "Expand-Archive" not in verifier
@@ -399,6 +420,12 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "verify-release-kit.ps1" in guide
     assert "install-bundle.ps1" in guide
     assert "uv tool install $wheelPath" in guide
+    assert "no source checkout is required" in guide
+    assert "cadplot-collect-pilot --help" in guide
+    assert "cadplot-assemble-pilot --help" in guide
+    assert "cadplot-validate-pilot --help" in guide
+    assert "new-local-pilot.ps1" in guide
+    assert "publisher authenticity" in guide
     assert "--from" not in guide
     assert "CADPLOT_ENABLE_PUBLISH" in guide
     assert "company DWG, PC3, PMP, CTB/STB, DWT" in guide
@@ -421,6 +448,7 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "live_publish_proven = $false",
         "synthetic_batch_rehearsal",
         "manual_review_without_receipts = 300",
+        "embedded_self_verification_passed = $true",
     ):
         assert required in script
     assert "Start-Process" not in script
@@ -462,6 +490,7 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "protocol_only_rejected_as_real = $protocolOnlyRejected",
         "bundle_release_verified = $true",
         "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
+        "release_kit_self_verification_passed",
         "copied_hashes_verified = $true",
         "existing_install_blocked = $overwriteBlocked",
         "unexpected_file_uninstall_blocked = $unexpectedFileBlocked",

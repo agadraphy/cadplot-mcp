@@ -6,14 +6,20 @@ Keep AutoCAD closed until the bundle copy and environment configuration are comp
 
 ## 1. Verify before installing
 
-From the source checkout matching the kit commit:
+The transferred kit contains its own hash-bound verifier. Run it directly from the kit before any
+installation; no source checkout is required:
 
 ```powershell
-.\scripts\verify-release-kit.ps1 -ReleaseRoot C:\CadPlotTransfer\cadplot-release-kit-0.1.0-abcdef0
+$releaseRoot = "C:\CadPlotTransfer\cadplot-release-kit-0.1.0-abcdef0"
+& "$releaseRoot\CadPlotMcp.release\scripts\verify-release-kit.ps1" `
+  -ReleaseRoot $releaseRoot
 ```
 
 The verifier checks the exact directory set, every SHA-256 digest, the embedded bundle build/API
-identity, and every ZIP entry without extracting the archive. Do not install a kit that fails.
+identity, and every ZIP entry without extracting the archive. Compare the separately transferred
+`release-kit-build.json` digest/commit through the company's trusted handoff channel; a verifier
+inside the same package proves integrity consistency, not publisher authenticity. Do not install a
+kit that fails.
 
 ## 2. Install the AutoCAD bundle
 
@@ -38,12 +44,28 @@ if ($wheel.Count -ne 1) { throw "Expected exactly one CadPlot MCP wheel." }
 $wheelPath = ($wheel | Select-Object -First 1).FullName
 uv tool install $wheelPath
 cadplot-doctor --help
+cadplot-collect-pilot --help
+cadplot-assemble-pilot --help
+cadplot-validate-pilot --help
 ```
 
 The included `pyproject.toml`, `uv.lock`, and commit-bound source ZIP are retained for dependency
 review and reproducible maintenance. The wheel contains no Autodesk or company assets.
 
-## 4. Add the authorized office profile
+## 4. Create the external pilot workspace
+
+Preview and then create an empty, no-overwrite workspace outside the release kit:
+
+```powershell
+& "$kit\scripts\new-local-pilot.ps1" -DestinationRoot C:\CadPlotPilot -WhatIf
+& "$kit\scripts\new-local-pilot.ps1" -DestinationRoot C:\CadPlotPilot
+cadplot-doctor --config C:\CadPlotPilot\config.yaml --mode config
+```
+
+The script works both from a source checkout and from the transferred release kit. It creates only
+an empty `pilot-input`, an isolated `pilot-work`, and a deliberately non-matching inventory config.
+
+## 5. Add the authorized office profile
 
 Copy `config/config.inventory.example.yaml` outside the release kit and replace its deliberately
 non-matching placeholders only with values inventoried on the licensed company workstation. Do not
@@ -51,7 +73,10 @@ copy company DWG, PC3, PMP, CTB/STB, DWT, credentials, or local `config.yaml` in
 release kit.
 
 Set `CADPLOT_CONFIG` to that external file. Keep `CADPLOT_ENABLE_PUBLISH` unset during inspection and
-dry-run. Follow `docs/pazartesi-demo-tr.md` for the licensed one-sheet acceptance flow.
+dry-run. Follow `docs/pazartesi-demo-tr.md` for the licensed one-sheet acceptance flow. After both
+licensed runs, use the installed `cadplot-collect-pilot`, `cadplot-assemble-pilot`, and
+`cadplot-validate-pilot` commands documented in `docs/pilot-evidence.md`; no repository Python
+environment is required.
 
 ## Evidence boundary
 

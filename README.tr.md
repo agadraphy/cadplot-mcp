@@ -107,7 +107,7 @@ uv run python scripts/run-synthetic-demo.py
 
 Bu sentetik test gerçek DWG/AutoCAD kabul testi yerine geçmez.
 2016 ve 2025 canlı sonuçları ayrı JSON kayıtları olarak tutulur ve
-`scripts/validate-pilot-evidence.py` ile birlikte doğrulanmadan üretim kabulü verilmez.
+kurulu `cadplot-validate-pilot` komutuyla birlikte doğrulanmadan üretim kabulü verilmez.
 Canlı eklenti status'u gömülü build commit'ini ve çalışan adapter DLL SHA-256 değerini verir. Pilot
 assembler commit'i operatörden kabul etmek yerine doğrulanmış `bundle-build.json` içinden türetir,
 ZIP'in tüm girdilerini yeniden hash'ler ve iki sürümün çalışan binary değerlerini ilgili bundle
@@ -192,8 +192,10 @@ Build temiz Git commit'i ister, eski artifact'i silmez ve
 
 Aynı temiz commit için gerçek matching-SDK bundle ve readiness raporu oluştuktan sonra
 `scripts/build-release-kit.ps1`; bundle release'i, readiness'e bağlı Python wheel'i, kilit verisini,
-`git archive` kaynak kopyasını, güvenli kurulum betiklerini, envanter config'ini ve demo runbook'larını
-tek, üstüne yazılmayan teslim kökünde birleştirir. `verify-release-kit.ps1` iki manifesti, tam dosya
+`git archive` kaynak kopyasını, güvenli kurulum betiklerini, envanter config'ini, pilot kanıt
+komutlarını ve demo runbook'larını tek, üstüne yazılmayan teslim kökünde birleştirir. Kit kendi
+hash-bağlı `verify-release-kit.ps1` dosyasını taşıdığı için ayrıca repo checkout'u gerekmez. Bu
+doğrulayıcı iki manifesti, tam dosya
 ağacını, gömülü bundle/API kanıtını ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kurulum için
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;

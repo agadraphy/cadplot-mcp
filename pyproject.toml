@@ -25,6 +25,9 @@ dev = ["pytest>=8.0,<9.0", "ruff>=0.9,<1.0"]
 [project.scripts]
 cadplot-mcp = "cadplot_mcp.server:main"
 cadplot-doctor = "cadplot_mcp.doctor:main"
+cadplot-collect-pilot = "cadplot_mcp.pilot_cli:collect_main"
+cadplot-assemble-pilot = "cadplot_mcp.pilot_cli:assemble_main"
+cadplot-validate-pilot = "cadplot_mcp.pilot_cli:validate_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cadplot_mcp"]
