@@ -49,7 +49,10 @@ The manifest starts in `staged` state. The AutoCAD executor may operate only on 
 Expected final PDF names stay absent while plotting. Every sheet is first written to a unique
 executor-owned `.partial.pdf` beside its final target; only after all plots finish and the staged
 DWG closes without saving are non-empty temporary files promoted with no-overwrite moves. A normal
-mid-job plot failure therefore leaves no final manifest output.
+mid-job plot failure therefore leaves no final manifest output. If a later move fails, earlier moves
+whose length and SHA-256 still match the pre-promotion temporary files are reversed in order. A
+changed file or failed rollback is left untouched and retained as an explicit `output_commit_partial`
+result for receipt/audit review.
 
 After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
 rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,

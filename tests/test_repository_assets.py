@@ -504,6 +504,10 @@ def test_publish_outputs_are_staged_until_all_plots_and_dwg_discard_succeed() ->
         '"temporary_output_missing"',
         '"temporary_output_empty"',
         '"output_commit_partial"',
+        "TryRollbackPromotedOutputs",
+        "FileSha256.Compute(entry.TemporaryPath)",
+        "FileSha256.Compute(entry.FinalPath)",
+        "File.Move(entry.FinalPath, entry.TemporaryPath)",
         "File.Delete(entry.TemporaryPath)",
     ):
         assert required in transaction

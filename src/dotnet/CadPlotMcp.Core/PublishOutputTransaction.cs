@@ -15,6 +15,8 @@ namespace CadPlotMcp.Core
         {
             public string FinalPath { get; set; }
             public string TemporaryPath { get; set; }
+            public long ExpectedLength { get; set; }
+            public string ExpectedSha256 { get; set; }
         }
 
         private readonly List<OutputEntry> _entries = new List<OutputEntry>();
@@ -83,8 +85,10 @@ namespace CadPlotMcp.Core
                     return "temporary_output_missing";
                 try
                 {
-                    if (new FileInfo(entry.TemporaryPath).Length < 1)
+                    entry.ExpectedLength = new FileInfo(entry.TemporaryPath).Length;
+                    if (entry.ExpectedLength < 1)
                         return "temporary_output_empty";
+                    entry.ExpectedSha256 = FileSha256.Compute(entry.TemporaryPath);
                 }
                 catch (UnauthorizedAccessException)
                 {
@@ -113,16 +117,59 @@ namespace CadPlotMcp.Core
             }
             catch (UnauthorizedAccessException)
             {
-                return promoted == 0 ? "output_commit_access_denied" : "output_commit_partial";
+                return HandlePromotionFailure("output_commit_access_denied", promoted);
             }
             catch (SecurityException)
             {
-                return promoted == 0 ? "output_commit_access_denied" : "output_commit_partial";
+                return HandlePromotionFailure("output_commit_access_denied", promoted);
             }
             catch (IOException)
             {
-                return promoted == 0 ? "output_commit_io_error" : "output_commit_partial";
+                return HandlePromotionFailure("output_commit_io_error", promoted);
             }
+        }
+
+        private string HandlePromotionFailure(string error, int promoted)
+        {
+            if (promoted == 0) return error;
+            return TryRollbackPromotedOutputs(promoted) ? error : "output_commit_partial";
+        }
+
+        private bool TryRollbackPromotedOutputs(int promoted)
+        {
+            // Reverse successful moves so an ordinary mid-promotion failure
+            // leaves no final names. Never overwrite an externally-created path.
+            for (var index = promoted - 1; index >= 0; index--)
+            {
+                var entry = _entries[index];
+                try
+                {
+                    if (!File.Exists(entry.FinalPath)
+                        || File.Exists(entry.TemporaryPath)
+                        || Directory.Exists(entry.TemporaryPath))
+                        return false;
+                    if (new FileInfo(entry.FinalPath).Length != entry.ExpectedLength
+                        || !String.Equals(
+                            FileSha256.Compute(entry.FinalPath),
+                            entry.ExpectedSha256,
+                            StringComparison.Ordinal
+                        )) return false;
+                    File.Move(entry.FinalPath, entry.TemporaryPath);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return false;
+                }
+                catch (SecurityException)
+                {
+                    return false;
+                }
+                catch (IOException)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         public void Dispose()

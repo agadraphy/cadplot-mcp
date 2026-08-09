@@ -87,6 +87,28 @@ public sealed class PublishOutputTransactionTests : IDisposable
     }
 
     [Fact]
+    public void MidPromotionFailureRollsBackEarlierFinals()
+    {
+        using var transaction = new PublishOutputTransaction(_root, _finals);
+        File.WriteAllText(transaction.GetTemporaryPath(0), "first PDF");
+        File.WriteAllText(transaction.GetTemporaryPath(1), "second PDF");
+
+        // On Windows, denying delete sharing lets the length precheck pass but
+        // makes the second move fail after the first output was promoted.
+        using var lockedSecond = new FileStream(
+            transaction.GetTemporaryPath(1),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read
+        );
+
+        Assert.Equal("output_commit_io_error", transaction.Commit());
+        Assert.All(_finals, path => Assert.False(File.Exists(path)));
+        Assert.True(File.Exists(transaction.GetTemporaryPath(0)));
+        Assert.True(File.Exists(transaction.GetTemporaryPath(1)));
+    }
+
+    [Fact]
     public void ConstructorRefusesExistingDuplicateOrEscapedFinals()
     {
         File.WriteAllText(_finals[0], "existing");

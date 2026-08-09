@@ -66,11 +66,13 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 - The queue and live status history are process-local; restarting AutoCAD clears them. Terminal
   results survive in `receipt.json` and can be cross-checked through `read_publish_receipt`.
 - A plot, layout, or DWG-discard failure removes the executor-owned temporary PDFs and exposes no
-  final output names. Multi-file promotion is not a filesystem-wide atomic operation: a rare I/O or
-  external race during promotion can still leave already-promoted finals. The failed receipt and
-  no-overwrite rule remain authoritative; stage a new job instead of editing or retrying in place.
-- If Windows refuses cleanup of an owned `.partial.pdf`, the hidden partial may remain for manual
-  inspection, but it is never accepted as a manifest output or live success.
+  final output names. Multi-file promotion is not a filesystem-wide atomic operation: after a rare
+  I/O or external race, the executor reverses only unchanged, SHA-256-matched completed moves
+  without overwrite. If Windows also refuses that rollback or a promoted file changed, some finals
+  can remain untouched and the receipt records
+  `output_commit_partial`; stage a new job instead of editing or retrying in place.
+- If Windows refuses cleanup of an owned `.partial.pdf`, the dot-prefixed temporary file may remain
+  for manual inspection, but it is never accepted as a manifest output or live success.
 - The first live gate is intentionally one sheet. Large batches are enabled only after both
   supported-version pilots accept scale, orientation, crop, fonts, and plot style.
 - Without `template_layout`, the generic executor creates an empty layout with one full-sheet
