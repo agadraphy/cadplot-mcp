@@ -144,6 +144,18 @@ Tüm çalışma alanını kaldığınız yerden taramak için `create_publish_op
 `has_more=false` olana kadar `next_after_job_id` ile sayfalayın. Her `report_page_id` bir kontrol
 noktasıdır. Yalnız `awaiting_execution` işlerinde yeniden sıra onayı döner; önce canlı durum bakılır.
 
+Yerel preflight hedef ölçeği ayrıca 300 sentetik kaynakla gerçekten prova eder:
+
+```powershell
+uv run python scripts/run-synthetic-batch-demo.py --drawings 300
+```
+
+Prova 15 değişmez plan sayfası, 15 onaylı staging batch'i, 300 bağımsız hash'li kopya, tekrarsız
+restart raporu ve 300 yapısal PDF audit'i üretir. Bilerek eklenti receipt'i oluşturmaz; bu nedenle
+300 çıktının tamamı `manual_review`, `execution_verified=0` ve `publish_verified=0` kalır. Bu kanıt
+hedef sayıda yerel orkestrasyon ve fail-closed devam davranışını gösterir; AutoCAD yürütme kanıtı
+değildir.
+
 ## ChatGPT bağlantısı
 
 Yerel MCP istemcisi, Python sunucusunu `stdio` ile aynı Windows bilgisayarda çalıştırabilir ve

@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- A 300-drawing synthetic batch rehearsal covering immutable planning pages, bounded staging and
+  queue-approval protocol, restart-report pagination, source preservation, and 300 structural PDF
+  audits while deliberately retaining zero live execution/publish verification.
 - Commit-bound combined release-kit builder/verifier for the matching-SDK AutoCAD bundle,
   readiness-bound Python wheel, locked project metadata, source archive, safe install scripts, and
   pilot documentation. Both directory and ZIP contents are exact/hash verified while all live and

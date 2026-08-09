@@ -100,6 +100,22 @@ try {
         }
         source_archive = "source/$sourceName"
         files = $files
+        synthetic_batch_rehearsal = [ordered]@{
+            target_drawings = 300
+            planning_pages = 15
+            ready = 300
+            staging_batches = 15
+            staged = 300
+            restart_pages_before_outputs = 6
+            restart_pages_after_outputs = 6
+            outputs_complete = 300
+            execution_verified = 0
+            publish_verified = 0
+            manual_review_without_receipts = 300
+            source_unchanged = $true
+            evidence_digest = "sha256:$('c' * 64)"
+            synthetic = $true
+        }
         matching_sdk_bundle_built = $false
         protocol_only_fixture = $true
         local_demo_ready = $true

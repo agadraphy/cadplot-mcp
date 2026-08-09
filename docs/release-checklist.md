@@ -23,6 +23,9 @@ Use this checklist for every alpha release.
       verifies the exact tool/annotation/instruction contract.
 - [ ] `uv run python scripts/run-synthetic-demo.py` reports `source_unchanged=true` and
       `audit_complete=true`, while truthfully retaining `publish_verified=false`.
+- [ ] `uv run python scripts/run-synthetic-batch-demo.py --drawings 300` reports 15 plan pages,
+      15 staging batches, 300 unique jobs, unchanged sources, 300 complete structural PDF audits,
+      no receipts, `execution_verified=0`, `publish_verified=0`, and 300 `manual_review` jobs.
 - [ ] `uv build` and `uv run python scripts/audit-release-artifacts.py dist` pass.
 - [ ] `uv run python scripts/smoke-wheel-install.py dist` installs the exact wheel into an isolated
       temporary environment using frozen, hash-checked lock dependencies and passes the real MCP
@@ -38,7 +41,8 @@ Use this checklist for every alpha release.
 - [ ] The matching-SDK build used a clean commit, created a new no-overwrite release root, and
       `verify-bundle-release.ps1` matched `bundle-build.json`, ZIP entries, and all file hashes.
 - [ ] `build-release-kit.ps1` bound the verified matching-SDK bundle, readiness-bound Python wheel,
-      lock data, source archive, install scripts, and runbooks to the same clean commit.
+      300-drawing rehearsal digest, lock data, source archive, install scripts, and runbooks to the
+      same clean commit.
 - [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
       and every outer ZIP entry without extraction; its live/public readiness flags remained false.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path

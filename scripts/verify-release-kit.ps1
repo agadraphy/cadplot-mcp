@@ -76,6 +76,21 @@ foreach ($evidence in @($outer, $manifest)) {
         throw "Release-kit safety/evidence flags are invalid."
     }
 }
+$batch = $manifest.synthetic_batch_rehearsal
+if (
+    $batch.target_drawings -ne 300 -or
+    $batch.ready -ne 300 -or
+    $batch.staged -ne 300 -or
+    $batch.outputs_complete -ne 300 -or
+    $batch.execution_verified -ne 0 -or
+    $batch.publish_verified -ne 0 -or
+    $batch.manual_review_without_receipts -ne 300 -or
+    $batch.source_unchanged -ne $true -or
+    $batch.synthetic -ne $true -or
+    [string]$batch.evidence_digest -notmatch '^sha256:[0-9a-f]{64}$'
+) {
+    throw "Release kit has no valid 300-drawing synthetic batch evidence."
+}
 if (
     $outer.matching_sdk_bundle_built -ne $manifest.matching_sdk_bundle_built -or
     $outer.matching_sdk_bundle_built -ne $true

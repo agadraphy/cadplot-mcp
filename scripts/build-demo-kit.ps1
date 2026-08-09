@@ -55,6 +55,21 @@ try {
     ) {
         throw "Readiness report is not a valid local-only result for the current commit."
     }
+    $batch = $readiness.synthetic_batch_rehearsal
+    if (
+        $batch.target_drawings -ne 300 -or
+        $batch.ready -ne 300 -or
+        $batch.staged -ne 300 -or
+        $batch.outputs_complete -ne 300 -or
+        $batch.execution_verified -ne 0 -or
+        $batch.publish_verified -ne 0 -or
+        $batch.manual_review_without_receipts -ne 300 -or
+        $batch.source_unchanged -ne $true -or
+        $batch.synthetic -ne $true -or
+        [string]$batch.evidence_digest -notmatch '^sha256:[0-9a-f]{64}$'
+    ) {
+        throw "Readiness report has no valid 300-drawing synthetic batch evidence."
+    }
 
     $wheelPath = Join-Path $repoRoot ("dist\{0}" -f $readiness.wheel)
     if (-not (Test-Path -LiteralPath $wheelPath -PathType Leaf)) {
@@ -101,6 +116,7 @@ try {
         local_demo_ready = $true
         licensed_live_pilot_ready = $false
         live_publish_proven = $false
+        synthetic_batch_rehearsal = $batch
         company_assets_copied = $false
         autodesk_binaries_included = $false
         purpose = "Portable local/synthetic demo kit; not a live AutoCAD plug-in bundle"
@@ -127,6 +143,7 @@ try {
         exact_commit = $commit
         source_sha256 = $sourceHash
         wheel_sha256 = $kitWheelHash
+        synthetic_batch_evidence_digest = $batch.evidence_digest
         company_assets_copied = $false
         live_publish_proven = $false
     } | ConvertTo-Json

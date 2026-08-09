@@ -15,6 +15,12 @@ SHA-256 hash'ini rapora bağlar. AutoCAD'i açmaz ve canlı plot kanıtı üretm
 `-WriteReport`, aynı son JSON'u yeni ve üzerine yazılmayan bir geçici dosyada saklar; ekrandaki
 `report_path` değerini demo kaydı olarak koruyun.
 
+Preflight içinde 300 sentetik kaynak da 20'lik sayfalama/staging batch'leriyle uçtan uca prova edilir.
+Readiness raporunda `synthetic_batch_rehearsal.target_drawings=300`, `staged=300`,
+`outputs_complete=300`, `execution_verified=0`, `publish_verified=0` ve
+`manual_review_without_receipts=300` görülmelidir. Son iki sıfır hata değildir: AutoCAD receipt'i
+olmayan sentetik PDF'lerin canlı başarı gibi sunulmasını engeller.
+
 Taşınabilir yerel demo kitini yalnız bu rapordan üretin:
 
 ```powershell

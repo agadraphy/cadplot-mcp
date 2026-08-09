@@ -9,6 +9,9 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $preflight = Join-Path $PSScriptRoot "run-local-preflight.ps1"
+$preflightSummaryPath = Join-Path `
+    ([System.IO.Path]::GetTempPath()) `
+    ("cadplot-preflight-summary-{0}.json" -f [Guid]::NewGuid().ToString("N"))
 
 function Invoke-GitReadOnly {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -39,9 +42,28 @@ try {
     $preflightParameters = @{
         DotNet = $DotNet
         AutoCADApiDir = $AutoCADApiDir
+        SummaryPath = $preflightSummaryPath
         SkipSync = $SkipSync
     }
     & $preflight @preflightParameters
+    if (-not (Test-Path -LiteralPath $preflightSummaryPath -PathType Leaf)) {
+        throw "Preflight did not produce its machine-readable summary."
+    }
+    try {
+        $preflightSummary = Get-Content `
+            -LiteralPath $preflightSummaryPath `
+            -Raw `
+            -Encoding UTF8 | ConvertFrom-Json
+    }
+    catch { throw "Preflight summary is not valid UTF-8 JSON." }
+    if (
+        $preflightSummary.passed -ne $true -or
+        $preflightSummary.synthetic_batch_rehearsal.target_drawings -ne 300 -or
+        $preflightSummary.synthetic_batch_rehearsal.staged -ne 300 -or
+        $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0
+    ) {
+        throw "Preflight summary does not contain the required 300-drawing rehearsal evidence."
+    }
 
     $commitLines = @(Invoke-GitReadOnly -Arguments @("rev-parse", "HEAD"))
     $commit = $commitLines[0].Trim()
@@ -80,6 +102,7 @@ try {
         autocad_launched = $false
         live_publish_proven = $false
         company_assets_copied = $false
+        synthetic_batch_rehearsal = $preflightSummary.synthetic_batch_rehearsal
         demo_runbook = "docs/pazartesi-demo-tr.md"
         live_blockers = @(
             "Licensed target AutoCAD workstation (2016 and/or 2025)",
@@ -116,4 +139,7 @@ try {
 }
 finally {
     Pop-Location
+    if (Test-Path -LiteralPath $preflightSummaryPath -PathType Leaf) {
+        [System.IO.File]::Delete($preflightSummaryPath)
+    }
 }

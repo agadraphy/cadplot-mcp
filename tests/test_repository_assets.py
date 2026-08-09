@@ -116,6 +116,13 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "uv run ruff check .",
         "uv run pytest -q",
         "run-synthetic-demo.py",
+        "run-synthetic-batch-demo.py",
+        "300-drawing bounded synthetic batch workflow",
+        "target_drawings -ne 300",
+        "publish_verified -ne 0",
+        "manual_review_without_receipts",
+        "evidence_digest",
+        "SummaryPath",
         "uv build",
         "audit-release-artifacts.py",
         "smoke-wheel-install.py",
@@ -149,6 +156,9 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "autocad_launched = $false",
         "live_publish_proven = $false",
         "company_assets_copied = $false",
+        "synthetic_batch_rehearsal",
+        "target_drawings -ne 300",
+        "publish_verified -ne 0",
         "[System.IO.FileMode]::CreateNew",
     ):
         assert required in script
@@ -170,6 +180,8 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         "company_assets_copied = $false",
         "autodesk_binaries_included = $false",
         "live_publish_proven = $false",
+        "300-drawing synthetic batch evidence",
+        "synthetic_batch_rehearsal = $batch",
         "not a live AutoCAD plug-in bundle",
     ):
         assert required in script
@@ -309,6 +321,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "autocad_launched = $false",
         "live_publish_proven = $false",
         "verify-release-kit.ps1",
+        "300-drawing synthetic batch evidence",
+        "synthetic_batch_rehearsal = $batch",
     ):
         assert required in builder
     assert "Remove-Item" not in builder
@@ -326,6 +340,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "archive entry hash mismatch",
         "MatchingSdkBundleBuilt = $manifest.matching_sdk_bundle_built -eq $true",
         "LivePublishProven = $false",
+        "300-drawing synthetic batch evidence",
     ):
         assert required in verifier
     assert "Expand-Archive" not in verifier
@@ -360,9 +375,22 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "AllowProtocolOnlyFixture",
         "autocad_launched = $false",
         "live_publish_proven = $false",
+        "synthetic_batch_rehearsal",
+        "manual_review_without_receipts = 300",
     ):
         assert required in script
     assert "Start-Process" not in script
+
+
+def test_synthetic_batch_runner_is_bounded_and_never_overwrites_evidence() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "run-synthetic-batch-demo.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'parser.add_argument("--drawings", type=int, default=300)' in script
+    assert 'output.open("x"' in script
+    assert "run_synthetic_batch_demo" in script
+    assert "canonical_batch_demo_digest" in script
 
 
 def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:

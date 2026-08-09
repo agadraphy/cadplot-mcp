@@ -186,6 +186,19 @@ For a large run, call `create_publish_operations_report` until `has_more=false`,
 checkpoint. Only items in `awaiting_execution` include a `queue_approval`, and live status must be
 checked before submitting it.
 
+The local preflight also runs an explicit 300-drawing synthetic scale rehearsal:
+
+```powershell
+uv run python scripts/run-synthetic-batch-demo.py --drawings 300
+```
+
+It creates 300 non-DWG synthetic fixtures in a temporary directory, plans them in 15 immutable
+pages, stages 300 independently hash-bound copies in 15 approval batches, walks the restart report
+without repeats, and structurally audits 300 generated PDFs. It deliberately creates no plug-in
+receipt, so all 300 outputs remain `manual_review`, `execution_verified=0`, and
+`publish_verified=0`. This proves bounded local orchestration and fail-closed recovery at the target
+count; it is not AutoCAD execution evidence.
+
 ## Delivery gates
 
 1. Completed locally: discovery, inspection, deterministic planning, staging, queue protocol,
