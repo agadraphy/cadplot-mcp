@@ -165,6 +165,8 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "smoke-demo-kit.ps1",
         "smoke-bundle-install.ps1",
         "dotnet\\CadPlotMcp.sln",
+        "probe-durable-queue.ps1",
+        "durable_queue_recovery = $durableQueueEvidence",
         "probe-autocad-api.ps1",
         "audit-dependencies.py",
         "python_license_inventory",
@@ -200,6 +202,7 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "company_assets_copied = $false",
         "synthetic_batch_rehearsal",
         "wheel_install_smoke = $preflightSummary.wheel_install_smoke",
+        "durable_queue_recovery = $preflightSummary.durable_queue_recovery",
         "Installed wheel smoke hash no longer matches",
         "api_probe = $preflightSummary.api_probe",
         "unexpectedly contains API evidence",
@@ -548,6 +551,81 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
     ):
         assert visual_flag in assembler or "VISUAL_CHECKS" in assembler
     assert "--accept-visual-checks" not in assembler
+
+
+def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
+    core = REPOSITORY_ROOT / "src" / "dotnet" / "CadPlotMcp.Core"
+    journal = (core / "PublishQueueJournal.cs").read_text(encoding="utf-8")
+    jobs = (core / "PublishJobs.cs").read_text(encoding="utf-8")
+    worker = (core / "PublishWorker.cs").read_text(encoding="utf-8")
+    protocol = (core / "Protocol.cs").read_text(encoding="utf-8")
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+    probe = (REPOSITORY_ROOT / "scripts" / "probe-durable-queue.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        ".cadplot-queue-request.json",
+        ".cadplot-queue-started.json",
+        "FileMode.CreateNew",
+        "File.Move(temporaryPath, finalPath)",
+        "MaxJobDirectories",
+        "publish_queue_recovery_exceeds_capacity",
+        'Error = "job_interrupted"',
+        "ReadReceiptSnapshot",
+        "RequirePlainFile",
+        "PublishJobValidator.Validate",
+        "PublishManifestReader.Validate",
+    ):
+        assert required in journal
+    for required in (
+        "invalid_job_id",
+        "_journal.RecordPending(request)",
+        "_journal.RecordStarted(request)",
+        "var blocked = _pending.Dequeue()",
+        "RecoveredOnStartup",
+        "InterruptedOnStartup",
+    ):
+        assert required in jobs
+    assert "out startError" in worker
+    for required in (
+        "queueRecoveredOnStartup",
+        "queueInterruptedOnStartup",
+        "publishInitializationError",
+    ):
+        assert required in protocol
+    assert 'publishInitializationError = "publish_queue_initialization_failed"' in runtime
+    for test_name in (
+        "PendingApprovedIntentRecoversAfterRestartWithExactIdentity",
+        "InterruptedRunningIntentIsNeverAutomaticallyReplayed",
+        "TerminalReceiptRestoresStatusAfterRestart",
+        "TamperedPendingIntentDisablesRecovery",
+        "ExistingReceiptCannotBeQueuedAsFreshWork",
+    ):
+        assert test_name in probe
+    assert "Start-Process" not in probe
+
+    for script_name in (
+        "run-local-preflight.ps1",
+        "run-demo-rehearsal.ps1",
+        "build-demo-kit.ps1",
+        "verify-demo-kit.ps1",
+        "smoke-demo-kit.ps1",
+        "build-release-kit.ps1",
+        "verify-release-kit.ps1",
+        "smoke-release-kit.ps1",
+    ):
+        script = (REPOSITORY_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
+        assert "durable_queue_recovery" in script
+    for smoke_name in ("smoke-demo-kit.ps1", "smoke-release-kit.ps1"):
+        smoke = (REPOSITORY_ROOT / "scripts" / smoke_name).read_text(encoding="utf-8")
+        assert "durable_queue_tamper_blocked" in smoke
 
 
 def test_publish_geometry_and_layout_scale_are_revalidated_before_plotting() -> None:

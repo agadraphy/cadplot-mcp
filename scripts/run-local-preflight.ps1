@@ -186,6 +186,26 @@ try {
             src\dotnet\CadPlotMcp.Core.Tests\CadPlotMcp.Core.Tests.csproj `
             --configuration Release --no-build --nologo
     }
+    Write-Output "PRECHECK: durable approved-queue restart probe"
+    $durableQueueEvidence = & (Join-Path $PSScriptRoot "probe-durable-queue.ps1") `
+        -DotNet $resolvedDotNet `
+        -PassThru
+    if (
+        $durableQueueEvidence.passed -ne $true -or
+        $durableQueueEvidence.exact_test_count -ne 5 -or
+        $durableQueueEvidence.pending_intent_recovered -ne $true -or
+        $durableQueueEvidence.exact_request_identity_preserved -ne $true -or
+        $durableQueueEvidence.interrupted_job_not_replayed -ne $true -or
+        $durableQueueEvidence.terminal_receipt_status_recovered -ne $true -or
+        $durableQueueEvidence.tampered_intent_blocked -ne $true -or
+        $durableQueueEvidence.completed_job_requeue_blocked -ne $true -or
+        $durableQueueEvidence.autocad_launched -ne $false -or
+        $durableQueueEvidence.live_publish_proven -ne $false -or
+        $durableQueueEvidence.evidence_scope -cne "production-core-with-synthetic-files"
+    ) {
+        throw "Durable queue probe crossed a required restart or safety boundary."
+    }
+    $durableQueueEvidence | ConvertTo-Json -Depth 3
     Invoke-CheckedStep "transactional bundle install/uninstall smoke" {
         & (Join-Path $PSScriptRoot "smoke-bundle-install.ps1")
     }
@@ -236,6 +256,7 @@ try {
         else { $null }
         dependency_audit_ran = $dependencyAuditRan
         dependency_audit = if ($dependencyAuditRan) { $dependencyAuditEvidence } else { $null }
+        durable_queue_recovery = $durableQueueEvidence
         wheel_install_smoke = [ordered]@{
             passed = $true
             version = $wheelSmoke.version

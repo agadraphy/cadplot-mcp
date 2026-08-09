@@ -322,6 +322,8 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
             "queuePending": 4,
             "queueRunning": 1,
             "queueAvailable": 16,
+            "queueRecoveredOnStartup": 3,
+            "queueInterruptedOnStartup": 1,
         },
     )
 
@@ -340,6 +342,8 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
         "pending": 4,
         "running": 1,
         "available": 16,
+        "recovered_on_startup": 3,
+        "interrupted_on_startup": 1,
     }
     assert result["queue_error"] is None
     assert result["items"][1]["job_error"] == "plot_failed"

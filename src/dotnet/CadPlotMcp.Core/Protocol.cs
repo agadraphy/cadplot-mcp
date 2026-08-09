@@ -57,6 +57,9 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "queuePending", EmitDefaultValue = false)] public int? QueuePending { get; set; }
         [DataMember(Name = "queueRunning", EmitDefaultValue = false)] public int? QueueRunning { get; set; }
         [DataMember(Name = "queueAvailable", EmitDefaultValue = false)] public int? QueueAvailable { get; set; }
+        [DataMember(Name = "queueRecoveredOnStartup", EmitDefaultValue = false)] public int? QueueRecoveredOnStartup { get; set; }
+        [DataMember(Name = "queueInterruptedOnStartup", EmitDefaultValue = false)] public int? QueueInterruptedOnStartup { get; set; }
+        [DataMember(Name = "publishInitializationError", EmitDefaultValue = false)] public string PublishInitializationError { get; set; }
     }
 
     public static class JsonLineCodec
@@ -104,6 +107,7 @@ namespace CadPlotMcp.Core
         private readonly bool _publishEnabled;
         private readonly string _buildCommit;
         private readonly string _pluginSha256;
+        private readonly string _publishInitializationError;
         private readonly string _runtimeSeries;
         private readonly bool _runtimeSupported;
 
@@ -116,7 +120,8 @@ namespace CadPlotMcp.Core
             string buildCommit = null,
             string pluginSha256 = null,
             string runtimeSeries = null,
-            bool runtimeSupported = true
+            bool runtimeSupported = true,
+            string publishInitializationError = null
         )
         {
             _adapter = adapter ?? "unknown";
@@ -128,6 +133,7 @@ namespace CadPlotMcp.Core
             _publishEnabled = runtimeSupported && publishEnabled && publishQueue != null;
             _buildCommit = buildCommit;
             _pluginSha256 = pluginSha256;
+            _publishInitializationError = publishInitializationError;
         }
 
         public PipeResponse Dispatch(PipeRequest request)
@@ -151,6 +157,7 @@ namespace CadPlotMcp.Core
                 response.ReadOnly = true;
                 response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
                 response.PublishEnabled = _publishEnabled;
+                response.PublishInitializationError = _publishInitializationError;
                 PopulateQueueTelemetry(response);
                 return response;
             }
@@ -286,6 +293,8 @@ namespace CadPlotMcp.Core
             response.QueuePending = telemetry.Pending;
             response.QueueRunning = telemetry.Running;
             response.QueueAvailable = telemetry.Available;
+            response.QueueRecoveredOnStartup = telemetry.RecoveredOnStartup;
+            response.QueueInterruptedOnStartup = telemetry.InterruptedOnStartup;
         }
 
         private static PublishJobRequest CreateJob(PipeRequest request)

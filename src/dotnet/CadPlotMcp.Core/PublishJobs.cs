@@ -38,6 +38,8 @@ namespace CadPlotMcp.Core
         public int Pending { get; set; }
         public int Running { get; set; }
         public int Available { get; set; }
+        public int RecoveredOnStartup { get; set; }
+        public int InterruptedOnStartup { get; set; }
     }
 
     public static class PublishJobValidator
@@ -48,6 +50,10 @@ namespace CadPlotMcp.Core
         );
         private static readonly Regex Sha256Pattern = new Regex(
             "^[0-9a-f]{64}$",
+            RegexOptions.CultureInvariant
+        );
+        private static readonly Regex JobIdPattern = new Regex(
+            "^job-[0-9]{8}T(?:[0-9]{6}|[0-9]{12})Z-[0-9a-f]{12}$",
             RegexOptions.CultureInvariant
         );
 
@@ -84,6 +90,7 @@ namespace CadPlotMcp.Core
                 return "invalid_manifest_path";
             var jobRoot = Path.GetDirectoryName(manifest);
             if (String.IsNullOrWhiteSpace(jobRoot)) return "invalid_job_root";
+            if (!JobIdPattern.IsMatch(Path.GetFileName(jobRoot))) return "invalid_job_id";
             if (!SamePath(Path.GetDirectoryName(jobRoot), workspace)) return "job_outside_workspace";
             var expectedSource = Path.Combine(jobRoot, "source");
             var expectedOutput = Path.Combine(jobRoot, "output");
@@ -174,6 +181,9 @@ namespace CadPlotMcp.Core
             new Dictionary<string, PublishJobSnapshot>(StringComparer.Ordinal);
         private readonly int _capacity;
         private readonly string _trustedWorkspaceRoot;
+        private readonly PublishQueueJournal _journal;
+        private readonly int _recoveredOnStartup;
+        private readonly int _interruptedOnStartup;
 
         public PublishJobQueue(string trustedWorkspaceRoot, int capacity)
         {
@@ -186,6 +196,12 @@ namespace CadPlotMcp.Core
             if ((File.GetAttributes(_trustedWorkspaceRoot) & FileAttributes.ReparsePoint) != 0)
                 throw new ArgumentException("The trusted workspace root cannot be redirected.", "trustedWorkspaceRoot");
             _capacity = capacity;
+            _journal = new PublishQueueJournal(_trustedWorkspaceRoot);
+            var recovery = _journal.Recover(capacity);
+            foreach (var request in recovery.Pending) _pending.Enqueue(request);
+            foreach (var pair in recovery.States) _states.Add(pair.Key, pair.Value);
+            _recoveredOnStartup = recovery.RecoveredOnStartup;
+            _interruptedOnStartup = recovery.InterruptedOnStartup;
         }
 
         public int PendingCount
@@ -221,6 +237,8 @@ namespace CadPlotMcp.Core
                     Pending = _pending.Count,
                     Running = running,
                     Available = _capacity - _pending.Count,
+                    RecoveredOnStartup = _recoveredOnStartup,
+                    InterruptedOnStartup = _interruptedOnStartup,
                 };
             }
         }
@@ -257,6 +275,8 @@ namespace CadPlotMcp.Core
                     error = "duplicate_plan";
                     return false;
                 }
+                error = _journal.RecordPending(request);
+                if (error != null) return false;
                 _pending.Enqueue(request);
                 _states.Add(
                     request.PlanId,
@@ -266,16 +286,28 @@ namespace CadPlotMcp.Core
             }
         }
 
-        public bool TryStartNext(out PublishJobRequest request)
+        public bool TryStartNext(out PublishJobRequest request, out string error)
         {
             lock (_gate)
             {
                 if (_pending.Count == 0)
                 {
                     request = null;
+                    error = "no_pending_job";
                     return false;
                 }
-                request = _pending.Dequeue();
+                request = _pending.Peek();
+                error = _journal.RecordStarted(request);
+                if (error != null)
+                {
+                    var blocked = _pending.Dequeue();
+                    var snapshot = _states[blocked.PlanId];
+                    snapshot.State = PublishJobState.Failed;
+                    snapshot.Error = error;
+                    request = null;
+                    return false;
+                }
+                _pending.Dequeue();
                 _states[request.PlanId].State = PublishJobState.Running;
                 return true;
             }

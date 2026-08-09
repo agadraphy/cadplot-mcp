@@ -73,6 +73,18 @@ try {
         $preflightSummary.synthetic_batch_rehearsal.queue_status_identity_preserved -ne $true -or
         $preflightSummary.synthetic_batch_rehearsal.queue_plugin_contacted -ne $false -or
         $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0 -or
+        $preflightSummary.durable_queue_recovery.passed -ne $true -or
+        $preflightSummary.durable_queue_recovery.exact_test_count -ne 5 -or
+        $preflightSummary.durable_queue_recovery.pending_intent_recovered -ne $true -or
+        $preflightSummary.durable_queue_recovery.exact_request_identity_preserved -ne $true -or
+        $preflightSummary.durable_queue_recovery.interrupted_job_not_replayed -ne $true -or
+        $preflightSummary.durable_queue_recovery.terminal_receipt_status_recovered -ne $true -or
+        $preflightSummary.durable_queue_recovery.tampered_intent_blocked -ne $true -or
+        $preflightSummary.durable_queue_recovery.completed_job_requeue_blocked -ne $true -or
+        $preflightSummary.durable_queue_recovery.autocad_launched -ne $false -or
+        $preflightSummary.durable_queue_recovery.live_publish_proven -ne $false -or
+        $preflightSummary.durable_queue_recovery.evidence_scope `
+            -cne "production-core-with-synthetic-files" -or
         $preflightSummary.wheel_install_smoke.passed -ne $true -or
         $preflightSummary.wheel_install_smoke.tool_count -ne 19 -or
         $preflightSummary.wheel_install_smoke.http_transport_tool_count -ne 19 -or
@@ -173,6 +185,7 @@ try {
         api_probe = $preflightSummary.api_probe
         dependency_audit_ran = $preflightSummary.dependency_audit_ran
         dependency_audit = $preflightSummary.dependency_audit
+        durable_queue_recovery = $preflightSummary.durable_queue_recovery
         wheel_install_smoke = $preflightSummary.wheel_install_smoke
         autocad_launched = $false
         live_publish_proven = $false

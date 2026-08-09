@@ -184,6 +184,22 @@ try {
     ) {
         throw "Readiness report has no valid 300-drawing synthetic batch evidence."
     }
+    $durableQueue = $readiness.durable_queue_recovery
+    if (
+        $durableQueue.passed -ne $true -or
+        $durableQueue.exact_test_count -ne 5 -or
+        $durableQueue.pending_intent_recovered -ne $true -or
+        $durableQueue.exact_request_identity_preserved -ne $true -or
+        $durableQueue.interrupted_job_not_replayed -ne $true -or
+        $durableQueue.terminal_receipt_status_recovered -ne $true -or
+        $durableQueue.tampered_intent_blocked -ne $true -or
+        $durableQueue.completed_job_requeue_blocked -ne $true -or
+        $durableQueue.autocad_launched -ne $false -or
+        $durableQueue.live_publish_proven -ne $false -or
+        $durableQueue.evidence_scope -cne "production-core-with-synthetic-files"
+    ) {
+        throw "Readiness report has no valid durable queue recovery evidence."
+    }
     $wheelSmoke = $readiness.wheel_install_smoke
     if (
         $wheelSmoke.passed -ne $true -or
@@ -284,6 +300,7 @@ try {
         }
         else { $null }
         wheel_install_smoke = $wheelSmoke
+        durable_queue_recovery = $durableQueue
         autocad_launched = $false
         live_publish_proven = $false
         synthetic_batch_rehearsal = $batch

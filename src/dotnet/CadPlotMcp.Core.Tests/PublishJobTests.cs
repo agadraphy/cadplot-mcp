@@ -8,12 +8,20 @@ namespace CadPlotMcp.Core.Tests;
 
 public sealed class PublishJobTests : IDisposable
 {
+    private readonly string _workspaceRoot;
     private readonly string _jobRoot;
     private readonly PublishJobRequest _request;
 
     public PublishJobTests()
     {
-        _jobRoot = Path.Combine(Path.GetTempPath(), "cadplot-tests-" + Guid.NewGuid().ToString("N"));
+        _workspaceRoot = Path.Combine(
+            Path.GetTempPath(),
+            "cadplot-tests-" + Guid.NewGuid().ToString("N")
+        );
+        _jobRoot = Path.Combine(
+            _workspaceRoot,
+            "job-20260809T120000000000Z-" + Guid.NewGuid().ToString("N")[..12]
+        );
         var source = Path.Combine(_jobRoot, "source");
         var output = Path.Combine(_jobRoot, "output");
         Directory.CreateDirectory(source);
@@ -35,7 +43,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void ValidJobMovesThroughExpectedStates()
     {
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5);
 
         Assert.True(queue.TryEnqueue(_request, out var error));
         Assert.Null(error);
@@ -43,9 +51,15 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(1, queue.PendingCount);
         Assert.Equal(0, queue.RunningCount);
         Assert.Equal(4, queue.AvailableCount);
+        Assert.Equal(0, queue.GetTelemetry().RecoveredOnStartup);
+        Assert.Equal(0, queue.GetTelemetry().InterruptedOnStartup);
         Assert.Equal(PublishJobState.Pending, queue.GetStatus(_request.PlanId)!.State);
-        Assert.True(queue.TryStartNext(out var started));
+        Assert.True(File.Exists(Path.Combine(_jobRoot, PublishQueueJournal.PendingFileName)));
+        Assert.False(File.Exists(Path.Combine(_jobRoot, PublishQueueJournal.StartedFileName)));
+        Assert.True(queue.TryStartNext(out var started, out var startError));
+        Assert.Null(startError);
         Assert.Same(_request, started);
+        Assert.True(File.Exists(Path.Combine(_jobRoot, PublishQueueJournal.StartedFileName)));
         Assert.Equal(0, queue.PendingCount);
         Assert.Equal(1, queue.RunningCount);
         Assert.Equal(5, queue.AvailableCount);
@@ -58,9 +72,120 @@ public sealed class PublishJobTests : IDisposable
     }
 
     [Fact]
+    public void PendingApprovedIntentRecoversAfterRestartWithExactIdentity()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+
+        var recovered = NewQueue();
+        var telemetry = recovered.GetTelemetry();
+
+        Assert.Equal(1, telemetry.Pending);
+        Assert.Equal(1, telemetry.RecoveredOnStartup);
+        Assert.Equal(0, telemetry.InterruptedOnStartup);
+        Assert.Equal(PublishJobState.Pending, recovered.GetStatus(_request.PlanId)!.State);
+        Assert.True(recovered.TryStartNext(out var started, out var error));
+        Assert.Null(error);
+        Assert.NotSame(_request, started);
+        Assert.Equal(_request.PlanId, started.PlanId);
+        Assert.Equal(_request.ManifestSha256, started.ManifestSha256);
+        Assert.Equal(_request.ManifestPath, started.ManifestPath);
+        Assert.Equal(_request.StagedDrawing, started.StagedDrawing);
+        Assert.Equal(_request.OutputDirectory, started.OutputDirectory);
+        Assert.Equal(_request.SheetCount, started.SheetCount);
+    }
+
+    [Fact]
+    public void InterruptedRunningIntentIsNeverAutomaticallyReplayed()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        Assert.True(original.TryStartNext(out _, out _));
+
+        var recovered = NewQueue();
+        var telemetry = recovered.GetTelemetry();
+        var status = recovered.GetStatus(_request.PlanId)!;
+
+        Assert.Equal(0, telemetry.Pending);
+        Assert.Equal(0, telemetry.RecoveredOnStartup);
+        Assert.Equal(1, telemetry.InterruptedOnStartup);
+        Assert.Equal(PublishJobState.Failed, status.State);
+        Assert.Equal("job_interrupted", status.Error);
+        Assert.False(recovered.TryStartNext(out _, out var error));
+        Assert.Equal("no_pending_job", error);
+    }
+
+    [Fact]
+    public void TerminalReceiptRestoresStatusAfterRestart()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        Assert.True(original.TryStartNext(out _, out _));
+        var writer = new PublishReceiptWriter(_workspaceRoot);
+        Assert.Null(writer.Write(_request, PublishExecutionResult.Success()));
+        original.Complete(_request.PlanId, succeeded: true);
+
+        var recovered = NewQueue();
+        var status = recovered.GetStatus(_request.PlanId)!;
+
+        Assert.Equal(0, recovered.PendingCount);
+        Assert.Equal(PublishJobState.Succeeded, status.State);
+        Assert.Null(status.Error);
+        Assert.False(recovered.TryEnqueue(_request, out var duplicate));
+        Assert.Equal("duplicate_plan", duplicate);
+    }
+
+    [Fact]
+    public void TamperedPendingIntentDisablesRecovery()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        var recordPath = Path.Combine(_jobRoot, PublishQueueJournal.PendingFileName);
+        var root = JsonNode.Parse(File.ReadAllText(recordPath))!.AsObject();
+        root["sheet_count"] = 1;
+        File.WriteAllText(recordPath, root.ToJsonString());
+
+        var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
+
+        Assert.Contains("manifest_sheet_count_mismatch", exception.Message);
+    }
+
+    [Fact]
+    public void ExistingReceiptCannotBeQueuedAsFreshWork()
+    {
+        var writer = new PublishReceiptWriter(_workspaceRoot);
+        Assert.Null(writer.Write(_request, PublishExecutionResult.Success()));
+        var queue = NewQueue();
+
+        Assert.False(queue.TryEnqueue(_request, out var error));
+        Assert.Equal("job_already_completed", error);
+        Assert.Equal(0, queue.PendingCount);
+    }
+
+    [Fact]
+    public void TamperedStartStateFailsClosedWithoutRepeatedExecution()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        var recordPath = Path.Combine(_jobRoot, PublishQueueJournal.PendingFileName);
+        var root = JsonNode.Parse(File.ReadAllText(recordPath))!.AsObject();
+        root["sheet_count"] = 1;
+        File.WriteAllText(recordPath, root.ToJsonString());
+
+        Assert.False(queue.TryStartNext(out var request, out var error));
+        Assert.Null(request);
+        Assert.Equal("queue_state_invalid", error);
+        Assert.Equal(0, queue.PendingCount);
+        Assert.Equal(PublishJobState.Failed, queue.GetStatus(_request.PlanId)!.State);
+        Assert.Equal("queue_state_invalid", queue.GetStatus(_request.PlanId)!.Error);
+        Assert.False(queue.TryStartNext(out _, out var repeatedError));
+        Assert.Equal("no_pending_job", repeatedError);
+    }
+
+    [Fact]
     public void DuplicatePlanIsRejected()
     {
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5);
         Assert.True(queue.TryEnqueue(_request, out _));
 
         Assert.False(queue.TryEnqueue(_request, out var error));
@@ -70,7 +195,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void QueueCapacityIsEnforced()
     {
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 1);
+        var queue = new PublishJobQueue(_workspaceRoot, 1);
         Assert.True(queue.TryEnqueue(_request, out _));
 
         Assert.False(queue.TryEnqueue(_request, out var error));
@@ -81,7 +206,7 @@ public sealed class PublishJobTests : IDisposable
     public void DrawingOutsideJobIsRejected()
     {
         _request.StagedDrawing = Path.Combine(Path.GetTempPath(), "outside.dwg");
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5);
 
         Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("drawing_outside_job", error);
@@ -90,9 +215,9 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void FailedJobKeepsAuditStatusAndCannotBeRepeated()
     {
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5);
         Assert.True(queue.TryEnqueue(_request, out _));
-        Assert.True(queue.TryStartNext(out _));
+        Assert.True(queue.TryStartNext(out _, out _));
 
         queue.Complete(_request.PlanId, succeeded: false, error: "plot_failed");
 
@@ -133,7 +258,7 @@ public sealed class PublishJobTests : IDisposable
     public void ManifestPlanMismatchIsRejected()
     {
         _request.PlanId = "sha256:" + new string('b', 64);
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5);
 
         Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("manifest_plan_mismatch", error);
@@ -143,7 +268,7 @@ public sealed class PublishJobTests : IDisposable
     public void ManifestPdfEscapeIsRejected()
     {
         WriteManifest(firstPdf: Path.Combine(Path.GetTempPath(), "outside.pdf"));
-        var queue = new PublishJobQueue(Path.GetDirectoryName(_jobRoot)!, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5);
 
         Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("pdf_outside_job", error);
@@ -302,7 +427,7 @@ public sealed class PublishJobTests : IDisposable
         var dispatcher = new CommandDispatcher(
             "test-adapter",
             () => "Test AutoCAD",
-            Path.GetDirectoryName(_jobRoot)
+            _workspaceRoot
         );
 
         var response = dispatcher.Dispatch(
@@ -352,7 +477,7 @@ public sealed class PublishJobTests : IDisposable
         var dispatcher = new CommandDispatcher(
             "test-adapter",
             () => "Test AutoCAD",
-            Path.GetDirectoryName(_jobRoot),
+            _workspaceRoot,
             queue
         );
 
@@ -370,7 +495,7 @@ public sealed class PublishJobTests : IDisposable
         var dispatcher = new CommandDispatcher(
             "test-adapter",
             () => "Test AutoCAD",
-            Path.GetDirectoryName(_jobRoot),
+            _workspaceRoot,
             queue,
             publishEnabled: true
         );
@@ -391,6 +516,8 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(1, queued.QueuePending);
         Assert.Equal(0, queued.QueueRunning);
         Assert.Equal(4, queued.QueueAvailable);
+        Assert.Equal(0, queued.QueueRecoveredOnStartup);
+        Assert.Equal(0, queued.QueueInterruptedOnStartup);
         Assert.True(status.Ok);
         Assert.True(status.ReadOnly);
         Assert.Equal("Pending", status.JobState);
@@ -398,6 +525,8 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(1, status.QueuePending);
         Assert.Equal(0, status.QueueRunning);
         Assert.Equal(4, status.QueueAvailable);
+        Assert.Equal(0, status.QueueRecoveredOnStartup);
+        Assert.Equal(0, status.QueueInterruptedOnStartup);
     }
 
     [Fact]
@@ -407,7 +536,7 @@ public sealed class PublishJobTests : IDisposable
         var dispatcher = new CommandDispatcher(
             "autocad-2025-net8",
             () => "AutoCAD 2024",
-            Path.GetDirectoryName(_jobRoot),
+            _workspaceRoot,
             queue,
             publishEnabled: true,
             runtimeSeries: "R24.3",
@@ -431,12 +560,12 @@ public sealed class PublishJobTests : IDisposable
     {
         var queue = NewQueue();
         Assert.True(queue.TryEnqueue(_request, out _));
-        Assert.True(queue.TryStartNext(out _));
+        Assert.True(queue.TryStartNext(out _, out _));
         queue.Complete(_request.PlanId, succeeded: false, error: "plot_failed");
         var dispatcher = new CommandDispatcher(
             "test-adapter",
             () => "Test AutoCAD",
-            Path.GetDirectoryName(_jobRoot),
+            _workspaceRoot,
             queue,
             publishEnabled: true
         );
@@ -536,7 +665,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void ReceiptWriterPersistsImmutableTerminalEvidence()
     {
-        var writer = new PublishReceiptWriter(Path.GetDirectoryName(_jobRoot)!);
+        var writer = new PublishReceiptWriter(_workspaceRoot);
 
         var error = writer.Write(_request, PublishExecutionResult.Success());
         var receiptPath = Path.Combine(_jobRoot, PublishReceiptWriter.ReceiptFileName);
@@ -560,7 +689,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void ReceiptWriterPersistsBoundedFailureEvidence()
     {
-        var writer = new PublishReceiptWriter(Path.GetDirectoryName(_jobRoot)!);
+        var writer = new PublishReceiptWriter(_workspaceRoot);
 
         var error = writer.Write(_request, PublishExecutionResult.Failure("plot_failed"));
         using var receipt = JsonDocument.Parse(
@@ -591,8 +720,7 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(PublishJobState.Failed, queue.GetStatus(_request.PlanId)!.State);
     }
 
-    private PublishJobQueue NewQueue() =>
-        new(Path.GetDirectoryName(_jobRoot)!, 5);
+    private PublishJobQueue NewQueue() => new(_workspaceRoot, 5);
 
     private PipeRequest JobPipeRequest(string command) => new()
     {
@@ -714,6 +842,6 @@ public sealed class PublishJobTests : IDisposable
 
     public void Dispose()
     {
-        Directory.Delete(_jobRoot, recursive: true);
+        Directory.Delete(_workspaceRoot, recursive: true);
     }
 }

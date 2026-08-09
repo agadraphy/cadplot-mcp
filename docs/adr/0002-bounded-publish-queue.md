@@ -2,7 +2,8 @@
 
 ## Status
 
-Implemented. Licensed AutoCAD 2016 and 2025 live acceptance remains pending.
+Implemented. Durable restart behavior is amended by ADR 0004. Licensed AutoCAD 2016 and 2025 live
+acceptance remains pending.
 
 ## Context
 

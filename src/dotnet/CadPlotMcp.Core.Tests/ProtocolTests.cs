@@ -72,6 +72,31 @@ public sealed class ProtocolTests
     }
 
     [Fact]
+    public void StatusReportsBoundedPublishQueueInitializationFailure()
+    {
+        var dispatcher = new CommandDispatcher(
+            "test-adapter",
+            () => "Test AutoCAD",
+            trustedWorkspaceRoot: @"C:\CadPlot\jobs",
+            publishEnabled: true,
+            publishInitializationError: "publish_queue_initialization_failed"
+        );
+
+        var response = dispatcher.Dispatch(
+            new PipeRequest { Id = "queue-init", Version = "1", Command = "status" }
+        );
+        var json = JsonLineCodec.WriteResponse(response);
+
+        Assert.False(response.PublishEnabled);
+        Assert.Equal("publish_queue_initialization_failed", response.PublishInitializationError);
+        Assert.Contains(
+            "\"publishInitializationError\":\"publish_queue_initialization_failed\"",
+            json,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public void UnknownCommandIsRejectedByPositiveWhitelist()
     {
         var dispatcher = new CommandDispatcher("test-adapter", () => "Test AutoCAD");

@@ -195,6 +195,19 @@ try {
         live_tunnel_proven = $false
         live_publish_proven = $false
     }
+    $durableQueue = [ordered]@{
+        passed = $true
+        exact_test_count = 5
+        pending_intent_recovered = $true
+        exact_request_identity_preserved = $true
+        interrupted_job_not_replayed = $true
+        terminal_receipt_status_recovered = $true
+        tampered_intent_blocked = $true
+        completed_job_requeue_blocked = $true
+        autocad_launched = $false
+        live_publish_proven = $false
+        evidence_scope = "production-core-with-synthetic-files"
+    }
     $files = @(Get-ChildItem -LiteralPath $kitRoot -File -Recurse | Sort-Object FullName | ForEach-Object {
         [ordered]@{
             path = $_.FullName.Substring($kitRoot.Length + 1).Replace('\', '/')
@@ -216,6 +229,7 @@ try {
         dependency_audit_ran = $true
         dependency_audit = $dependencyAudit
         wheel_install_smoke = $wheelSmoke
+        durable_queue_recovery = $durableQueue
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300
             planning_pages = 15
@@ -269,6 +283,7 @@ try {
         dependency_audit_ran = $true
         dependency_audit = $dependencyAudit
         wheel_install_smoke = $wheelSmoke
+        durable_queue_recovery = $durableQueue
         matching_sdk_bundle_built = $false
         protocol_only_fixture = $true
         local_demo_ready = $true
@@ -717,6 +732,20 @@ try {
     }
     [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
 
+    $durableTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
+    $durableTamper.durable_queue_recovery.interrupted_job_not_replayed = $false
+    Write-SmokeJson -Path $outerPath -Value $durableTamper
+    $durableTamperBlocked = $false
+    try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
+    catch {
+        if ($_.Exception.Message -notlike "*durable queue recovery evidence*") { throw }
+        $durableTamperBlocked = $true
+    }
+    if (-not $durableTamperBlocked) {
+        throw "Release-kit verifier accepted altered durable queue recovery evidence."
+    }
+    [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
+
     $targetProbeTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
     $targetProbeTamper.wheel_install_smoke.tunnel_preflight_target_probed = $false
     Write-SmokeJson -Path $outerPath -Value $targetProbeTamper
@@ -750,6 +779,7 @@ try {
         embedded_self_verification_passed = $true
         dependency_audit_verified = $true
         dependency_license_tamper_blocked = $licenseTamperBlocked
+        durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
         archive_tamper_blocked = $tamperBlocked
         python_install_what_if_safe = $true

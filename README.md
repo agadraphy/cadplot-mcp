@@ -16,6 +16,8 @@ The repository now provides:
 - structured warnings suitable for an approval-first publish plan.
 - copy-only staging with a second SHA-256 check in the plug-in;
 - an opt-in, bounded queue drained on AutoCAD's main application context;
+- durable, hash-bound queue intent: never-started approvals recover after restart while an
+  interrupted running job is held as `job_interrupted` and is never replayed automatically;
 - in-memory layout/page-setup/viewport creation and one PDF per sheet;
 - structural and physical-size PDF auditing.
 
@@ -44,6 +46,8 @@ the loaded adapter does not match the running AutoCAD release.
 - Existing PDFs, layouts, or busy plot engines cause refusal; overwrite remains disabled.
 - Publish commands are disabled unless the AutoCAD process starts with
   `CADPLOT_ENABLE_PUBLISH=1` and a trusted workspace.
+- Queue acceptance is acknowledged only after an immutable job-local intent is persisted. A
+  separate started marker prevents ambiguous crash recovery from silently plotting twice.
 - All MCP tools expose closed top-level structured-output schemas; plan and receipt identities also
   carry exact digest patterns. The real STDIO smoke test exercises this contract with `call_tool`.
 - MCP tool annotations distinguish local write actions from read-only tools; clients must still

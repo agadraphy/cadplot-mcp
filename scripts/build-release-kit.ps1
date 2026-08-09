@@ -191,6 +191,22 @@ try {
     ) {
         throw "Readiness report has no valid 300-drawing synthetic batch evidence."
     }
+    $durableQueue = $readiness.durable_queue_recovery
+    if (
+        $durableQueue.passed -ne $true -or
+        $durableQueue.exact_test_count -ne 5 -or
+        $durableQueue.pending_intent_recovered -ne $true -or
+        $durableQueue.exact_request_identity_preserved -ne $true -or
+        $durableQueue.interrupted_job_not_replayed -ne $true -or
+        $durableQueue.terminal_receipt_status_recovered -ne $true -or
+        $durableQueue.tampered_intent_blocked -ne $true -or
+        $durableQueue.completed_job_requeue_blocked -ne $true -or
+        $durableQueue.autocad_launched -ne $false -or
+        $durableQueue.live_publish_proven -ne $false -or
+        $durableQueue.evidence_scope -cne "production-core-with-synthetic-files"
+    ) {
+        throw "Release kit requires valid durable queue recovery evidence."
+    }
     $wheelSmoke = $readiness.wheel_install_smoke
     if (
         $wheelSmoke.passed -ne $true -or
@@ -318,6 +334,7 @@ try {
         dependency_audit_ran = $true
         dependency_audit = $readiness.dependency_audit
         wheel_install_smoke = $wheelSmoke
+        durable_queue_recovery = $durableQueue
         synthetic_batch_rehearsal = $batch
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
@@ -348,6 +365,7 @@ try {
         dependency_audit_ran = $true
         dependency_audit = $readiness.dependency_audit
         wheel_install_smoke = $wheelSmoke
+        durable_queue_recovery = $durableQueue
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
         licensed_live_pilot_ready = $false

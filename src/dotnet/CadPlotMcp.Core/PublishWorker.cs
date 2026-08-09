@@ -61,8 +61,9 @@ namespace CadPlotMcp.Core
             try
             {
                 PublishJobRequest request;
-                if (!_queue.TryStartNext(out request))
-                    return new PublishProcessResult { Error = "no_pending_job" };
+                string startError;
+                if (!_queue.TryStartNext(out request, out startError))
+                    return new PublishProcessResult { Error = startError ?? "no_pending_job" };
 
                 PublishExecutionResult execution;
                 try

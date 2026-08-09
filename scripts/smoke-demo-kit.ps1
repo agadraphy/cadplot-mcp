@@ -112,6 +112,19 @@ try {
             live_tunnel_proven = $false
             live_publish_proven = $false
         }
+        durable_queue_recovery = [ordered]@{
+            passed = $true
+            exact_test_count = 5
+            pending_intent_recovered = $true
+            exact_request_identity_preserved = $true
+            interrupted_job_not_replayed = $true
+            terminal_receipt_status_recovered = $true
+            tampered_intent_blocked = $true
+            completed_job_requeue_blocked = $true
+            autocad_launched = $false
+            live_publish_proven = $false
+            evidence_scope = "production-core-with-synthetic-files"
+        }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300; ready = 300; staged = 300; outputs_complete = 300
             queue_capacity = 7; queue_waves = 45; queue_approvals = 300
@@ -178,6 +191,23 @@ try {
         throw "Demo-kit verifier accepted altered queue-backpressure evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $durableTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $durableTamper.durable_queue_recovery.interrupted_job_not_replayed = $false
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($durableTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $durableTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*durable queue recovery evidence*") { throw }
+        $durableTamperBlocked = $true
+    }
+    if (-not $durableTamperBlocked) {
+        throw "Demo-kit verifier accepted altered durable queue recovery evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     $targetProbeTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
     $targetProbeTamper.wheel_install_smoke.tunnel_preflight_target_probed = $false
     [System.IO.File]::WriteAllText(
@@ -211,6 +241,7 @@ try {
         dependency_audit_verified = $true
         dependency_license_tamper_blocked = $licenseTamperBlocked
         queue_backpressure_tamper_blocked = $queueTamperBlocked
+        durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
         wheel_tamper_blocked = $true
         autocad_launched = $false

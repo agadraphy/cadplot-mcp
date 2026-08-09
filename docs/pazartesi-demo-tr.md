@@ -16,6 +16,9 @@ SHA-256 hash'ini rapora bağlar. AutoCAD'i açmaz ve canlı plot kanıtı üretm
 `dependency_audit.passed=true`, Python/.NET açık sayılarının `0` ve
 `python_license_inventory.unknown_count=0` olduğunu da kontrol edin. Bu tarama ağdaki güncel
 veritabanlarının o andaki sonucudur; AutoCAD veya canlı yayın kanıtı değildir.
+`durable_queue_recovery.passed=true` ve beş exact senaryonun geçtiğini de gösterin: başlamamış onay
+aynı kimlikle geri yüklenir, receipt'siz yarıda kesilen iş otomatik replay edilmez, terminal receipt
+durumu geri gelir, bozulmuş intent reddedilir ve tamamlanmış iş yeniden kuyruğa alınmaz.
 `-WriteReport`, aynı son JSON'u yeni ve üzerine yazılmayan bir geçici dosyada saklar; ekrandaki
 `report_path` değerini demo kaydı olarak koruyun.
 
@@ -89,6 +92,10 @@ taşınmaz.
    `audit_publish_outputs` çalıştırın. Kabul sonucu yalnız `publish_verified=true` ise geçer.
 10. PDF'yi referansla yan yana açıp yön, crop, gerçek ölçek, lineweight, CTB/STB, font ve title
     block kontrolünü sorumluya yaptırın.
+
+AutoCAD beklenmedik biçimde kapanırsa yeniden açıldığında `queueRecoveredOnStartup` ve
+`queueInterruptedOnStartup` değerlerini okuyun. Yalnız hiç başlamamış `Pending` intent devam eder;
+`job_interrupted` görülen işi aynı staged job üzerinde tekrar kuyruklamayın.
 
 ## Söylenecek net sınırlar
 

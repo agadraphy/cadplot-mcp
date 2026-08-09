@@ -43,6 +43,7 @@ namespace CadPlotMcp.AutoCAD
 
             PublishJobQueue queue = null;
             var publishEnabled = false;
+            string publishInitializationError = null;
             if (publishRequested && runtimeSupported)
             {
                 try
@@ -63,6 +64,7 @@ namespace CadPlotMcp.AutoCAD
                         && !(exception is UnauthorizedAccessException)
                         && !(exception is SecurityException))
                         throw;
+                    publishInitializationError = "publish_queue_initialization_failed";
                 }
             }
             _publishEnabled = publishEnabled;
@@ -82,7 +84,8 @@ namespace CadPlotMcp.AutoCAD
                     buildCommit,
                     pluginSha256,
                     runtimeSeries,
-                    runtimeSupported
+                    runtimeSupported,
+                    publishInitializationError
                 )
             );
             _host.Start();

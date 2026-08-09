@@ -365,6 +365,8 @@ def _normalize_queue_telemetry(response: Any) -> dict[str, int]:
         "available": "queueAvailable",
     }
     values = {name: response.get(wire_name) for name, wire_name in names.items()}
+    values["recovered_on_startup"] = response.get("queueRecoveredOnStartup", 0)
+    values["interrupted_on_startup"] = response.get("queueInterruptedOnStartup", 0)
     if any(
         not isinstance(value, int) or isinstance(value, bool) or value < 0
         for value in values.values()
@@ -376,6 +378,7 @@ def _normalize_queue_telemetry(response: Any) -> dict[str, int]:
         or values["pending"] > values["capacity"]
         or values["available"] > values["capacity"]
         or values["running"] > 1
+        or values["recovered_on_startup"] > values["capacity"]
         or values["pending"] + values["available"] != values["capacity"]
     ):
         raise ValueError("invalid_queue_telemetry")

@@ -64,8 +64,12 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 
 ## Current limitations
 
-- The queue and live status history are process-local; restarting AutoCAD clears them. Terminal
-  results survive in `receipt.json` and can be cross-checked through `read_publish_receipt`.
+- Exact approved queue intent is job-local and durable. On startup, never-started pending jobs are
+  revalidated and restored with their original request identity. A job that had a started marker
+  but no terminal receipt becomes `Failed/job_interrupted` and is never replayed automatically.
+  Valid terminal receipt state is restored into live status. Corrupt, redirected, over-capacity,
+  or identity-mismatched recovery data disables publishing with the bounded
+  `publish_queue_initialization_failed` status.
 - Queue telemetry reports pending-slot capacity, pending, running, and available counts. A bounded
   batch stops after its first `queue_full` response and returns the untouched remainder as
   retryable `deferred` approvals; it never disguises capacity backpressure as terminal failure.

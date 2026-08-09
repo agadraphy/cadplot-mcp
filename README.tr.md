@@ -32,6 +32,8 @@ Hazır olan parçalar:
   denetleme;
 - AutoCAD 2016 ve 2025-2026 için ayrı .NET adaptör/bundle yapısı;
 - varsayılan kapalı, ana AutoCAD thread'inde çalışan sınırlı yayın kuyruğu;
+- açık plan+manifest onayını job klasöründe kalıcılaştıran restart güvenli kuyruk niyeti; hiç
+  başlamamış işler aynı kimlikle geri yüklenir, yarıda kesilen işler otomatik tekrar basılmaz;
 - staged DWG içinde bellekte layout/page setup/viewport kurup her pafta için ayrı PDF üreten
   ortak executor.
 
@@ -60,6 +62,9 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
   başarısızsa önceki değişmemiş çıktılar uzunluk ve SHA-256 eşleşmesiyle geri alınır.
 - Var olan PDF'nin üstüne yazılmaz; meşgul PlotEngine veya hatalı sayfa ölçüsü işi durdurur.
 - `CADPLOT_ENABLE_PUBLISH=1` açıkça verilmedikçe gerçek yayın komutu kapalıdır.
+- Kuyruğa kabul yalnız immutable `.cadplot-queue-request.json` yazıldıktan sonra başarılı döner;
+  çalışma başlangıcı ayrı marker ile kaydedilir. Receipt'siz kesinti `job_interrupted` olur ve
+  yeniden onay/staging incelemesi olmadan otomatik replay edilmez.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.
 - 19 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
   kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.

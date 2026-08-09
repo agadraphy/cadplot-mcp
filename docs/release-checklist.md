@@ -44,6 +44,9 @@ Use this checklist for every alpha release.
       removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
+- [ ] `scripts/probe-durable-queue.ps1` reports all five exact production-core scenarios passed:
+      pending recovery with identical request, no interrupted replay, terminal receipt recovery,
+      tamper rejection, and completed-job requeue rejection; AutoCAD/live publish remain false.
 - [ ] The compile-only API probe passes against an installed managed API folder, is labelled
       compile-only evidence, and records the correct release target (`R20.1/net45` or
       `R25.0/net8.0-windows`).
@@ -54,8 +57,8 @@ Use this checklist for every alpha release.
 - [ ] The matching-SDK build used a clean commit, created a new no-overwrite release root, and
       `verify-bundle-release.ps1` matched `bundle-build.json`, ZIP entries, and all file hashes.
 - [ ] `build-release-kit.ps1` bound the verified matching-SDK bundle, readiness-bound Python wheel,
-      300-drawing rehearsal digest, dependency/license evidence, lock data, source archive, install
-      scripts, and runbooks to the same clean commit.
+      300-drawing rehearsal digest, durable-queue recovery evidence, dependency/license evidence,
+      lock data, source archive, install scripts, and runbooks to the same clean commit.
 - [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
       and every outer ZIP entry without extraction; its live/public readiness flags remained false.
 - [ ] `install-release-kit.ps1 -WhatIf` previewed three non-overlapping destinations; the real run
