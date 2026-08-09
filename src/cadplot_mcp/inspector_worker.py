@@ -15,6 +15,7 @@ from cadplot_mcp.security import PathPolicy, PathPolicyError
 MAX_REQUEST_BYTES = 1024 * 1024
 MAX_ROOTS = 256
 MAX_PATH_LENGTH = 32_767
+MAX_PROGID_LENGTH = 64
 
 
 def _handle_request(value: Any) -> dict[str, Any]:
@@ -22,12 +23,14 @@ def _handle_request(value: Any) -> dict[str, Any]:
         "schema_version",
         "drawing",
         "allowed_roots",
+        "autocad_progid",
     }:
         return {"ok": False, "error": "Inspection request schema is invalid."}
-    if value["schema_version"] != 1:
+    if value["schema_version"] != 2:
         return {"ok": False, "error": "Inspection request schema version is unsupported."}
     drawing = value["drawing"]
     roots = value["allowed_roots"]
+    autocad_progid = value["autocad_progid"]
     if (
         not isinstance(drawing, str)
         or not drawing
@@ -40,8 +43,17 @@ def _handle_request(value: Any) -> dict[str, Any]:
         )
     ):
         return {"ok": False, "error": "Inspection request paths are invalid."}
+    if (
+        not isinstance(autocad_progid, str)
+        or not autocad_progid
+        or len(autocad_progid) > MAX_PROGID_LENGTH
+    ):
+        return {"ok": False, "error": "Inspection request AutoCAD identity is invalid."}
     try:
-        inspection = AutoCADComInspector(PathPolicy.from_roots(roots)).inspect_drawing(drawing)
+        inspection = AutoCADComInspector(
+            PathPolicy.from_roots(roots),
+            progid=autocad_progid,
+        ).inspect_drawing(drawing)
     except (AutoCADUnavailableError, PathPolicyError, OSError, ValueError) as exc:
         return {"ok": False, "error": _safe_error(str(exc))}
     except Exception as exc:

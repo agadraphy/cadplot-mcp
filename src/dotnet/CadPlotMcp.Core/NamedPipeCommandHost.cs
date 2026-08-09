@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Text;
 #if !NET8_0_OR_GREATER
 using System.Security.AccessControl;
 using System.Security.Principal;
@@ -19,28 +20,53 @@ namespace CadPlotMcp.Core
 
         public NamedPipeCommandHost(string pipeName, CommandDispatcher dispatcher)
         {
-            _pipeName = String.IsNullOrWhiteSpace(pipeName) ? PipeProtocol.DefaultPipeName : pipeName;
+            _pipeName = PipeProtocol.ResolvePipeName(pipeName);
             _dispatcher = dispatcher ?? throw new ArgumentNullException("dispatcher");
         }
 
         public void Start()
         {
             if (_thread != null) return;
-            _thread = new Thread(ListenLoop) { IsBackground = true, Name = "CadPlotMcpPipe" };
-            _thread.Start();
+            // Reserve the single current-user pipe instance before returning. A second AutoCAD
+            // process using the same name then fails visibly during plug-in initialization instead
+            // of starting a listener thread that can never become the selected bridge.
+            var firstPipe = CreatePipe();
+            _thread = new Thread(() => ListenLoop(firstPipe))
+            {
+                IsBackground = true,
+                Name = "CadPlotMcpPipe",
+            };
+            try { _thread.Start(); }
+            catch
+            {
+                _thread = null;
+                firstPipe.Dispose();
+                throw;
+            }
         }
 
-        private void ListenLoop()
+        private void ListenLoop(NamedPipeServerStream reservedPipe)
         {
-            while (!_stop.IsCancellationRequested)
+            using (var pipe = reservedPipe)
             {
-                try
+                while (!_stop.IsCancellationRequested)
                 {
-                    using (var pipe = CreatePipe())
+                    try
                     {
                         pipe.WaitForConnection();
-                        using (var reader = new StreamReader(pipe))
-                        using (var writer = new StreamWriter(pipe) { AutoFlush = true })
+                        using (var reader = new StreamReader(
+                            pipe,
+                            Encoding.UTF8,
+                            true,
+                            1024,
+                            true
+                        ))
+                        using (var writer = new StreamWriter(
+                            pipe,
+                            new UTF8Encoding(false),
+                            1024,
+                            true
+                        ) { AutoFlush = true })
                         {
                             PipeResponse response;
                             try { response = _dispatcher.Dispatch(JsonLineCodec.ReadRequest(JsonLineCodec.ReadLimitedLine(reader))); }
@@ -48,9 +74,18 @@ namespace CadPlotMcp.Core
                             writer.WriteLine(JsonLineCodec.WriteResponse(response));
                         }
                     }
+                    catch (IOException) { if (_stop.IsCancellationRequested) return; }
+                    catch (ObjectDisposedException) { return; }
+                    finally
+                    {
+                        if (pipe.IsConnected)
+                        {
+                            try { pipe.Disconnect(); }
+                            catch (IOException) { }
+                            catch (ObjectDisposedException) { }
+                        }
+                    }
                 }
-                catch (IOException) { if (_stop.IsCancellationRequested) return; }
-                catch (ObjectDisposedException) { return; }
             }
         }
 

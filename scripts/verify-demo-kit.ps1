@@ -53,6 +53,7 @@ $expectedFiles = @(
     "pazartesi-demo-tr.md",
     "secure-tunnel-handoff.md",
     "chatgpt-evaluation.md",
+    "completion-audit.md",
     "cadplot-mcp.cdx.json",
     "verify-demo-kit.ps1",
     "verify-demo-archive.ps1",

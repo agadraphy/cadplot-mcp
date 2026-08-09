@@ -33,6 +33,8 @@ licensed-workstation acceptance test. Compile-only evidence is not presented as 
 The repository and kit verifiers also do not claim Authenticode signing; an organization-owned
 signing certificate and timestamp policy remain an external release gate. See the
 [software bill of materials](docs/software-bill-of-materials.md).
+The [completion audit](docs/completion-audit.md) maps every project requirement to its current
+authoritative evidence and keeps licensed/company-only gates explicit.
 At load time the plug-in normalizes the real `ACADVER` value and refuses to enable publishing when
 the loaded adapter does not match the running AutoCAD release.
 
@@ -141,6 +143,15 @@ Each drawing inspection runs in a separate helper process with the bounded
 `inspection_timeout_seconds` deadline (default 120). A hung COM call becomes an isolated file error
 instead of freezing the MCP server or batch page. See
 [inspection isolation](docs/inspection-isolation.md).
+
+The local Python client and AutoCAD plug-in use the current-user pipe `cadplot-mcp` by default.
+When licensed AutoCAD 2016 and 2025 instances must run at the same time, start each AutoCAD process
+and its corresponding MCP server with the same distinct safe `CADPLOT_PIPE_NAME`, for example
+`cadplot-mcp-2016` and `cadplot-mcp-2025`. Also select read-only COM inspection with
+`CADPLOT_AUTOCAD_PROGID=AutoCAD.Application.20.1` for 2016 or
+`AutoCAD.Application.25.0` for 2025. CadPlot verifies the returned application version and refuses
+ambiguous/foreign ProgIDs. Safe pipe names match `[A-Za-z0-9._-]{1,128}`; invalid names fail closed
+on both sides. Never point one MCP process at an unverified AutoCAD instance.
 
 Before AutoCAD testing, run the clearly labelled platform-independent
 [synthetic demo](docs/synthetic-demo.md):

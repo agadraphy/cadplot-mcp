@@ -123,7 +123,8 @@ try {
         "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
         "release-acceptance.md", "chatgpt-connection.md", "loopback-http.md",
         "secure-tunnel-handoff.md", "chatgpt-evaluation.md",
-        "autodesk-sdk-prerequisites.md", "software-bill-of-materials.md"
+        "autodesk-sdk-prerequisites.md", "software-bill-of-materials.md",
+        "completion-audit.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")

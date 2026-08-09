@@ -28,6 +28,9 @@ namespace CadPlotMcp.AutoCAD
 
         public AutoCadPublishRuntime(string adapter, Func<string> productName)
         {
+            var pipeName = PipeProtocol.ResolvePipeName(
+                Environment.GetEnvironmentVariable("CADPLOT_PIPE_NAME")
+            );
             var workspace = Environment.GetEnvironmentVariable("CADPLOT_WORKSPACE_ROOT");
             var acadVersion = Convert.ToString(AcApplication.GetSystemVariable("ACADVER"));
             var runtimeSeries = AutoCadRuntimeIdentity.NormalizeSeries(acadVersion);
@@ -75,7 +78,7 @@ namespace CadPlotMcp.AutoCAD
             var pluginSha256 = HashAssembly(pluginAssembly);
 
             _host = new NamedPipeCommandHost(
-                null,
+                pipeName,
                 new CommandDispatcher(
                     adapter,
                     () => capturedProduct,

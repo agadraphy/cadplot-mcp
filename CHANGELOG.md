@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Symmetric `CADPLOT_PIPE_NAME` selection in the Python client and both AutoCAD adapters, plus
+  bounded version-specific `CADPLOT_AUTOCAD_PROGID` inspection. Safe pipe names are validated by
+  the shared .NET protocol; COM selection accepts only approved AutoCAD identities and verifies the
+  returned version, enabling separately addressed licensed 2016 and 2025 processes on one
+  workstation while invalid or mismatched identities fail closed. The host reserves its single
+  pipe instance synchronously and reuses it across requests, so a duplicate bridge name fails during
+  initialization and cannot race into the gaps between normal MCP calls.
+
 - Schema-v2 terminal publish receipts now bind the exact ordered PDF set by sheet index, filename,
   byte length, and SHA-256. The .NET restart path and independent Python audit recompute the same
   canonical digest; missing, replaced, redirected, or changed PDFs fail closed even when the

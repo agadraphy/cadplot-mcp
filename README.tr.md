@@ -16,6 +16,9 @@ CadPlot MCP; çok sayıdaki revize DWG dosyasını denetlenebilir biçimde incel
 
 ## Mevcut durum
 
+Tüm hedeflerin uygulanmış, yerelde kanıtlanmış ve yalnız lisanslı/şirket ortamında kanıtlanabilecek
+kısımları [tamamlanma denetiminde](docs/completion-audit.md) ayrı ayrı gösterilir.
+
 Hazır olan parçalar:
 
 - yalnızca izin verilen klasörlerde DWG tarama;
@@ -145,6 +148,16 @@ yerel named-pipe eklentisini ve güvenilir workspace ayarını da denetler. Komu
 Her DWG incelemesi ayrı bir yardımcı süreçte çalışır. `inspection_timeout_seconds` varsayılan 120
 saniyedir; takılan COM çağrısı MCP'yi veya batch sayfasını sonsuza kadar bekletmek yerine yalnız o
 dosyayı bounded hata yapar. Ayrıntılar: [izole AutoCAD incelemesi](docs/inspection-isolation.md).
+
+Python istemcisi ve AutoCAD eklentisi varsayılan olarak yalnız mevcut Windows kullanıcısına açık
+`cadplot-mcp` pipe'ını kullanır. Lisanslı AutoCAD 2016 ve 2025 aynı anda açık olacaksa her AutoCAD
+sürecini ve ona ait MCP sunucusunu aynı farklı güvenli `CADPLOT_PIPE_NAME` değeriyle başlatın;
+örneğin `cadplot-mcp-2016` ve `cadplot-mcp-2025`. Salt-okunur COM incelemesini de 2016 için
+`CADPLOT_AUTOCAD_PROGID=AutoCAD.Application.20.1`, 2025 için
+`AutoCAD.Application.25.0` ile seçin. CadPlot dönen uygulama sürümünü doğrular ve belirsiz/yabancı
+ProgID'leri reddeder. Pipe adları `[A-Za-z0-9._-]{1,128}` kalıbına uymalıdır; geçersiz adlar iki
+tarafta da fail-closed reddedilir. Bir MCP sürecini doğrulanmamış başka bir AutoCAD oturumuna
+yönlendirmeyin.
 
 İlk ofis envanteri için hiçbir mevcut hedefin üstüne yazmadan boş pilot klasörü oluşturabilirsiniz:
 

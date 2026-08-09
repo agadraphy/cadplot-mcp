@@ -89,7 +89,9 @@ them with the pilot evidence.
 2. Configure `workspace_root`. Set `CADPLOT_WORKSPACE_ROOT` to the same directory in the
    environment that launches AutoCAD.
 3. Run `scan_drawings` and confirm the exact target path.
-4. Run `inspect_drawing` and compare layouts, page setups, plotter, media, style, and frame label.
+4. Run `cadplot-doctor --mode full`; when using an exact ProgID require
+   `inspection_identity_matched=true`. Then run `inspect_drawing` and compare layouts, page setups,
+   plotter, media, style, and frame label.
    For an external template, verify `validate_environment` reports `matched=true`, then inspect the
    configured DWG/DWT and require exactly one floating viewport in the selected paper-space layout.
 5. Run `create_publish_plan`; every page setup, scale, and target layout must be ready.
@@ -112,6 +114,11 @@ them with the pilot evidence.
    `publishEnabled=true`, plus
    `queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`. A runtime/adapter or unsigned
    queue mismatch must remain fail-closed.
+   If 2016 and 2025 are open simultaneously, launch each AutoCAD process and its matching MCP server
+   with a distinct safe `CADPLOT_PIPE_NAME` and set the matching MCP process's
+   `CADPLOT_AUTOCAD_PROGID` to `AutoCAD.Application.20.1` or `AutoCAD.Application.25.0`; confirm both
+   the COM version and plug-in adapter/runtime identity before continuing. Do not let both pilots
+   compete for the default `cadplot-mcp` pipe or the version-independent COM registration.
    Record `queueCancelledOnStartup`; a separately staged pending-cancellation exercise must restore
    `Cancelled` after restart, while a `Running` job must refuse cancellation with `job_not_pending`.
 3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.

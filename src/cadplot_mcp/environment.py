@@ -10,6 +10,12 @@ from cadplot_mcp.pipe_client import PluginConnectionError, get_plugin_status
 from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
 
 DoctorMode = Literal["config", "inspection", "full"]
+PROGID_RUNTIME_SERIES = {
+    "AutoCAD.Application.20.1": "R20.1",
+    "AutoCAD.Application.24.3": "R24.3",
+    "AutoCAD.Application.25.0": "R25.0",
+    "AutoCAD.Application.25.1": "R25.1",
+}
 
 
 def diagnose_environment(
@@ -143,6 +149,20 @@ def diagnose_environment(
                 for field in ("readOnly", "workspaceConfigured", "runtimeSupported"):
                     if status.get(field) is not True:
                         report["errors"].append(f"AutoCAD plug-in requires {field}=true.")
+                selected_progid = report["autocad"].get("progid")
+                expected_series = PROGID_RUNTIME_SERIES.get(selected_progid)
+                identity_matched = (
+                    None
+                    if expected_series is None
+                    else status.get("runtimeSeries") == expected_series
+                )
+                report["plugin"]["inspection_identity_matched"] = identity_matched
+                if identity_matched is False:
+                    report["errors"].append(
+                        "AutoCAD COM/plug-in runtime mismatch: "
+                        f"{selected_progid} requires {expected_series}, plug-in reported "
+                        f"{status.get('runtimeSeries') or '<unknown>'}."
+                    )
         except (PluginConnectionError, ValueError) as exc:
             report["plugin"] = {"checked": True, "connected": False, "error": str(exc)}
             report["errors"].append(str(exc))

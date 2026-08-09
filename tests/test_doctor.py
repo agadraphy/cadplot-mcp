@@ -102,7 +102,12 @@ def test_full_doctor_cross_checks_com_and_plugin(
     config = _config(tmp_path)
     monkeypatch.setattr(
         "cadplot_mcp.environment.AutoCADComInspector.status",
-        lambda _self: {"available": True, "reason": None},
+        lambda _self: {
+            "available": True,
+            "reason": None,
+            "progid": "AutoCAD.Application.25.0",
+            "version": "25.0s (LMS Tech)",
+        },
     )
     monkeypatch.setattr(
         "cadplot_mcp.environment.get_plugin_status",
@@ -123,6 +128,40 @@ def test_full_doctor_cross_checks_com_and_plugin(
     assert report["autocad"]["available"] is True
     assert report["plugin"]["connected"] is True
     assert report["plugin"]["status"]["publishEnabled"] is False
+    assert report["plugin"]["inspection_identity_matched"] is True
+
+
+def test_full_doctor_rejects_com_and_plugin_release_mismatch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _config(tmp_path)
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.AutoCADComInspector.status",
+        lambda _self: {
+            "available": True,
+            "reason": None,
+            "progid": "AutoCAD.Application.20.1",
+            "version": "20.1s (LMS Tech)",
+        },
+    )
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.get_plugin_status",
+        lambda **_kwargs: {
+            "ok": True,
+            "readOnly": True,
+            "workspaceConfigured": True,
+            "publishEnabled": False,
+            "runtimeSupported": True,
+            "runtimeSeries": "R25.0",
+            "adapter": "autocad-2025-net8",
+        },
+    )
+
+    report = diagnose_environment(config, mode="full")
+
+    assert report["ready"] is False
+    assert report["plugin"]["inspection_identity_matched"] is False
+    assert "AutoCAD COM/plug-in runtime mismatch" in report["errors"][-1]
 
 
 def test_full_doctor_fails_when_plugin_workspace_is_not_configured(

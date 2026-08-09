@@ -25,7 +25,7 @@ public sealed class Plugin
 #else
         if (_host is not null) return;
         _host = new NamedPipeCommandHost(
-            null,
+            Environment.GetEnvironmentVariable("CADPLOT_PIPE_NAME"),
             new CommandDispatcher(
                 "autocad-2025-net8",
                 () => "AutoCAD 2025",

@@ -9,7 +9,10 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, TypeVar
 
-from cadplot_mcp.backends.autocad_com import AutoCADUnavailableError
+from cadplot_mcp.backends.autocad_com import (
+    AutoCADUnavailableError,
+    resolve_autocad_progid,
+)
 from cadplot_mcp.models import (
     DrawingInspection,
     FrameCandidate,
@@ -37,7 +40,13 @@ class AutoCADInspectorProtocolError(AutoCADUnavailableError):
 class IsolatedAutoCADInspector:
     """Run risky DWG COM inspection in a killable child process."""
 
-    def __init__(self, path_policy: PathPolicy, *, timeout_seconds: int = 120) -> None:
+    def __init__(
+        self,
+        path_policy: PathPolicy,
+        *,
+        timeout_seconds: int = 120,
+        autocad_progid: str | None = None,
+    ) -> None:
         if (
             not isinstance(timeout_seconds, int)
             or isinstance(timeout_seconds, bool)
@@ -46,15 +55,17 @@ class IsolatedAutoCADInspector:
             raise ValueError("Inspection timeout must be an integer between 5 and 600 seconds.")
         self.path_policy = path_policy
         self.timeout_seconds = timeout_seconds
+        self.autocad_progid, _ = resolve_autocad_progid(autocad_progid)
 
     def inspect_drawing(self, value: str | Path) -> DrawingInspection:
         drawing_path = self.path_policy.require_allowed(value)
         if drawing_path.suffix.casefold() not in {".dwg", ".dwt"}:
             raise ValueError("AutoCAD inspection requires an allowed DWG or DWT file.")
         request = {
-            "schema_version": 1,
+            "schema_version": 2,
             "drawing": str(drawing_path),
             "allowed_roots": [str(root) for root in self.path_policy.allowed_roots],
+            "autocad_progid": self.autocad_progid,
         }
         response = _run_worker(request, timeout_seconds=self.timeout_seconds)
         if response.get("ok") is not True:

@@ -9,7 +9,9 @@
         "cadplot-mcp"
       ],
       "env": {
-        "CADPLOT_CONFIG": "C:/path/to/cadplot-mcp/config.yaml"
+        "CADPLOT_CONFIG": "C:/path/to/cadplot-mcp/config.yaml",
+        "CADPLOT_PIPE_NAME": "cadplot-mcp",
+        "CADPLOT_AUTOCAD_PROGID": "AutoCAD.Application"
       }
     }
   }

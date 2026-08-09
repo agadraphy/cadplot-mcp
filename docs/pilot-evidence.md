@@ -45,7 +45,7 @@ visual checks are deliberately separate flags. There is no blanket visual-accept
 
 Retain the pending-cancellation exercise from `monday-pilot.md` as a separate local operator
 transcript: exact cancellation must report `Cancelled` after restart and a running job must return
-`job_not_pending`. Schema-v5 publish evidence deliberately remains bound to the successful one-sheet
+`job_not_pending`. Schema-v6 publish evidence deliberately remains bound to the successful one-sheet
 job; a cancellation transcript is operational evidence, not proof that a PDF was published.
 
 First verify the matching-SDK release root, then assemble both distinct run files with its exact

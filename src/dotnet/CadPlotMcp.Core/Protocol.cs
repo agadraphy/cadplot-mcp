@@ -9,6 +9,10 @@ namespace CadPlotMcp.Core
 {
     public static class PipeProtocol
     {
+        private static readonly Regex PipeNamePattern = new Regex(
+            "^[A-Za-z0-9._-]{1,128}$",
+            RegexOptions.CultureInvariant
+        );
         public const string Version = "1";
         public const string DefaultPipeName = "cadplot-mcp";
         public const string StatusCommand = "status";
@@ -18,6 +22,17 @@ namespace CadPlotMcp.Core
         public const string CancelPublishJobCommand = "cancel_publish_job";
         public const string PublishJobStatusCommand = "publish_job_status";
         public const int MaxLineCharacters = 65536;
+
+        public static string ResolvePipeName(string configured)
+        {
+            var selected = String.IsNullOrEmpty(configured) ? DefaultPipeName : configured;
+            if (!PipeNamePattern.IsMatch(selected))
+                throw new ArgumentException(
+                    "Pipe name must match [A-Za-z0-9._-]{1,128}.",
+                    "configured"
+                );
+            return selected;
+        }
     }
 
     [DataContract]

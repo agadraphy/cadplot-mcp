@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 from contextlib import suppress
 from pathlib import Path
 from threading import Lock
@@ -25,29 +26,65 @@ _COM_LOCK = Lock()
 MAX_BLOCK_DEFINITION_DEPTH = 8
 MAX_BLOCK_DEFINITION_ENTITIES = 1_000
 MAX_BLOCK_DEFINITION_TEXTS = 100
+DEFAULT_AUTOCAD_PROGID = "AutoCAD.Application"
+AUTOCAD_PROGID_PATTERN = re.compile(
+    r"^AutoCAD\.Application(?:\.(20\.1|24\.3|25\.0|25\.1))?$"
+)
+
+
+def resolve_autocad_progid(value: str | None = None) -> tuple[str, str | None]:
+    """Select a bounded version-specific AutoCAD COM identity without launching it."""
+    configured = os.environ.get("CADPLOT_AUTOCAD_PROGID") if value is None else value
+    selected = configured or DEFAULT_AUTOCAD_PROGID
+    match = AUTOCAD_PROGID_PATTERN.fullmatch(selected)
+    if match is None:
+        raise ValueError(
+            "CADPLOT_AUTOCAD_PROGID must be AutoCAD.Application or one of the approved "
+            "version-specific ProgIDs: 20.1, 24.3, 25.0, 25.1."
+        )
+    return selected, match.group(1)
 
 
 class AutoCADComInspector:
-    def __init__(self, path_policy: PathPolicy) -> None:
+    def __init__(self, path_policy: PathPolicy, *, progid: str | None = None) -> None:
         self.path_policy = path_policy
+        self.progid, self.expected_version = resolve_autocad_progid(progid)
 
     def status(self) -> dict[str, Any]:
         if os.name != "nt":
-            return {"available": False, "reason": "AutoCAD COM inspection is Windows-only."}
+            return {
+                "available": False,
+                "reason": "AutoCAD COM inspection is Windows-only.",
+                "progid": self.progid,
+            }
         try:
             import pythoncom  # type: ignore[import-not-found]
             import win32com.client  # type: ignore[import-not-found]
 
             pythoncom.CoInitialize()
             try:
-                win32com.client.GetActiveObject("AutoCAD.Application")
+                application = self._get_active_application(win32com.client)
+                version = str(_safe(application, "Version", ""))
             finally:
                 pythoncom.CoUninitialize()
         except ImportError:
-            return {"available": False, "reason": "Install the 'autocad' optional dependency."}
+            return {
+                "available": False,
+                "reason": "Install the 'autocad' optional dependency.",
+                "progid": self.progid,
+            }
         except Exception as exc:  # pywin32 raises dynamic COM exception types
-            return {"available": False, "reason": f"No running AutoCAD instance: {exc}"}
-        return {"available": True, "reason": None}
+            return {
+                "available": False,
+                "reason": f"No running AutoCAD instance: {exc}",
+                "progid": self.progid,
+            }
+        return {
+            "available": True,
+            "reason": None,
+            "progid": self.progid,
+            "version": version,
+        }
 
     def inspect_drawing(self, value: str | Path) -> DrawingInspection:
         drawing_path = self.path_policy.require_allowed(value)
@@ -71,10 +108,13 @@ class AutoCADComInspector:
             previous_document = None
             try:
                 try:
-                    application = win32com.client.GetActiveObject("AutoCAD.Application")
+                    application = self._get_active_application(win32com.client)
+                except AutoCADUnavailableError:
+                    raise
                 except Exception as exc:
                     raise AutoCADUnavailableError(
-                        "AutoCAD is not running. Start AutoCAD before inspecting a DWG."
+                        f"AutoCAD is not running for {self.progid}. Start the selected AutoCAD "
+                        "release before inspecting a DWG."
                     ) from exc
 
                 previous_document = _safe(application, "ActiveDocument")
@@ -102,6 +142,22 @@ class AutoCADComInspector:
                     with suppress(Exception):
                         previous_document.Activate()
                 pythoncom.CoUninitialize()
+
+    def _get_active_application(self, client: Any) -> Any:
+        application = client.GetActiveObject(self.progid)
+        version = str(_safe(application, "Version", ""))
+        if self.expected_version is not None and not _version_matches(
+            version, self.expected_version
+        ):
+            raise AutoCADUnavailableError(
+                f"AutoCAD COM identity mismatch: {self.progid} returned version "
+                f"{version or '<unknown>'}."
+            )
+        return application
+
+
+def _version_matches(actual: str, expected: str) -> bool:
+    return bool(re.match(rf"^{re.escape(expected)}(?:[^0-9]|$)", actual.strip()))
 
 
 def _find_open_document(documents: Any, path: Path) -> Any | None:

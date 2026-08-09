@@ -28,6 +28,7 @@ try {
     $demoRunbook = Join-Path $resolvedRoot "pazartesi-demo-tr.md"
     $tunnelHandoff = Join-Path $resolvedRoot "secure-tunnel-handoff.md"
     $chatgptEvaluation = Join-Path $resolvedRoot "chatgpt-evaluation.md"
+    $completionAudit = Join-Path $resolvedRoot "completion-audit.md"
     $sbomPath = Join-Path $resolvedRoot "cadplot-mcp.cdx.json"
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-kit.ps1") -Destination $verifier
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "verify-demo-archive.ps1") `
@@ -43,6 +44,11 @@ try {
     [System.IO.File]::WriteAllText(
         $chatgptEvaluation,
         "synthetic ChatGPT evaluation guide",
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    [System.IO.File]::WriteAllText(
+        $completionAudit,
+        "synthetic completion audit",
         [System.Text.UTF8Encoding]::new($false)
     )
     $wheelHash = (Get-FileHash -LiteralPath $wheel -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -113,7 +119,7 @@ try {
     )
     $files = @(@(
         $verifier, $archiveVerifier, $wheel, $source, $demoRunbook, $tunnelHandoff,
-        $chatgptEvaluation, $sbomPath
+        $chatgptEvaluation, $sbomPath, $completionAudit
     ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
@@ -291,7 +297,7 @@ try {
         kit_archive_sha256 = (
             Get-FileHash -LiteralPath $archivePath -Algorithm SHA256
         ).Hash.ToLowerInvariant()
-        archive_file_count = 9
+        archive_file_count = 10
         sbom = $manifest.sbom
         local_demo_ready = $true
         licensed_live_pilot_ready = $false
@@ -310,7 +316,7 @@ try {
     $archiveResult = & $outerVerifier -DeliveryRoot $resolvedArchiveRoot -PassThru
     if (
         $archiveResult.Passed -ne $true -or
-        $archiveResult.ArchiveFileCount -ne 9 -or
+        $archiveResult.ArchiveFileCount -ne 10 -or
         $archiveResult.MachinePathsIncluded -ne $false -or
         $archiveResult.AutoCADLaunched -ne $false -or
         $archiveResult.LivePublishProven -ne $false

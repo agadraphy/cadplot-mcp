@@ -28,6 +28,21 @@ Recommended first deployment:
 The installed plug-in is read-only by default. `CADPLOT_ENABLE_PUBLISH=1` must be set before
 AutoCAD starts to expose the approval-gated queue. Keep this off until staging validation passes.
 
+The default current-user pipe name is `cadplot-mcp`, which intentionally supports one selected
+AutoCAD bridge per MCP process. If licensed 2016 and 2025 processes must be open simultaneously,
+launch each AutoCAD process and its corresponding MCP server with a different matching
+`CADPLOT_PIPE_NAME` such as `cadplot-mcp-2016` and `cadplot-mcp-2025`. Both implementations accept
+only `[A-Za-z0-9._-]{1,128}` and fail closed on any other value. Set the matching MCP process's
+`CADPLOT_AUTOCAD_PROGID` to `AutoCAD.Application.20.1` for 2016 or
+`AutoCAD.Application.25.0` for 2025 so read-only inspection selects the same release. CadPlot checks
+the returned ActiveX application version and rejects ambiguous or foreign ProgIDs. Record the
+selected process identity from `validate_environment` and `get_autocad_plugin_status` before
+inspecting or queueing work. In full doctor mode an exact ProgID and the plug-in's `runtimeSeries`
+must agree; `inspection_identity_matched=false` blocks readiness.
+The plug-in reserves its single current-user pipe instance before initialization returns; a second
+AutoCAD process configured with the same name fails visibly instead of becoming an ambiguous hidden
+listener. The same server instance stays reserved across sequential MCP connections.
+
 No inbound network service is required. The named pipe must never be exposed through a public
 port or generic command relay.
 

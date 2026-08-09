@@ -1,10 +1,97 @@
 import math
 
+import pytest
+
 from cadplot_mcp.backends.autocad_com import (
+    AutoCADComInspector,
+    AutoCADUnavailableError,
     _read_labelled_frames,
     _read_layouts,
     _read_page_setups,
+    _version_matches,
+    resolve_autocad_progid,
 )
+
+
+class FakeApplication:
+    def __init__(self, version: str):
+        self.Version = version
+
+
+class FakeComClient:
+    def __init__(self, version: str):
+        self.version = version
+        self.requested: str | None = None
+
+    def GetActiveObject(self, progid: str):
+        self.requested = progid
+        return FakeApplication(self.version)
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected", "version"),
+    [
+        ("AutoCAD.Application", "AutoCAD.Application", None),
+        ("AutoCAD.Application.20.1", "AutoCAD.Application.20.1", "20.1"),
+        ("AutoCAD.Application.24.3", "AutoCAD.Application.24.3", "24.3"),
+        ("AutoCAD.Application.25.0", "AutoCAD.Application.25.0", "25.0"),
+        ("AutoCAD.Application.25.1", "AutoCAD.Application.25.1", "25.1"),
+    ],
+)
+def test_resolve_autocad_progid_is_bounded_and_version_specific(
+    configured: str, expected: str, version: str | None
+) -> None:
+    assert resolve_autocad_progid(configured) == (expected, version)
+
+
+@pytest.mark.parametrize(
+    "configured",
+    [
+        "AutoCAD.Application.25",
+        "AutoCAD.Application.20",
+        "Excel.Application",
+        "AutoCAD.Application.25.0.extra",
+        " AutoCAD.Application.25.0",
+    ],
+)
+def test_resolve_autocad_progid_rejects_ambiguous_or_foreign_com_ids(
+    configured: str,
+) -> None:
+    with pytest.raises(ValueError, match="CADPLOT_AUTOCAD_PROGID"):
+        resolve_autocad_progid(configured)
+
+
+def test_version_specific_inspector_requests_and_verifies_exact_release() -> None:
+    client = FakeComClient("20.1s (LMS Tech)")
+    inspector = AutoCADComInspector(object(), progid="AutoCAD.Application.20.1")
+
+    application = inspector._get_active_application(client)
+
+    assert application.Version == "20.1s (LMS Tech)"
+    assert client.requested == "AutoCAD.Application.20.1"
+
+
+def test_version_specific_inspector_rejects_wrong_rot_registration() -> None:
+    inspector = AutoCADComInspector(object(), progid="AutoCAD.Application.25.0")
+
+    with pytest.raises(AutoCADUnavailableError, match="identity mismatch"):
+        inspector._get_active_application(FakeComClient("24.3s (LMS Tech)"))
+
+
+@pytest.mark.parametrize(
+    ("actual", "expected", "matches"),
+    [
+        ("25.0s (LMS Tech)", "25.0", True),
+        ("25.01", "25.0", False),
+        ("25.1", "25.1", True),
+        ("20.1", "20.1", True),
+        ("20.0", "20.1", False),
+    ],
+)
+def test_autocad_version_match_is_prefix_bounded(
+    actual: str, expected: str, matches: bool
+) -> None:
+    assert _version_matches(actual, expected) is matches
 
 
 class FakeViewport:

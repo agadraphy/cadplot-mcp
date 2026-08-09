@@ -48,7 +48,7 @@ if (
     $outer.kit_manifest -cne "demo-kit.json" -or
     [string]$outer.kit_manifest_sha256 -notmatch $shaPattern -or
     [string]$outer.kit_archive_sha256 -notmatch $shaPattern -or
-    $outer.archive_file_count -ne 9 -or
+    $outer.archive_file_count -ne 10 -or
     $outer.local_demo_ready -ne $true -or
     $outer.licensed_live_pilot_ready -ne $false -or
     $outer.public_release_ready -ne $false -or

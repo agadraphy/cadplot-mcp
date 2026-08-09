@@ -41,12 +41,18 @@ AutoCAD:
 ```powershell
 $env:CADPLOT_WORKSPACE_ROOT = "C:\CadPlot\jobs"
 $env:CADPLOT_ENABLE_PUBLISH = "1"
+# Optional: 1-100 pending jobs; invalid values use the safe default of 20.
+$env:CADPLOT_QUEUE_CAPACITY = "20"
+# Optional: use the same safe value in the selected MCP process.
+$env:CADPLOT_PIPE_NAME = "cadplot-mcp"
 ```
 
 Restart AutoCAD after changing them. `get_autocad_plugin_status` reports normalized
 `runtimeSeries`, `runtimeSupported`, and `publishEnabled`. The 2016 adapter enables publishing only
 on `R20.1`; the 2025 adapter enables it only on `R25.0` or `R25.1`. Raw values such as
 `20.1s (LMS Tech)` are normalized before the fail-closed adapter check.
+The pipe name must match `[A-Za-z0-9._-]{1,128}` in both processes. Distinct matching names are
+required when multiple AutoCAD bridges are intentionally active on one workstation.
 
 ## Evidence boundaries
 

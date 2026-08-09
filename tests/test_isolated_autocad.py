@@ -88,7 +88,36 @@ def test_isolated_inspector_uses_stdin_protocol_and_rebuilds_models(
     assert str(drawing) not in captured["command"]
     request = json.loads(captured["input"].decode("utf-8"))
     assert request["drawing"] == str(drawing.resolve())
+    assert request["schema_version"] == 2
+    assert request["autocad_progid"] == "AutoCAD.Application"
     assert captured["timeout"] == 30
+
+
+def test_isolated_inspector_binds_version_specific_progid_into_worker_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawing = tmp_path / "sheet.dwg"
+    drawing.write_bytes(b"dwg")
+    captured: dict[str, object] = {}
+
+    def fake_run(command, **kwargs):
+        captured.update(kwargs)
+        stdout = json.dumps(
+            {"ok": True, "inspection": _inspection_payload(drawing)}
+        ).encode("utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr("cadplot_mcp.backends.isolated_autocad.subprocess.run", fake_run)
+    inspector = IsolatedAutoCADInspector(
+        PathPolicy.from_roots([tmp_path]),
+        timeout_seconds=30,
+        autocad_progid="AutoCAD.Application.20.1",
+    )
+
+    inspector.inspect_drawing(drawing)
+
+    request = json.loads(captured["input"].decode("utf-8"))
+    assert request["autocad_progid"] == "AutoCAD.Application.20.1"
 
 
 def test_isolated_inspector_accepts_dwt_template_through_same_closed_protocol(
@@ -177,9 +206,10 @@ def test_worker_request_schema_is_closed_and_returns_structured_inspection(
         lambda self, value: DrawingInspection(path=str(Path(value).resolve())),
     )
     request = {
-        "schema_version": 1,
+        "schema_version": 2,
         "drawing": str(drawing),
         "allowed_roots": [str(tmp_path)],
+        "autocad_progid": "AutoCAD.Application.25.0",
     }
 
     response = _handle_request(request)
@@ -196,6 +226,22 @@ def test_worker_request_schema_is_closed_and_returns_structured_inspection(
         },
     }
     assert rejected == {"ok": False, "error": "Inspection request schema is invalid."}
+
+
+def test_worker_rejects_foreign_com_identity_before_inspection(tmp_path: Path) -> None:
+    drawing = tmp_path / "sheet.dwg"
+    drawing.write_bytes(b"dwg")
+    response = _handle_request(
+        {
+            "schema_version": 2,
+            "drawing": str(drawing),
+            "allowed_roots": [str(tmp_path)],
+            "autocad_progid": "Excel.Application",
+        }
+    )
+
+    assert response["ok"] is False
+    assert "CADPLOT_AUTOCAD_PROGID" in response["error"]
 
 
 def test_worker_module_rejects_invalid_subprocess_request_without_contacting_autocad() -> None:

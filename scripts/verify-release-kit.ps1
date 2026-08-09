@@ -280,6 +280,7 @@ $fixedFiles = @(
     "docs/release-acceptance.md", "docs/chatgpt-connection.md", "docs/loopback-http.md",
     "docs/secure-tunnel-handoff.md", "docs/chatgpt-evaluation.md",
     "docs/autodesk-sdk-prerequisites.md", "docs/software-bill-of-materials.md",
+    "docs/completion-audit.md",
     "config/config.inventory.example.yaml", "release-kit.json"
 )
 $wheelFiles = @(Get-ChildItem -LiteralPath (Join-Path $kitRoot "python") -File -Filter "*.whl")

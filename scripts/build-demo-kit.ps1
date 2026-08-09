@@ -308,6 +308,9 @@ try {
     $chatgptEvaluation = Join-Path $kitRoot "chatgpt-evaluation.md"
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\chatgpt-evaluation.md") `
         -Destination $chatgptEvaluation
+    $completionAudit = Join-Path $kitRoot "completion-audit.md"
+    Copy-Item -LiteralPath (Join-Path $repoRoot "docs\completion-audit.md") `
+        -Destination $completionAudit
 
     $sourceHash = (Get-FileHash -LiteralPath $sourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
     $kitWheelHash = (Get-FileHash -LiteralPath $kitWheel -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -350,7 +353,7 @@ try {
     else { $null }
     $fileEvidence = @(@(
         $sourceArchive, $kitWheel, $kitVerifier, $archiveVerifier, $demoRunbook, $tunnelHandoff,
-        $chatgptEvaluation, $sbomPath
+        $chatgptEvaluation, $sbomPath, $completionAudit
     ) | ForEach-Object {
         [ordered]@{
             path = [System.IO.Path]::GetFileName($_)
@@ -422,7 +425,7 @@ try {
         kit_archive_sha256 = (
             Get-FileHash -LiteralPath $kitArchive -Algorithm SHA256
         ).Hash.ToLowerInvariant()
-        archive_file_count = 9
+        archive_file_count = 10
         sbom = $manifest.sbom
         local_demo_ready = $true
         licensed_live_pilot_ready = $false
@@ -437,7 +440,7 @@ try {
     if (
         $archiveVerification.Passed -ne $true -or
         $archiveVerification.ExactCommit -cne $commit -or
-        $archiveVerification.ArchiveFileCount -ne 9 -or
+        $archiveVerification.ArchiveFileCount -ne 10 -or
         $archiveVerification.MachinePathsIncluded -ne $false -or
         $archiveVerification.AutoCADLaunched -ne $false -or
         $archiveVerification.LivePublishProven -ne $false

@@ -24,7 +24,7 @@ namespace CadPlotMcp.AutoCAD2016
 #else
             if (_host != null) return;
             _host = new NamedPipeCommandHost(
-                null,
+                Environment.GetEnvironmentVariable("CADPLOT_PIPE_NAME"),
                 new CommandDispatcher(
                     "autocad-2016-net45",
                     () => "AutoCAD 2016",

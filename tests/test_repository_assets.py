@@ -16,6 +16,8 @@ def test_local_mcp_example_is_valid_json() -> None:
     server = value["mcpServers"]["cadplot"]
     assert server["command"] == "uv"
     assert "CADPLOT_CONFIG" in server["env"]
+    assert server["env"]["CADPLOT_PIPE_NAME"] == "cadplot-mcp"
+    assert server["env"]["CADPLOT_AUTOCAD_PROGID"] == "AutoCAD.Application"
 
 
 def test_repository_markdown_local_links_exist() -> None:
@@ -35,6 +37,31 @@ def test_repository_markdown_local_links_exist() -> None:
                 missing.append(f"{relative_document}: {target}")
 
     assert missing == []
+
+
+def test_completion_audit_preserves_local_and_live_evidence_boundaries() -> None:
+    audit = (REPOSITORY_ROOT / "docs" / "completion-audit.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "Never modify source DWGs",
+        "Detect labelled frames and office resources",
+        "Address the intended AutoCAD release",
+        "Publish bounded batches including 300 jobs",
+        "schema-v2 manifest-and-output-bound receipt",
+        "Install and remove a release safely",
+        "Connect an MCP-capable model safely",
+        "Ship as auditable open source",
+        "local_demo_ready=true",
+        "live_publish_proven=false",
+        "licensed_live_pilot_ready=false",
+        "public_release_ready=false",
+        "R20.1",
+        "R25.0",
+        "schema-v6 two-version pilot record",
+    ):
+        assert required in audit
 
 
 def test_bundle_routes_supported_autocad_series() -> None:
@@ -292,6 +319,7 @@ def test_demo_kit_is_readiness_bound_and_never_overwrites() -> None:
         '"demo-kit-build.json"',
         '"pazartesi-demo-tr.md"',
         '"secure-tunnel-handoff.md"',
+        '"completion-audit.md"',
         "self_verification_passed = $true",
         "archive_verification_passed = $true",
         "archive_file_count = $archiveVerification.ArchiveFileCount",
@@ -335,6 +363,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "Demo-kit file set is not exact",
         '"pazartesi-demo-tr.md"',
         '"secure-tunnel-handoff.md"',
+        '"completion-audit.md"',
         "Demo-kit file hash mismatch",
         "MachinePathsIncluded = $false",
         "target_drawings -ne 300",
@@ -873,6 +902,118 @@ def test_success_receipts_bind_the_exact_published_pdf_set_cross_runtime() -> No
         assert required in decision
 
 
+def test_custom_pipe_name_is_symmetric_across_client_and_both_adapters() -> None:
+    protocol = (
+        REPOSITORY_ROOT / "src" / "dotnet" / "CadPlotMcp.Core" / "Protocol.cs"
+    ).read_text(encoding="utf-8")
+    host = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.Core"
+        / "NamedPipeCommandHost.cs"
+    ).read_text(encoding="utf-8")
+    runtime = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD.Shared"
+        / "AutoCadPublishRuntime.cs"
+    ).read_text(encoding="utf-8")
+    plugin_2016 = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD2016"
+        / "Plugin.cs"
+    ).read_text(encoding="utf-8")
+    plugin_2025 = (
+        REPOSITORY_ROOT
+        / "src"
+        / "dotnet"
+        / "CadPlotMcp.AutoCAD2025"
+        / "Plugin.cs"
+    ).read_text(encoding="utf-8")
+    client = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "pipe_client.py").read_text(
+        encoding="utf-8"
+    )
+    inspector = (
+        REPOSITORY_ROOT
+        / "src"
+        / "cadplot_mcp"
+        / "backends"
+        / "autocad_com.py"
+    ).read_text(encoding="utf-8")
+    isolated_inspector = (
+        REPOSITORY_ROOT
+        / "src"
+        / "cadplot_mcp"
+        / "backends"
+        / "isolated_autocad.py"
+    ).read_text(encoding="utf-8")
+    inspector_worker = (
+        REPOSITORY_ROOT / "src" / "cadplot_mcp" / "inspector_worker.py"
+    ).read_text(encoding="utf-8")
+    environment = (
+        REPOSITORY_ROOT / "src" / "cadplot_mcp" / "environment.py"
+    ).read_text(encoding="utf-8")
+    deployment = (REPOSITORY_ROOT / "docs" / "deployment-modes.md").read_text(
+        encoding="utf-8"
+    )
+    decision = (
+        REPOSITORY_ROOT
+        / "docs"
+        / "adr"
+        / "0009-version-bound-local-autocad-routing.md"
+    ).read_text(encoding="utf-8")
+
+    assert '"^[A-Za-z0-9._-]{1,128}$"' in protocol
+    assert "PipeProtocol.ResolvePipeName(pipeName)" in host
+    assert "var firstPipe = CreatePipe()" in host
+    assert "ListenLoop(firstPipe)" in host
+    assert "pipe.Disconnect()" in host
+    for adapter_source in (runtime, plugin_2016, plugin_2025):
+        assert 'Environment.GetEnvironmentVariable("CADPLOT_PIPE_NAME")' in adapter_source
+    assert 'os.environ.get("CADPLOT_PIPE_NAME", DEFAULT_PIPE_NAME)' in client
+    for required in (
+        'os.environ.get("CADPLOT_AUTOCAD_PROGID")',
+        'client.GetActiveObject(self.progid)',
+        "AUTOCAD_PROGID_PATTERN",
+        "20\\.1",
+        "25\\.0",
+        "AutoCAD COM identity mismatch",
+    ):
+        assert required in inspector
+    for required in ('"schema_version": 2', '"autocad_progid"'):
+        assert required in isolated_inspector
+    for required in ('value["schema_version"] != 2', 'value["autocad_progid"]'):
+        assert required in inspector_worker
+    for required in (
+        "PROGID_RUNTIME_SERIES",
+        'report["plugin"]["inspection_identity_matched"]',
+        "AutoCAD COM/plug-in runtime mismatch",
+    ):
+        assert required in environment
+    for required in (
+        "cadplot-mcp-2016",
+        "cadplot-mcp-2025",
+        "AutoCAD.Application.20.1",
+        "AutoCAD.Application.25.0",
+        "validate_environment",
+        "get_autocad_plugin_status",
+    ):
+        assert required in deployment
+    for required in (
+        "version-independent `GetObject",
+        "CADPLOT_AUTOCAD_PROGID",
+        "CADPLOT_PIPE_NAME",
+        "inspection_identity_matched=false",
+        "never `CreateObject`",
+        "licensed acceptance gates",
+    ):
+        assert required in decision
+
+
 def test_external_layout_templates_are_hash_bound_and_imported_only_from_job_copy() -> None:
     runtime = (
         REPOSITORY_ROOT
@@ -958,6 +1099,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "pilot-evidence.md",
         "release-acceptance.md",
         "autodesk-sdk-prerequisites.md",
+        "completion-audit.md",
         "CHANGELOG.md",
         "self_verification_passed = $verification.Passed",
         "Readiness report has invalid compile-only API evidence",
@@ -996,6 +1138,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         '"docs/pilot-evidence.md"',
         '"docs/release-acceptance.md"',
         '"docs/autodesk-sdk-prerequisites.md"',
+        '"docs/completion-audit.md"',
         '"CHANGELOG.md"',
     ):
         assert required in verifier

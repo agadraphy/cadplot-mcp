@@ -7,6 +7,32 @@ namespace CadPlotMcp.Core.Tests;
 
 public sealed class ProtocolTests
 {
+    [Theory]
+    [InlineData(null, "cadplot-mcp")]
+    [InlineData("", "cadplot-mcp")]
+    [InlineData("cadplot-mcp-2016", "cadplot-mcp-2016")]
+    [InlineData("cadplot.mcp_2025", "cadplot.mcp_2025")]
+    public void PipeNameResolutionMatchesThePythonClient(string? configured, string expected)
+    {
+        Assert.Equal(expected, PipeProtocol.ResolvePipeName(configured!));
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("../cadplot")]
+    [InlineData("cadplot/mcp")]
+    [InlineData("cadplot:mcp")]
+    public void UnsafePipeNamesAreRejected(string configured)
+    {
+        Assert.Throws<ArgumentException>(() => PipeProtocol.ResolvePipeName(configured));
+        Assert.Throws<ArgumentException>(
+            () => new NamedPipeCommandHost(
+                configured,
+                new CommandDispatcher("test-adapter", () => "Test AutoCAD")
+            )
+        );
+    }
+
     [Fact]
     public void StatusCommandIsAllowedAndReadOnly()
     {
@@ -210,5 +236,61 @@ public sealed class ProtocolTests
         Assert.NotNull(response);
         Assert.Contains("\"ok\":true", response, StringComparison.Ordinal);
         Assert.Contains("\"readOnly\":true", response, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NamedPipeHostReservesItsSingleCurrentUserNameBeforeStartReturns()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var pipeName = "cadplot-mcp-reservation-" + Guid.NewGuid().ToString("N");
+        using var first = new NamedPipeCommandHost(
+            pipeName,
+            new CommandDispatcher("first", () => "AutoCAD First")
+        );
+        using var second = new NamedPipeCommandHost(
+            pipeName,
+            new CommandDispatcher("second", () => "AutoCAD Second")
+        );
+
+        first.Start();
+
+        Assert.Throws<IOException>(() => second.Start());
+    }
+
+    [Fact]
+    public void NamedPipeHostKeepsTheSameNameReservedAcrossSequentialRequests()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var pipeName = "cadplot-mcp-sequential-" + Guid.NewGuid().ToString("N");
+        using var host = new NamedPipeCommandHost(
+            pipeName,
+            new CommandDispatcher("selected", () => "AutoCAD Selected")
+        );
+        host.Start();
+
+        for (var index = 0; index < 2; index++)
+        {
+            using var client = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut);
+            client.Connect(2_000);
+            using var writer = new StreamWriter(
+                client,
+                new UTF8Encoding(false),
+                leaveOpen: true
+            ) { AutoFlush = true };
+            using var reader = new StreamReader(client, Encoding.UTF8, leaveOpen: true);
+            writer.WriteLine(
+                "{\"id\":\"sequential-" + index.ToString()
+                + "\",\"version\":\"1\",\"command\":\"status\"}"
+            );
+            var response = reader.ReadLine();
+            Assert.NotNull(response);
+            Assert.Contains("\"adapter\":\"selected\"", response, StringComparison.Ordinal);
+        }
+
+        using var competing = new NamedPipeCommandHost(
+            pipeName,
+            new CommandDispatcher("competing", () => "AutoCAD Competing")
+        );
+        Assert.Throws<IOException>(() => competing.Start());
     }
 }
