@@ -35,7 +35,8 @@ Install the exact wheel into an isolated `uv` tool environment:
 ```powershell
 $wheel = @(Get-ChildItem "$kit\python\cadplot_mcp-*-py3-none-any.whl" -File -ErrorAction Stop)
 if ($wheel.Count -ne 1) { throw "Expected exactly one CadPlot MCP wheel." }
-uv tool install --from $wheel[0].FullName cadplot-mcp
+$wheelPath = ($wheel | Select-Object -First 1).FullName
+uv tool install $wheelPath
 cadplot-doctor --help
 ```
 

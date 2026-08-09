@@ -339,7 +339,8 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
 
     assert "verify-release-kit.ps1" in guide
     assert "install-bundle.ps1" in guide
-    assert "uv tool install" in guide
+    assert "uv tool install $wheelPath" in guide
+    assert "--from" not in guide
     assert "CADPLOT_ENABLE_PUBLISH" in guide
     assert "company DWG, PC3, PMP, CTB/STB, DWT" in guide
     assert "does not mean AutoCAD was launched" in guide
