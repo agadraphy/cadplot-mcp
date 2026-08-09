@@ -708,6 +708,9 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
     install_verifier = (
         REPOSITORY_ROOT / "scripts" / "verify-release-install.ps1"
     ).read_text(encoding="utf-8")
+    release_uninstaller = (
+        REPOSITORY_ROOT / "scripts" / "uninstall-release-kit.ps1"
+    ).read_text(encoding="utf-8")
 
     for required in (
         "SupportsShouldProcess = $true",
@@ -750,6 +753,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "uninstall-python.ps1",
         "install-release-kit.ps1",
         "verify-release-install.ps1",
+        "uninstall-release-kit.ps1",
         "loopback-http.md",
     ):
         assert name in kit_builder
@@ -790,6 +794,11 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "Test-PathsOverlap",
         "must not be a drive or share root",
         "exact commit-bound pilot evidence path",
+        "AllowRemovedComponents",
+        "InstallationComplete",
+        "BundlePresent",
+        "PythonPresent",
+        'Join-Path $kitRoot "autocad\\CadPlotMcp.bundle"',
         "ConfigChangedSinceInstall",
         "AutoCADLaunched = $false",
         "PublishEnabled = $false",
@@ -807,6 +816,29 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "New-Item",
     ):
         assert forbidden not in install_verifier
+    for required in (
+        "SupportsShouldProcess = $true",
+        'Get-Process -Name "acad"',
+        "verify-release-install.ps1",
+        "AllowRemovedComponents = $true",
+        "Exercise every required child uninstaller before the first mutation",
+        "uninstall-bundle.ps1",
+        "uninstall-python.ps1",
+        'BundleAction = $bundleAction',
+        'PythonAction = $pythonAction',
+        'PilotAction = "preserve"',
+        'ReceiptAction = "preserve"',
+        "BundleRemovedThisRun",
+        "PythonRemovedThisRun",
+        "PilotPreserved = $true",
+        "ReceiptPreserved = $true",
+        "AutoCADLaunched = $false",
+        "PublishEnabled = $false",
+        "LivePublishProven = $false",
+    ):
+        assert required in release_uninstaller
+    assert "Stop-Process" not in release_uninstaller
+    assert "Remove-Item" not in release_uninstaller
     for field in (
         "python_install_what_if_safe",
         "python_install_locked_dependencies",
@@ -825,6 +857,13 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "release_install_receipt_independent_verified",
         "release_install_receipt_independent_tamper_blocked",
         "release_install_config_change_reported",
+        "release_uninstall_autocad_process_blocked",
+        "release_uninstall_what_if_safe",
+        "release_uninstall_partial_resume_verified",
+        "release_uninstall_completed",
+        "release_uninstall_idempotent",
+        "release_uninstall_pilot_preserved",
+        "release_uninstall_receipt_preserved",
     ):
         assert field in bundle_smoke
 

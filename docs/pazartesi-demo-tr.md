@@ -101,3 +101,10 @@ taşınmaz.
 Hata kodunu, manifest/receipt hash'lerini ve çıktı audit'ini kaydedin. Var olan PDF'nin veya job'ın
 üstüne yazmayın. Nedeni düzeltip yeni plan onayıyla yeni bir staging job oluşturun. Canlı kabul
 geçmeden “production ready” demeyin; çalışan dry-run ve güvenlik zincirini yine gösterebilirsiniz.
+
+## Demo sonrası güvenli geri alma
+
+Release kit ile kurulduysa AutoCAD'i kapatın; `uninstall-release-kit.ps1` komutunu önce `-WhatIf`,
+sonra aynı release kökü ve kurulum makbuzuyla gerçek çalıştırın. Bundle önce, Python ortamı sonra
+kaldırılır. Pilot klasörü, şirket config'i, yetkili girdiler ve kanıt makbuzu bilerek korunur; betik
+AutoCAD sürecini kendisi kapatmaz.

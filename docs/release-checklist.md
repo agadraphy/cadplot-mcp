@@ -68,6 +68,8 @@ Use this checklist for every alpha release.
       quarantined only the exact version/commit directory, and left no target or quarantine behind.
 - [ ] `uninstall-bundle.ps1 -WhatIf` preserved `CadPlotMcp.bundle`; the real removal reverified every
       hash, atomically changed it to a non-`.bundle` quarantine, and left no quarantine behind.
+- [ ] `uninstall-release-kit.ps1 -WhatIf` preserved both components; the real/resumed run removed
+      bundle before Python and preserved the pilot workspace plus byte-identical install receipt.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/

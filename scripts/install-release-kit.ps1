@@ -502,6 +502,9 @@ $installEvidence = & (Join-Path $kitRoot "scripts\verify-release-install.ps1") `
     @installVerifierArguments
 if (
     $installEvidence.Passed -ne $true -or
+    $installEvidence.InstallationComplete -ne $true -or
+    $installEvidence.BundleVerified -ne $true -or
+    $installEvidence.PythonVerified -ne $true -or
     $installEvidence.BundlePath -cne $bundleTarget -or
     $installEvidence.PythonPath -cne $pythonTarget -or
     $installEvidence.PilotRoot -cne $pilotEvidence.Root -or

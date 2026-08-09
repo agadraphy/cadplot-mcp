@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Receipt-bound resumable release uninstaller with AutoCAD process guard, full `-WhatIf` child
+  preflight, bundle-before-Python removal, idempotent partial-run recovery, and deliberate pilot/
+  install-receipt preservation.
 - Independent installed-release verifier that replays the receipt digest, transferred release kit,
   exact bundle hashes, Python install inventory, and pilot paths without launching AutoCAD; expected
   post-install inventory-config changes are reported separately from immutable evidence failures.

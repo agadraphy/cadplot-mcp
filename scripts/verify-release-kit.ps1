@@ -186,6 +186,7 @@ $fixedFiles = @(
     "scripts/verify-release-kit.ps1", "scripts/install-python.ps1",
     "scripts/verify-python-install.ps1", "scripts/uninstall-python.ps1",
     "scripts/install-release-kit.ps1", "scripts/verify-release-install.ps1",
+    "scripts/uninstall-release-kit.ps1",
     "scripts/check-autocad-api-series.ps1",
     "scripts/new-local-pilot.ps1", "scripts/collect-pilot-run.py",
     "scripts/assemble-pilot-evidence.py", "scripts/validate-pilot-evidence.py",

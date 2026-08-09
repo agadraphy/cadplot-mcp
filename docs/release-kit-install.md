@@ -65,6 +65,27 @@ expected to be edited after installation; the verifier still validates the path 
 installation evidence. Compare `ReceiptSha256` through a trusted handoff if the receipt is used as
 formal evidence: its embedded digest proves consistency, not signer identity.
 
+For a complete rollback, keep AutoCAD closed and preview the receipt-bound removal first:
+
+```powershell
+$removePreview = & "$releaseRoot\CadPlotMcp.release\scripts\uninstall-release-kit.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -ReceiptPath $install.InstallReceipt `
+  -WhatIf `
+  -PassThru
+$remove = & "$releaseRoot\CadPlotMcp.release\scripts\uninstall-release-kit.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -ReceiptPath $install.InstallReceipt `
+  -PassThru
+```
+
+The orchestrator independently verifies the receipt and every component, removes the host-loadable
+bundle first, then removes the exact Python environment. It deliberately preserves the pilot root,
+local config, authorized input, isolated work, and install receipt. If a run stops after the bundle
+removal, rerun the same command: an absent component is accepted only through the same verified
+receipt and any remaining component is fully reverified before removal. The command is idempotent
+after both components are absent. It never stops AutoCAD itself.
+
 ## 2. Install the AutoCAD bundle
 
 Preview the exact destination first, then repeat without `-WhatIf`:

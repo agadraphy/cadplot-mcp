@@ -277,6 +277,8 @@ Bundle mutations refuse to run while `acad.exe` is active. A successful orchestr
 a no-overwrite local receipt binding the release manifest, Python manifest, bundle hashes, and paths.
 The included read-only `verify-release-install.ps1` independently replays that complete evidence
 chain later; expected inventory-config edits are reported without weakening immutable hash checks.
+`uninstall-release-kit.ps1` provides a receipt-bound, `-WhatIf`-capable and resumable rollback: it
+removes the verified bundle before Python while deliberately preserving pilot data and the receipt.
 The kit's `install-python.ps1` first revalidates the whole transfer, installs exact frozen/hash-
 required dependencies plus the wheel into a unique staging venv, and atomically names a version/
 commit target without changing global PATH. `verify-python-install.ps1` rechecks its retained wheel,

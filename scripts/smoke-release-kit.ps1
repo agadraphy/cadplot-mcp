@@ -107,7 +107,7 @@ try {
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
         "verify-bundle-release.ps1", "verify-release-kit.ps1",
         "install-python.ps1", "verify-python-install.ps1", "uninstall-python.ps1",
-        "install-release-kit.ps1", "verify-release-install.ps1",
+        "install-release-kit.ps1", "verify-release-install.ps1", "uninstall-release-kit.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py"
@@ -347,6 +347,7 @@ try {
     }
 
     $releaseInstaller = Join-Path $kitRoot "scripts\install-release-kit.ps1"
+    $releaseUninstaller = Join-Path $kitRoot "scripts\uninstall-release-kit.ps1"
     $missingToolBlocked = $false
     try {
         & $releaseInstaller `
@@ -449,6 +450,9 @@ try {
         -PassThru
     if (
         $independentInstallEvidence.Passed -ne $true -or
+        $independentInstallEvidence.InstallationComplete -ne $true -or
+        $independentInstallEvidence.BundleVerified -ne $true -or
+        $independentInstallEvidence.PythonVerified -ne $true -or
         $independentInstallEvidence.ReceiptSha256 -cne $installReceiptHash -or
         $independentInstallEvidence.BundlePath -cne $orchestratedInstall.BundleTarget -or
         $independentInstallEvidence.PythonPath -cne $orchestratedInstall.PythonTarget -or
@@ -563,19 +567,102 @@ try {
     finally {
         [System.IO.File]::WriteAllBytes($orchestratedInstall.Config, $configBytes)
     }
-    $orchestratedBundleUninstall = & (Join-Path $kitRoot "scripts\uninstall-bundle.ps1") `
+
+    $releaseUninstallProcessBlocked = $false
+    function Get-Process {
+        [CmdletBinding()]
+        param([string]$Name)
+        if ($Name -ceq "acad") { return [pscustomobject]@{ Id = 99117; ProcessName = "acad" } }
+        Microsoft.PowerShell.Management\Get-Process @PSBoundParameters
+    }
+    try {
+        & $releaseUninstaller `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -ReceiptPath $orchestratedInstall.InstallReceipt `
+            -AllowProtocolOnlyFixture `
+            -WhatIf `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*Close every AutoCAD process*") { throw }
+        $releaseUninstallProcessBlocked = $true
+    }
+    finally { Remove-Item Function:\Get-Process -Force }
+    if (
+        -not $releaseUninstallProcessBlocked -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.BundleTarget -PathType Container) -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.PythonTarget -PathType Container)
+    ) {
+        throw "Release uninstaller mutated a target while AutoCAD was reported as running."
+    }
+
+    $releaseUninstallPreview = & $releaseUninstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -ReceiptPath $orchestratedInstall.InstallReceipt `
+        -AllowProtocolOnlyFixture `
+        -WhatIf `
+        -PassThru
+    if (
+        $releaseUninstallPreview.WhatIf -ne $true -or
+        $releaseUninstallPreview.BundleAction -cne "remove" -or
+        $releaseUninstallPreview.PythonAction -cne "remove" -or
+        $releaseUninstallPreview.PilotAction -cne "preserve" -or
+        $releaseUninstallPreview.ReceiptAction -cne "preserve" -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.BundleTarget -PathType Container) -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.PythonTarget -PathType Container)
+    ) {
+        throw "Release uninstaller -WhatIf did not safely preview both component removals."
+    }
+
+    # Simulate a prior run that stopped safely after removing the host-loadable bundle.
+    $partialBundleUninstall = & (Join-Path $kitRoot "scripts\uninstall-bundle.ps1") `
         -DestinationRoot $orchestratedBundleRoot `
         -Confirm:$false `
         -PassThru
-    $orchestratedPythonUninstall = & $pythonUninstaller `
-        -InstallRoot $orchestratedInstall.PythonTarget `
+    if (
+        $partialBundleUninstall.Removed -ne $true -or
+        (Test-Path -LiteralPath $orchestratedInstall.BundleTarget) -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.PythonTarget -PathType Container)
+    ) {
+        throw "Release uninstall partial-run fixture did not retain only the Python component."
+    }
+    $releaseUninstall = & $releaseUninstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -ReceiptPath $orchestratedInstall.InstallReceipt `
+        -AllowProtocolOnlyFixture `
         -Confirm:$false `
         -PassThru
     if (
-        $orchestratedBundleUninstall.Removed -ne $true -or
-        $orchestratedPythonUninstall.Removed -ne $true
+        $releaseUninstall.Uninstalled -ne $true -or
+        $releaseUninstall.BundleAction -cne "already_absent" -or
+        $releaseUninstall.BundleRemovedThisRun -ne $false -or
+        $releaseUninstall.PythonAction -cne "remove" -or
+        $releaseUninstall.PythonRemovedThisRun -ne $true -or
+        $releaseUninstall.ComponentsRemovedThisRun -ne 1 -or
+        $releaseUninstall.PilotPreserved -ne $true -or
+        $releaseUninstall.ReceiptPreserved -ne $true -or
+        $releaseUninstall.InstallReceiptSha256 -cne $installReceiptHash -or
+        (Test-Path -LiteralPath $orchestratedInstall.BundleTarget) -or
+        (Test-Path -LiteralPath $orchestratedInstall.PythonTarget) -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.PilotRoot -PathType Container) -or
+        -not (Test-Path -LiteralPath $orchestratedInstall.InstallReceipt -PathType Leaf)
     ) {
-        throw "Release installer smoke cleanup did not verify component removal."
+        throw "Release uninstaller did not resume safely or preserve pilot/receipt evidence."
+    }
+    $releaseUninstallResume = & $releaseUninstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -ReceiptPath $orchestratedInstall.InstallReceipt `
+        -AllowProtocolOnlyFixture `
+        -Confirm:$false `
+        -PassThru
+    if (
+        $releaseUninstallResume.Uninstalled -ne $true -or
+        $releaseUninstallResume.BundleAction -cne "already_absent" -or
+        $releaseUninstallResume.PythonAction -cne "already_absent" -or
+        $releaseUninstallResume.ComponentsRemovedThisRun -ne 0 -or
+        $releaseUninstallResume.InstallReceiptSha256 -cne $installReceiptHash
+    ) {
+        throw "Release uninstaller was not idempotent after complete removal."
     }
 
     $outerBytes = [System.IO.File]::ReadAllBytes($outerPath)
@@ -630,6 +717,13 @@ try {
         release_install_receipt_independent_verified = $true
         release_install_receipt_independent_tamper_blocked = $independentReceiptTamperBlocked
         release_install_config_change_reported = $configChangeReported
+        release_uninstall_autocad_process_blocked = $releaseUninstallProcessBlocked
+        release_uninstall_what_if_safe = $true
+        release_uninstall_partial_resume_verified = $true
+        release_uninstall_completed = $true
+        release_uninstall_idempotent = $true
+        release_uninstall_pilot_preserved = $true
+        release_uninstall_receipt_preserved = $true
         matching_sdk_bundle_built = $false
         autocad_launched = $false
         live_publish_proven = $false

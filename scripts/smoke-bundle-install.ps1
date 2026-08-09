@@ -150,7 +150,14 @@ try {
         $releaseKitSmoke.release_install_receipt_tamper_blocked -ne $true -or
         $releaseKitSmoke.release_install_receipt_independent_verified -ne $true -or
         $releaseKitSmoke.release_install_receipt_independent_tamper_blocked -ne $true -or
-        $releaseKitSmoke.release_install_config_change_reported -ne $true
+        $releaseKitSmoke.release_install_config_change_reported -ne $true -or
+        $releaseKitSmoke.release_uninstall_autocad_process_blocked -ne $true -or
+        $releaseKitSmoke.release_uninstall_what_if_safe -ne $true -or
+        $releaseKitSmoke.release_uninstall_partial_resume_verified -ne $true -or
+        $releaseKitSmoke.release_uninstall_completed -ne $true -or
+        $releaseKitSmoke.release_uninstall_idempotent -ne $true -or
+        $releaseKitSmoke.release_uninstall_pilot_preserved -ne $true -or
+        $releaseKitSmoke.release_uninstall_receipt_preserved -ne $true
     ) {
         throw "Protocol-only combined release-kit smoke failed."
     }
@@ -320,6 +327,13 @@ try {
         release_install_receipt_independent_verified = $releaseKitSmoke.release_install_receipt_independent_verified
         release_install_receipt_independent_tamper_blocked = $releaseKitSmoke.release_install_receipt_independent_tamper_blocked
         release_install_config_change_reported = $releaseKitSmoke.release_install_config_change_reported
+        release_uninstall_autocad_process_blocked = $releaseKitSmoke.release_uninstall_autocad_process_blocked
+        release_uninstall_what_if_safe = $releaseKitSmoke.release_uninstall_what_if_safe
+        release_uninstall_partial_resume_verified = $releaseKitSmoke.release_uninstall_partial_resume_verified
+        release_uninstall_completed = $releaseKitSmoke.release_uninstall_completed
+        release_uninstall_idempotent = $releaseKitSmoke.release_uninstall_idempotent
+        release_uninstall_pilot_preserved = $releaseKitSmoke.release_uninstall_pilot_preserved
+        release_uninstall_receipt_preserved = $releaseKitSmoke.release_uninstall_receipt_preserved
         what_if_install_mutated = $false
         copied_hashes_verified = $true
         bundle_install_autocad_process_blocked = $installProcessGuardBlocked

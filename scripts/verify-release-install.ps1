@@ -8,6 +8,8 @@ param(
 
     [switch]$AllowProtocolOnlyFixture,
 
+    [switch]$AllowRemovedComponents,
+
     [switch]$PassThru
 )
 
@@ -37,8 +39,12 @@ function Assert-NoRedirectedAncestor {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     $current = [System.IO.Path]::GetFullPath($Path)
-    if (-not (Test-Path -LiteralPath $current)) {
-        throw "Installed release evidence path does not exist: $current"
+    while (-not (Test-Path -LiteralPath $current)) {
+        $parent = Split-Path -Parent $current
+        if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $current) {
+            throw "Installed release evidence path has no existing local ancestor: $Path"
+        }
+        $current = $parent
     }
     while (-not [string]::IsNullOrWhiteSpace($current)) {
         $item = Get-Item -LiteralPath $current -Force
@@ -177,6 +183,8 @@ if (
     $payload.package_version -cne $releaseEvidence.PackageVersion -or
     -not [DateTime]::TryParse([string]$payload.installed_utc, [ref]$installedUtc) -or
     $payload.release_kit_manifest_sha256 -cne $releaseManifestHash -or
+    [string]$payload.python.manifest_sha256 -notmatch $shaPattern -or
+    $payload.python.distribution_count -lt 1 -or
     [string]$payload.pilot.config_sha256_at_install -notmatch $shaPattern -or
     [string]$payload.actions.pilot -notin @("create", "reuse_verified_structure") -or
     [string]$payload.actions.python -notin @("install", "reuse_verified") -or
@@ -241,25 +249,50 @@ if (
     throw "CadPlot install receipt pilot workspace evidence is invalid."
 }
 
-$bundleEvidence = & (Join-Path $kitRoot "scripts\verify-bundle.ps1") `
-    -BundlePath $bundlePath `
-    -PassThru
-Assert-MatchingBundleHashes -Recorded $payload.bundle.files -Actual $bundleEvidence.Hashes
+$bundlePresent = Test-Path -LiteralPath $bundlePath -PathType Container
+$pythonPresent = Test-Path -LiteralPath $pythonPath -PathType Container
+if ((Test-Path -LiteralPath $bundlePath) -and -not $bundlePresent) {
+    throw "CadPlot bundle path exists but is not a verified installation directory."
+}
+if ((Test-Path -LiteralPath $pythonPath) -and -not $pythonPresent) {
+    throw "CadPlot Python path exists but is not a verified installation directory."
+}
+if (-not $AllowRemovedComponents -and (-not $bundlePresent -or -not $pythonPresent)) {
+    throw "CadPlot installed release is missing a required bundle or Python component."
+}
 
-$pythonManifestPath = Join-Path $pythonPath "python-install.json"
-$pythonManifestHash = (
-    Get-FileHash -LiteralPath $pythonManifestPath -Algorithm SHA256
-).Hash.ToLowerInvariant()
-$pythonEvidence = & (Join-Path $kitRoot "scripts\verify-python-install.ps1") `
-    -InstallRoot $pythonPath `
+$sourceBundleEvidence = & (Join-Path $kitRoot "scripts\verify-bundle.ps1") `
+    -BundlePath (Join-Path $kitRoot "autocad\CadPlotMcp.bundle") `
     -PassThru
-if (
-    $pythonEvidence.ExactCommit -cne $releaseEvidence.ExactCommit -or
-    $pythonEvidence.PackageVersion -cne $releaseEvidence.PackageVersion -or
-    $payload.python.manifest_sha256 -cne $pythonManifestHash -or
-    $payload.python.distribution_count -ne $pythonEvidence.DistributionCount
-) {
-    throw "CadPlot install receipt Python evidence is invalid."
+Assert-MatchingBundleHashes `
+    -Recorded $payload.bundle.files `
+    -Actual $sourceBundleEvidence.Hashes
+
+$bundleEvidence = $null
+if ($bundlePresent) {
+    $bundleEvidence = & (Join-Path $kitRoot "scripts\verify-bundle.ps1") `
+        -BundlePath $bundlePath `
+        -PassThru
+    Assert-MatchingBundleHashes -Recorded $payload.bundle.files -Actual $bundleEvidence.Hashes
+}
+
+$pythonEvidence = $null
+if ($pythonPresent) {
+    $pythonManifestPath = Join-Path $pythonPath "python-install.json"
+    $pythonManifestHash = (
+        Get-FileHash -LiteralPath $pythonManifestPath -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $pythonEvidence = & (Join-Path $kitRoot "scripts\verify-python-install.ps1") `
+        -InstallRoot $pythonPath `
+        -PassThru
+    if (
+        $pythonEvidence.ExactCommit -cne $releaseEvidence.ExactCommit -or
+        $pythonEvidence.PackageVersion -cne $releaseEvidence.PackageVersion -or
+        $payload.python.manifest_sha256 -cne $pythonManifestHash -or
+        $payload.python.distribution_count -ne $pythonEvidence.DistributionCount
+    ) {
+        throw "CadPlot install receipt Python evidence is invalid."
+    }
 }
 
 $configHash = (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -276,8 +309,13 @@ $result = [pscustomobject]@{
     PilotRoot = $pilotRoot
     Config = $configPath
     ConfigChangedSinceInstall = $configHash -cne $payload.pilot.config_sha256_at_install
-    BundleFileCount = @($bundleEvidence.Hashes).Count
-    DistributionCount = $pythonEvidence.DistributionCount
+    InstallationComplete = ($bundlePresent -and $pythonPresent)
+    BundlePresent = $bundlePresent
+    BundleVerified = $bundlePresent
+    BundleFileCount = @($sourceBundleEvidence.Hashes).Count
+    PythonPresent = $pythonPresent
+    PythonVerified = $pythonPresent
+    DistributionCount = $payload.python.distribution_count
     AutoCADLaunched = $false
     PublishEnabled = $false
     LivePublishProven = $false
