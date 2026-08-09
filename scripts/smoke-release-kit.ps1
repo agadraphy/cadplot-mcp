@@ -26,6 +26,12 @@ $resolvedTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath(
 if (-not $resolvedSmokeRoot.StartsWith($resolvedTempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Release-kit smoke root escaped the system temporary directory."
 }
+$installRoot = Join-Path (
+    [System.IO.Path]::GetTempPath()
+) ("cadplot-python-install-smoke-{0}" -f [Guid]::NewGuid().ToString("N"))
+$requirementsAuditPath = Join-Path (
+    [System.IO.Path]::GetTempPath()
+) ("cadplot-requirements-audit-{0}.txt" -f [Guid]::NewGuid().ToString("N"))
 
 function Write-SmokeJson {
     param([string]$Path, $Value)
@@ -34,6 +40,18 @@ function Write-SmokeJson {
         ($Value | ConvertTo-Json -Depth 7),
         [System.Text.UTF8Encoding]::new($false)
     )
+}
+
+function Invoke-SmokeNativeQuiet {
+    param([string]$FilePath, [string[]]$Arguments, [string]$FailureMessage)
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $FilePath @Arguments 2>&1 | Out-Null
+        $exitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previousPreference }
+    if ($exitCode -ne 0) { throw "$FailureMessage (exit $exitCode)" }
 }
 
 try {
@@ -63,6 +81,7 @@ try {
     foreach ($scriptName in @(
         "install-bundle.ps1", "uninstall-bundle.ps1", "verify-bundle.ps1",
         "verify-bundle-release.ps1", "verify-release-kit.ps1",
+        "install-python.ps1", "verify-python-install.ps1",
         "check-autocad-api-series.ps1", "new-local-pilot.ps1",
         "collect-pilot-run.py", "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py"
@@ -72,7 +91,8 @@ try {
     }
     foreach ($docName in @(
         "monday-pilot.md", "pazartesi-demo-tr.md", "release-checklist.md",
-        "release-kit-install.md", "pilot-evidence.md"
+        "release-kit-install.md", "pilot-evidence.md", "deployment-modes.md",
+        "chatgpt-connection.md", "loopback-http.md"
     )) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$docName") `
             -Destination (Join-Path $kitRoot "docs\$docName")
@@ -85,6 +105,14 @@ try {
 
     $wheelName = $wheels[0].Name
     $wheelPath = Join-Path $kitRoot "python\$wheelName"
+    Invoke-SmokeNativeQuiet -FilePath "uv" -Arguments @(
+        "export", "--frozen", "--no-dev", "--no-emit-project", "--no-header",
+        "--project", (Join-Path $kitRoot "python"),
+        "--output-file", $requirementsAuditPath
+    ) -FailureMessage "Release-kit smoke dependency export failed."
+    $requirementsAuditHash = (
+        Get-FileHash -LiteralPath $requirementsAuditPath -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
     $dependencyAudit = [ordered]@{
         schema_version = 1
         generated_utc = [DateTime]::UtcNow.ToString("o")
@@ -92,7 +120,7 @@ try {
         lock = [ordered]@{
             file = "uv.lock"
             sha256 = (Get-FileHash -LiteralPath (Join-Path $kitRoot "python\uv.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
-            requirements_sha256 = "f" * 64
+            requirements_sha256 = $requirementsAuditHash
         }
         python = [ordered]@{
             tool = "pip-audit fixture"
@@ -206,6 +234,61 @@ try {
         throw "Embedded release-kit verifier did not pass its own exact package."
     }
 
+    $pythonInstaller = Join-Path $kitRoot "scripts\install-python.ps1"
+    $whatIfInstall = & $pythonInstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -DestinationRoot $installRoot `
+        -AllowProtocolOnlyFixture `
+        -WhatIf `
+        -PassThru
+    if ($whatIfInstall.WhatIf -ne $true -or (Test-Path -LiteralPath $installRoot)) {
+        throw "Python installer -WhatIf changed the destination."
+    }
+    $pythonInstall = & $pythonInstaller `
+        -ReleaseRoot $resolvedSmokeRoot `
+        -DestinationRoot $installRoot `
+        -AllowProtocolOnlyFixture `
+        -PassThru
+    if (
+        $pythonInstall.Installed -ne $true -or
+        $pythonInstall.LockedDependencies -ne $true -or
+        $pythonInstall.SourceTreeImported -ne $false
+    ) {
+        throw "Hash-locked Python installation smoke failed."
+    }
+    $installedVerifier = Join-Path $kitRoot "scripts\verify-python-install.ps1"
+    $installedEvidence = & $installedVerifier -InstallRoot $pythonInstall.Target -PassThru
+    if ($installedEvidence.Passed -ne $true -or $installedEvidence.DistributionCount -lt 2) {
+        throw "Installed Python environment did not verify."
+    }
+    $overwriteBlocked = $false
+    try {
+        & $pythonInstaller `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -DestinationRoot $installRoot `
+            -AllowProtocolOnlyFixture `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*never overwrites*") { throw }
+        $overwriteBlocked = $true
+    }
+    if (-not $overwriteBlocked) { throw "Python installer overwrote an existing target." }
+    $installedWheel = @(Get-ChildItem -LiteralPath (Join-Path $pythonInstall.Target "evidence") `
+        -File -Filter "*.whl")
+    $installedWheelBytes = [System.IO.File]::ReadAllBytes($installedWheel[0].FullName)
+    $installedWheelBytes[0] = $installedWheelBytes[0] -bxor 1
+    [System.IO.File]::WriteAllBytes($installedWheel[0].FullName, $installedWheelBytes)
+    $installTamperBlocked = $false
+    try { & $installedVerifier -InstallRoot $pythonInstall.Target -PassThru | Out-Null }
+    catch {
+        if ($_.Exception.Message -notlike "*evidence hash mismatch*") { throw }
+        $installTamperBlocked = $true
+    }
+    if (-not $installTamperBlocked) {
+        throw "Python install verifier accepted modified wheel evidence."
+    }
+
     $outerBytes = [System.IO.File]::ReadAllBytes($outerPath)
     $tamperedOuter = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
     $tamperedOuter.dependency_audit.python_license_inventory.packages[0].license = "UNKNOWN"
@@ -241,6 +324,10 @@ try {
         dependency_audit_verified = $true
         dependency_license_tamper_blocked = $licenseTamperBlocked
         archive_tamper_blocked = $tamperBlocked
+        python_install_what_if_safe = $true
+        python_install_locked_dependencies = $true
+        python_install_overwrite_blocked = $overwriteBlocked
+        python_install_tamper_blocked = $installTamperBlocked
         matching_sdk_bundle_built = $false
         autocad_launched = $false
         live_publish_proven = $false
@@ -249,5 +336,11 @@ try {
 finally {
     if (Test-Path -LiteralPath $resolvedSmokeRoot) {
         Remove-Item -LiteralPath $resolvedSmokeRoot -Recurse -Force
+    }
+    if (Test-Path -LiteralPath $installRoot) {
+        Remove-Item -LiteralPath $installRoot -Recurse -Force
+    }
+    if (Test-Path -LiteralPath $requirementsAuditPath -PathType Leaf) {
+        Remove-Item -LiteralPath $requirementsAuditPath -Force
     }
 }

@@ -551,11 +551,13 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
 
     assert "verify-release-kit.ps1" in guide
     assert "install-bundle.ps1" in guide
-    assert "uv tool install $wheelPath" in guide
+    assert "install-python.ps1" in guide
+    assert "verify-python-install.ps1" in guide
+    assert "mandatory hashes" in guide
     assert "no source checkout is required" in guide
-    assert "cadplot-collect-pilot --help" in guide
-    assert "cadplot-assemble-pilot --help" in guide
-    assert "cadplot-validate-pilot --help" in guide
+    assert "cadplot-collect-pilot.cmd\" --help" in guide
+    assert "cadplot-assemble-pilot.cmd\" --help" in guide
+    assert "cadplot-validate-pilot.cmd\" --help" in guide
     assert "new-local-pilot.ps1" in guide
     assert "publisher authenticity" in guide
     assert "--from" not in guide
@@ -664,6 +666,57 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "The DWG stays" in architecture
     assert "Not implemented or claimed" in architecture
     assert "loopback-only Streamable HTTP" in architecture
+
+
+def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
+    installer = (REPOSITORY_ROOT / "scripts" / "install-python.ps1").read_text(
+        encoding="utf-8"
+    )
+    verifier = (REPOSITORY_ROOT / "scripts" / "verify-python-install.ps1").read_text(
+        encoding="utf-8"
+    )
+    kit_builder = (REPOSITORY_ROOT / "scripts" / "build-release-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+    kit_verifier = (REPOSITORY_ROOT / "scripts" / "verify-release-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+    bundle_smoke = (REPOSITORY_ROOT / "scripts" / "smoke-bundle-install.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "SupportsShouldProcess = $true",
+        '"--frozen"',
+        '"--require-hashes"',
+        '"--no-deps"',
+        "installer never overwrites",
+        "Move-Item -LiteralPath $staging -Destination $target",
+        "verify-python-install.ps1",
+        "source_tree_imported = $false",
+        "live_publish_proven = $false",
+    ):
+        assert required in installer
+    assert "Remove-Item -LiteralPath $staging -Recurse" not in installer
+    for required in (
+        "FileAttributes]::ReparsePoint",
+        "Python installation evidence hash mismatch",
+        "Installed package inventory no longer matches",
+        "cadplot-doctor.cmd",
+        "cadplot-mcp-http.cmd",
+        "PYTHONDONTWRITEBYTECODE",
+    ):
+        assert required in verifier
+    for name in ("install-python.ps1", "verify-python-install.ps1", "loopback-http.md"):
+        assert name in kit_builder
+        assert name in kit_verifier
+    for field in (
+        "python_install_what_if_safe",
+        "python_install_locked_dependencies",
+        "python_install_overwrite_blocked",
+        "python_install_tamper_blocked",
+    ):
+        assert field in bundle_smoke
 
 
 def test_server_routes_drawing_inspection_through_bounded_helper() -> None:

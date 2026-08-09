@@ -227,6 +227,10 @@ lisans envanterini ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kur
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
 bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.
+Kitteki `install-python.ps1`, tüm transferi yeniden doğrular; frozen lock bağımlılıklarını zorunlu
+hashlerle ve wheel'i `--no-deps` ile benzersiz staging venv'e kurup sürüm/commit hedefini atomik
+adlandırır. Global PATH'i değiştirmez ve mevcut kurulumu ezmez. `verify-python-install.ps1` wheel,
+lock, requirements digest'i, komutlar ve kurulu dağıtım envanterini tekrar denetler.
 Küçük yerel demo kiti kendi `verify-demo-kit.ps1` doğrulayıcısını taşır; exact dosya kümesi ve
 hashleri kontrol edilirken makineye özel API klasör yolu taşınabilir manifestten çıkarılır.
 

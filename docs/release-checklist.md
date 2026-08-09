@@ -55,6 +55,9 @@ Use this checklist for every alpha release.
       scripts, and runbooks to the same clean commit.
 - [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
       and every outer ZIP entry without extraction; its live/public readiness flags remained false.
+- [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
+      mandatory hashes, staged without overwrite, atomically renamed, and
+      `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/

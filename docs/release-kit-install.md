@@ -36,24 +36,35 @@ AutoCAD closed before an upgrade.
 
 ## 3. Install the Python MCP command
 
-Install the exact wheel into an isolated `uv` tool environment:
+Preview the version/commit-bound destination, then install the exact wheel and every production
+dependency from the embedded frozen lock with mandatory hashes:
 
 ```powershell
-$wheel = @(Get-ChildItem "$kit\python\cadplot_mcp-*-py3-none-any.whl" -File -ErrorAction Stop)
-if ($wheel.Count -ne 1) { throw "Expected exactly one CadPlot MCP wheel." }
-$wheelPath = ($wheel | Select-Object -First 1).FullName
-uv tool install $wheelPath
-cadplot-doctor --help
-cadplot-collect-pilot --help
-cadplot-assemble-pilot --help
-cadplot-validate-pilot --help
+& "$kit\scripts\install-python.ps1" -ReleaseRoot $releaseRoot -WhatIf
+$pythonInstall = & "$kit\scripts\install-python.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -PassThru
+& "$kit\scripts\verify-python-install.ps1" `
+  -InstallRoot $pythonInstall.Target
+$commandRoot = $pythonInstall.CommandRoot
+& "$commandRoot\cadplot-doctor.cmd" --help
+& "$commandRoot\cadplot-collect-pilot.cmd" --help
+& "$commandRoot\cadplot-assemble-pilot.cmd" --help
+& "$commandRoot\cadplot-validate-pilot.cmd" --help
 ```
+
+The installer first re-runs the embedded release-kit verifier, exports dependencies from the exact
+`uv.lock`, requires every package hash, installs the wheel with `--no-deps`, runs `uv pip check`,
+records the exact installed distribution inventory, and atomically renames a unique staging
+environment. It never overwrites an existing version/commit target. A failed staging directory is
+retained for inspection instead of being recursively deleted. Use the full paths under the returned
+`bin`; the relative launchers remain valid after atomic staging rename. The installer does not
+mutate global PATH or another Python environment.
 
 The included `pyproject.toml`, `uv.lock`, and commit-bound source ZIP are retained for dependency
 review and reproducible maintenance. Both kit manifests retain the current, lock-bound Python/.NET
-vulnerability result and the transitive Python license inventory; the verifier rejects incomplete,
-unknown, or lock-mismatched evidence. This is point-in-time scan evidence, not a permanent security
-guarantee or legal advice. The wheel contains no Autodesk or company assets.
+vulnerability result and transitive Python license inventory. This is point-in-time scan evidence,
+not a permanent security guarantee or legal advice. The wheel contains no Autodesk/company assets.
 
 ## 4. Create the external pilot workspace
 

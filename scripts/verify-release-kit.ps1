@@ -183,11 +183,13 @@ $fixedFiles = @(
     "python/pyproject.toml", "python/uv.lock",
     "scripts/install-bundle.ps1", "scripts/uninstall-bundle.ps1",
     "scripts/verify-bundle.ps1", "scripts/verify-bundle-release.ps1",
-    "scripts/verify-release-kit.ps1", "scripts/check-autocad-api-series.ps1",
+    "scripts/verify-release-kit.ps1", "scripts/install-python.ps1",
+    "scripts/verify-python-install.ps1", "scripts/check-autocad-api-series.ps1",
     "scripts/new-local-pilot.ps1", "scripts/collect-pilot-run.py",
     "scripts/assemble-pilot-evidence.py", "scripts/validate-pilot-evidence.py",
     "docs/monday-pilot.md", "docs/pazartesi-demo-tr.md", "docs/release-checklist.md",
-    "docs/release-kit-install.md", "docs/pilot-evidence.md",
+    "docs/release-kit-install.md", "docs/pilot-evidence.md", "docs/deployment-modes.md",
+    "docs/chatgpt-connection.md", "docs/loopback-http.md",
     "config/config.inventory.example.yaml", "release-kit.json"
 )
 $wheelFiles = @(Get-ChildItem -LiteralPath (Join-Path $kitRoot "python") -File -Filter "*.whl")

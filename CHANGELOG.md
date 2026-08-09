@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Release-kit Python installer/verifier with embedded kit revalidation, frozen hash-required
+  dependency installation, wheel `--no-deps`, isolated staging, no-overwrite atomic naming,
+  installed-distribution evidence, and protocol-fixture tamper/WhatIf/overwrite smoke coverage.
 - Loopback-only Streamable HTTP `/mcp` entry point for an authorized Secure MCP Tunnel, with fixed
   `127.0.0.1` binding, strict Host/Origin checks, a 1 MiB request cap, real protocol smoke coverage,
   and explicit separation from unimplemented managed OAuth/HTTPS deployment.

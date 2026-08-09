@@ -270,6 +270,10 @@ evidence, the complete Python license inventory, and every outer ZIP entry witho
 See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
 `licensed_live_pilot_ready=false`, `public_release_ready=false`, and `live_publish_proven=false`;
 only separately retained licensed 2016/2025 pilot evidence can change those claims.
+The kit's `install-python.ps1` first revalidates the whole transfer, installs exact frozen/hash-
+required dependencies plus the wheel into a unique staging venv, and atomically names a version/
+commit target without changing global PATH. `verify-python-install.ps1` rechecks its retained wheel,
+lock, requirements digest, command surface, and installed distribution inventory.
 The smaller local demo kit carries `verify-demo-kit.ps1`; it verifies the exact flat file set and
 hashes while omitting machine-local API directory paths from its portable manifest.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
