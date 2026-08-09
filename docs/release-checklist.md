@@ -37,6 +37,10 @@ Use this checklist for every alpha release.
 - [ ] `scripts/verify-bundle.ps1` passes on the extracted bundle and its printed hashes are retained.
 - [ ] The matching-SDK build used a clean commit, created a new no-overwrite release root, and
       `verify-bundle-release.ps1` matched `bundle-build.json`, ZIP entries, and all file hashes.
+- [ ] `build-release-kit.ps1` bound the verified matching-SDK bundle, readiness-bound Python wheel,
+      lock data, source archive, install scripts, and runbooks to the same clean commit.
+- [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
+      and every outer ZIP entry without extraction; its live/public readiness flags remained false.
 - [ ] Install and uninstall `-WhatIf` targets were reviewed with AutoCAD closed; no overwrite path
       was introduced.
 - [ ] `scripts/smoke-bundle-install.ps1` passes its protocol-only transactional copy/hash/install/
@@ -69,3 +73,4 @@ Use this checklist for every alpha release.
 - [ ] Build in a clean environment.
 - [ ] Inspect source and wheel contents before upload.
 - [ ] Tag and publish only after the checks above are complete.
+- [ ] Do not publish the combined kit until separate licensed 2016/2025 pilot evidence is reviewed.

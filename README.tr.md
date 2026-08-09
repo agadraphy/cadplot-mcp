@@ -174,6 +174,15 @@ Build temiz Git commit'i ister, eski artifact'i silmez ve
 üretir. Bu manifest commit/sürüm/API kimliği/dosya+ZIP hash'lerini bağlar;
 `verify-bundle-release.ps1` ZIP'i çıkarmadan tüm girişleri yeniden doğrular.
 
+Aynı temiz commit için gerçek matching-SDK bundle ve readiness raporu oluştuktan sonra
+`scripts/build-release-kit.ps1`; bundle release'i, readiness'e bağlı Python wheel'i, kilit verisini,
+`git archive` kaynak kopyasını, güvenli kurulum betiklerini, envanter config'ini ve demo runbook'larını
+tek, üstüne yazılmayan teslim kökünde birleştirir. `verify-release-kit.ps1` iki manifesti, tam dosya
+ağacını, gömülü bundle/API kanıtını ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kurulum için
+[doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
+`licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
+bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.
+
 Yükseltmede AutoCAD'i kapatın; önce `scripts/uninstall-bundle.ps1 -WhatIf` ile tam hedefi görün.
 Kurucu bundle'ı önce yüklenmeyen benzersiz bir staging klasörüne kopyalar, kaynak/hedef hash'lerini
 eşleştirir ve ancak sonra atomik olarak `CadPlotMcp.bundle` adına taşır; mevcut kurulumu ezmez.

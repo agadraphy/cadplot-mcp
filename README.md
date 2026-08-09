@@ -221,6 +221,14 @@ ZIP, and `bundle-build.json`. That manifest binds the exact commit, package vers
 assembly identities/hashes, verified bundle file hashes, and archive hash while retaining
 `autocad_launched=false` and `live_publish_proven=false`. `verify-bundle-release.ps1` independently
 checks the directory, manifest, ZIP entry set, and every inner file hash without extracting it.
+After the clean matching-SDK bundle and a readiness report exist for the same commit,
+`scripts/build-release-kit.ps1` creates a no-overwrite transfer root containing that full bundle
+release, the readiness-bound Python wheel, lock data, a `git archive` source snapshot, safe install
+scripts, the inventory-only config, and operator runbooks. `verify-release-kit.ps1` checks both
+manifests, the exact tree, embedded bundle/API evidence, and every outer ZIP entry without
+extracting it. See [verified release-kit installation](docs/release-kit-install.md). The kit keeps
+`licensed_live_pilot_ready=false`, `public_release_ready=false`, and `live_publish_proven=false`;
+only separately retained licensed 2016/2025 pilot evidence can change those claims.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.

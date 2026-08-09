@@ -128,6 +128,12 @@ try {
         -PassThru `
         -AllowProtocolOnlyFixture
 
+    $releaseKitSmoke = & (Join-Path $PSScriptRoot "smoke-release-kit.ps1") `
+        -BundleReleaseRoot $fixtureRelease | ConvertFrom-Json
+    if ($releaseKitSmoke.passed -ne $true) {
+        throw "Protocol-only combined release-kit smoke failed."
+    }
+
     $archiveBytes = [System.IO.File]::ReadAllBytes($fixtureArchive)
     $archiveBytes[0] = $archiveBytes[0] -bxor 1
     [System.IO.File]::WriteAllBytes($fixtureArchive, $archiveBytes)
@@ -196,6 +202,9 @@ try {
         protocol_only_rejected_as_real = $protocolOnlyRejected
         bundle_release_verified = $true
         bundle_release_archive_tamper_blocked = $archiveTamperBlocked
+        release_kit_verified = $releaseKitSmoke.exact_tree_and_hashes_verified
+        release_kit_protocol_only_rejected_as_real = $releaseKitSmoke.protocol_only_rejected_as_real
+        release_kit_archive_tamper_blocked = $releaseKitSmoke.archive_tamper_blocked
         what_if_install_mutated = $false
         copied_hashes_verified = $true
         existing_install_blocked = $overwriteBlocked

@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Commit-bound combined release-kit builder/verifier for the matching-SDK AutoCAD bundle,
+  readiness-bound Python wheel, locked project metadata, source archive, safe install scripts, and
+  pilot documentation. Both directory and ZIP contents are exact/hash verified while all live and
+  public-readiness claims remain false.
 - Initial safety-first AutoCAD drawing inspection and plot-planning MCP server.
 - Copy-only and dry-run-oriented workflow safeguards.
 - AutoCAD 2016 (`net45`) and AutoCAD 2025–2026 (`net8.0-windows`) adapter scaffolds.

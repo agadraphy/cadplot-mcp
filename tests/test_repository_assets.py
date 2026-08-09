@@ -282,6 +282,88 @@ def test_bundle_build_is_commit_bound_no_overwrite_and_release_verified() -> Non
     assert "Start-Process" not in release_verifier
 
 
+def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
+    builder = (REPOSITORY_ROOT / "scripts" / "build-release-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+    verifier = (REPOSITORY_ROOT / "scripts" / "verify-release-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "verify-bundle-release.ps1",
+        "ReadinessReport",
+        "Release-kit build requires a clean worktree",
+        "matching-SDK artifact for the current commit",
+        "Wheel hash no longer matches",
+        "Python wheel and AutoCAD bundle versions do not match",
+        "git archive",
+        "uv.lock",
+        "release-kit.json",
+        "release-kit-build.json",
+        "build never overwrites",
+        "[System.IO.FileMode]::CreateNew",
+        "matching_sdk_bundle_built = $true",
+        "licensed_live_pilot_ready = $false",
+        "public_release_ready = $false",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+        "verify-release-kit.ps1",
+    ):
+        assert required in builder
+    assert "Remove-Item" not in builder
+    assert "Start-Process" not in builder
+
+    for required in (
+        "$expectedTopLevel",
+        "$expectedDirectories",
+        "$fixedFiles",
+        "verify-bundle-release.ps1",
+        "Release-kit file hash mismatch",
+        "kit_manifest_sha256",
+        "kit_archive_sha256",
+        "ZipFile]::OpenRead",
+        "archive entry hash mismatch",
+        "MatchingSdkBundleBuilt = $manifest.matching_sdk_bundle_built -eq $true",
+        "LivePublishProven = $false",
+    ):
+        assert required in verifier
+    assert "Expand-Archive" not in verifier
+    assert "Start-Process" not in verifier
+
+
+def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> None:
+    guide = (REPOSITORY_ROOT / "docs" / "release-kit-install.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "verify-release-kit.ps1" in guide
+    assert "install-bundle.ps1" in guide
+    assert "uv tool install" in guide
+    assert "CADPLOT_ENABLE_PUBLISH" in guide
+    assert "company DWG, PC3, PMP, CTB/STB, DWT" in guide
+    assert "does not mean AutoCAD was launched" in guide
+
+
+def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> None:
+    script = (REPOSITORY_ROOT / "scripts" / "smoke-release-kit.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "protocol_only_fixture = $true",
+        "matching_sdk_bundle_built = $false",
+        "protocol_only_rejected_as_real",
+        "exact_tree_and_hashes_verified",
+        "archive_tamper_blocked",
+        "AllowProtocolOnlyFixture",
+        "autocad_launched = $false",
+        "live_publish_proven = $false",
+    ):
+        assert required in script
+    assert "Start-Process" not in script
+
+
 def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "uninstall-bundle.ps1").read_text(encoding="utf-8")
 
