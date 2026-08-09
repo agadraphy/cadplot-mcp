@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- No-overwrite local installation receipts binding release/Python manifests, exact bundle hashes,
+  component paths, and false live/publish claims; bundle mutations now require `acad.exe` to be closed.
 - Resumable single-command release-kit installer that revalidates the whole transfer, rejects
   overlapping paths, reuses only exact verified components, and exposes the AutoCAD bundle last.
 - Long-path-safe exact quarantine deletion for verified Python and AutoCAD bundle removals on

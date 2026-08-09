@@ -42,6 +42,11 @@ stopped, rerun it: an existing component is reused only after exact release hash
 pilot-structure verification; a conflicting component fails closed. Required tools and every child
 installer's discoverable checks run before the first mutation. The separate steps below remain
 available for review, upgrades, and recovery.
+It also writes a no-overwrite, exact commit/hash-bound local receipt under
+`C:\CadPlotPilot\install-receipts`; a resume verifies and reuses that receipt instead of replacing it.
+The receipt's canonical payload digest covers every evidence field. It contains local installation
+paths and must stay with the workstation evidence, not in the public repository. All bundle mutation
+commands fail before changes while any `acad.exe` is running.
 
 ## 2. Install the AutoCAD bundle
 

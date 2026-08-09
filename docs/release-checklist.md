@@ -57,6 +57,8 @@ Use this checklist for every alpha release.
       and every outer ZIP entry without extraction; its live/public readiness flags remained false.
 - [ ] `install-release-kit.ps1 -WhatIf` previewed three non-overlapping destinations; the real run
       created/reused pilot then Python and made the exact verified AutoCAD bundle visible last.
+- [ ] AutoCAD was closed and bundle mutation guards observed no `acad.exe`; the no-overwrite local
+      install receipt matched release manifest, Python manifest, bundle hashes, paths, and false live flags.
 - [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
       mandatory hashes, staged without overwrite, atomically renamed, and
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.

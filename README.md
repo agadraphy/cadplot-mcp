@@ -273,6 +273,8 @@ only separately retained licensed 2016/2025 pilot evidence can change those clai
 Its `install-release-kit.ps1` provides a single `-WhatIf`-capable, resumable first-install command:
 it reuses only verified matching components, prepares pilot/Python first, and exposes the bundle last
 without launching AutoCAD, changing global PATH, or enabling publish.
+Bundle mutations refuse to run while `acad.exe` is active. A successful orchestrated install retains
+a no-overwrite local receipt binding the release manifest, Python manifest, bundle hashes, and paths.
 The kit's `install-python.ps1` first revalidates the whole transfer, installs exact frozen/hash-
 required dependencies plus the wheel into a unique staging venv, and atomically names a version/
 commit target without changing global PATH. `verify-python-install.ps1` rechecks its retained wheel,

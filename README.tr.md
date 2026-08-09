@@ -230,6 +230,8 @@ bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebi
 Kitteki `install-release-kit.ps1`, `-WhatIf` destekli ve kaldığı yerden devam edebilen tek-komut ilk
 kurulum sağlar: yalnız doğrulanan eş bileşenleri yeniden kullanır, pilot/Python'u önce hazırlar ve
 bundle'ı en son görünür yapar; AutoCAD'i açmaz, global PATH'i veya publish bayrağını değiştirmez.
+`acad.exe` çalışırken bundle mutasyonu reddedilir. Başarılı orkestrasyon; release/Python manifestleri,
+bundle hashleri ve yerel yolları bağlayan, üstüne yazılmayan bir kurulum makbuzu bırakır.
 Kitteki `install-python.ps1`, tüm transferi yeniden doğrular; frozen lock bağımlılıklarını zorunlu
 hashlerle ve wheel'i `--no-deps` ile benzersiz staging venv'e kurup sürüm/commit hedefini atomik
 adlandırır. Global PATH'i değiştirmez ve mevcut kurulumu ezmez. `verify-python-install.ps1` wheel,

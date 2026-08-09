@@ -54,6 +54,119 @@ function Assert-NotVolumeRoot {
     }
 }
 
+function Assert-AutoCADClosed {
+    $running = @(Get-Process -Name "acad" -ErrorAction SilentlyContinue)
+    if ($running.Count -gt 0) {
+        throw "Close every AutoCAD process (acad.exe) before installing the CadPlot release kit."
+    }
+}
+
+function Write-NewUtf8Json {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Value
+    )
+
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes(
+        ($Value | ConvertTo-Json -Depth 8)
+    )
+    $stream = [System.IO.File]::Open(
+        $Path,
+        [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::Write,
+        [System.IO.FileShare]::Read
+    )
+    try { $stream.Write($bytes, 0, $bytes.Length) }
+    finally { $stream.Dispose() }
+}
+
+function Get-JsonSha256 {
+    param([Parameter(Mandatory = $true)]$Value)
+
+    $json = $Value | ConvertTo-Json -Compress -Depth 8
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($json)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return [BitConverter]::ToString(
+            $algorithm.ComputeHash($bytes)
+        ).Replace('-', '').ToLowerInvariant()
+    }
+    finally { $algorithm.Dispose() }
+}
+
+function Assert-InstallReceipt {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Expected
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "CadPlot install receipt does not exist: $Path"
+    }
+    $item = Get-Item -LiteralPath $Path -Force
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "CadPlot install receipt must not be redirected."
+    }
+    if ($item.Length -gt 1MB) { throw "CadPlot install receipt exceeds 1 MiB." }
+    try { $receipt = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json }
+    catch { throw "CadPlot install receipt is not valid UTF-8 JSON." }
+
+    $shaPattern = '^[0-9a-f]{64}$'
+    if (
+        $receipt.schema_version -ne 2 -or
+        $receipt.receipt_kind -cne "cadplot_release_install" -or
+        [string]$receipt.payload_sha256 -notmatch $shaPattern -or
+        $null -eq $receipt.payload
+    ) {
+        throw "CadPlot install receipt identity or safety evidence is invalid."
+    }
+    $actualPayloadHash = Get-JsonSha256 -Value $receipt.payload
+    if ($actualPayloadHash -cne $receipt.payload_sha256) {
+        throw "CadPlot install receipt payload digest is invalid."
+    }
+    $payload = $receipt.payload
+    $installedUtc = [DateTime]::MinValue
+    if (
+        $payload.exact_commit -cne $Expected.ExactCommit -or
+        $payload.package_version -cne $Expected.PackageVersion -or
+        -not [DateTime]::TryParse([string]$payload.installed_utc, [ref]$installedUtc) -or
+        $payload.release_kit_manifest_sha256 -cne $Expected.ReleaseKitManifestSha256 -or
+        $payload.bundle.path -cne $Expected.BundlePath -or
+        $payload.python.path -cne $Expected.PythonPath -or
+        $payload.python.manifest_sha256 -cne $Expected.PythonManifestSha256 -or
+        $payload.python.distribution_count -ne $Expected.DistributionCount -or
+        $payload.pilot.root -cne $Expected.PilotRoot -or
+        $payload.pilot.config -cne $Expected.Config -or
+        [string]$payload.pilot.config_sha256_at_install -notmatch $shaPattern -or
+        $payload.pilot.authorized_input -cne $Expected.AuthorizedInput -or
+        $payload.pilot.isolated_workspace -cne $Expected.IsolatedWorkspace -or
+        [string]$payload.actions.pilot -notin @("create", "reuse_verified_structure") -or
+        [string]$payload.actions.python -notin @("install", "reuse_verified") -or
+        [string]$payload.actions.bundle -notin @("install", "reuse_verified") -or
+        $payload.autocad_running_at_install -ne $false -or
+        $payload.autocad_launched -ne $false -or
+        $payload.publish_enabled -ne $false -or
+        $payload.live_publish_proven -ne $false -or
+        $payload.company_assets_copied -ne $false
+    ) {
+        throw "CadPlot install receipt identity or safety evidence is invalid."
+    }
+    $receiptFiles = @($payload.bundle.files)
+    if ($receiptFiles.Count -ne @($Expected.BundleFiles).Count) {
+        throw "CadPlot install receipt bundle file count is invalid."
+    }
+    foreach ($expectedFile in @($Expected.BundleFiles)) {
+        $matches = @($receiptFiles | Where-Object { $_.path -ceq $expectedFile.path })
+        if ($matches.Count -ne 1 -or $matches[0].sha256 -cne $expectedFile.sha256) {
+            throw "CadPlot install receipt bundle hash evidence is invalid: $($expectedFile.path)"
+        }
+    }
+    if (@($receiptFiles | Group-Object -Property path | Where-Object Count -ne 1).Count -ne 0) {
+        throw "CadPlot install receipt contains duplicate bundle hash evidence."
+    }
+    return $receipt
+}
+
 function Assert-NoRedirectedPath {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -159,6 +272,10 @@ $pythonTargetName = "{0}-{1}" -f (
 ),$releaseEvidence.ExactCommit.Substring(0, 7)
 $pythonTarget = Join-Path $resolvedPythonDestination $pythonTargetName
 $bundleSource = Join-Path $kitRoot "autocad\CadPlotMcp.bundle"
+$receiptDirectory = Join-Path $resolvedPilot "install-receipts"
+$receiptPath = Join-Path $receiptDirectory (
+    "cadplot-install-{0}.json" -f $releaseEvidence.ExactCommit
+)
 
 $paths = @(
     [pscustomobject]@{ Name = "release kit"; Path = $resolvedRelease },
@@ -174,6 +291,7 @@ for ($left = 0; $left -lt $paths.Count; $left++) {
     }
 }
 foreach ($path in $paths) { Assert-NoRedirectedPath -Path $path.Path }
+Assert-AutoCADClosed
 
 $bundleVerifier = Join-Path $kitRoot "scripts\verify-bundle.ps1"
 $sourceBundleEvidence = & $bundleVerifier -BundlePath $bundleSource -PassThru
@@ -245,6 +363,7 @@ $preview = [pscustomobject]@{
     PythonTarget = $pythonTarget
     BundleAction = $bundleAction
     BundleTarget = $bundleTarget
+    InstallReceipt = $receiptPath
     AutoCADLaunched = $false
     PublishEnabled = $false
     LivePublishProven = $false
@@ -295,6 +414,86 @@ if ($bundleAction -eq "install") {
 $installedBundleEvidence = & $bundleVerifier -BundlePath $bundleTarget -PassThru
 Assert-MatchingBundleHashes -Expected $sourceBundleEvidence -Actual $installedBundleEvidence
 
+$bundleFiles = @($installedBundleEvidence.Hashes | Sort-Object Path | ForEach-Object {
+    [ordered]@{ path = $_.Path; sha256 = $_.Sha256 }
+})
+$releaseManifestHash = (
+    Get-FileHash -LiteralPath (Join-Path $kitRoot "release-kit.json") -Algorithm SHA256
+).Hash.ToLowerInvariant()
+$pythonManifestHash = (
+    Get-FileHash -LiteralPath (Join-Path $pythonTarget "python-install.json") -Algorithm SHA256
+).Hash.ToLowerInvariant()
+$receiptExpected = [pscustomobject]@{
+    ExactCommit = $releaseEvidence.ExactCommit
+    PackageVersion = $releaseEvidence.PackageVersion
+    ReleaseKitManifestSha256 = $releaseManifestHash
+    BundlePath = $bundleTarget
+    BundleFiles = $bundleFiles
+    PythonPath = $pythonTarget
+    PythonManifestSha256 = $pythonManifestHash
+    PilotRoot = $pilotEvidence.Root
+    Config = $pilotEvidence.Config
+    AuthorizedInput = $pilotEvidence.AuthorizedInput
+    IsolatedWorkspace = $pilotEvidence.IsolatedWorkspace
+    DistributionCount = $installedPythonEvidence.DistributionCount
+}
+
+if (Test-Path -LiteralPath $receiptPath) {
+    $null = Assert-InstallReceipt -Path $receiptPath -Expected $receiptExpected
+}
+else {
+    if (-not (Test-Path -LiteralPath $receiptDirectory)) {
+        $null = New-Item -ItemType Directory -Path $receiptDirectory
+    }
+    $receiptDirectoryItem = Get-Item -LiteralPath $receiptDirectory -Force
+    if (
+        -not $receiptDirectoryItem.PSIsContainer -or
+        ($receiptDirectoryItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    ) {
+        throw "CadPlot install receipt directory must be a regular local directory."
+    }
+    $configHash = (
+        Get-FileHash -LiteralPath $pilotEvidence.Config -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $receiptPayload = [ordered]@{
+        exact_commit = $releaseEvidence.ExactCommit
+        package_version = $releaseEvidence.PackageVersion
+        installed_utc = [DateTime]::UtcNow.ToString("o")
+        release_kit_manifest_sha256 = $releaseManifestHash
+        bundle = [ordered]@{ path = $bundleTarget; files = $bundleFiles }
+        python = [ordered]@{
+            path = $pythonTarget
+            manifest_sha256 = $pythonManifestHash
+            distribution_count = $installedPythonEvidence.DistributionCount
+        }
+        pilot = [ordered]@{
+            root = $pilotEvidence.Root
+            config = $pilotEvidence.Config
+            config_sha256_at_install = $configHash
+            authorized_input = $pilotEvidence.AuthorizedInput
+            isolated_workspace = $pilotEvidence.IsolatedWorkspace
+        }
+        actions = [ordered]@{
+            pilot = $pilotAction
+            python = $pythonAction
+            bundle = $bundleAction
+        }
+        autocad_running_at_install = $false
+        autocad_launched = $false
+        publish_enabled = $false
+        live_publish_proven = $false
+        company_assets_copied = $false
+    }
+    Write-NewUtf8Json -Path $receiptPath -Value ([ordered]@{
+        schema_version = 2
+        receipt_kind = "cadplot_release_install"
+        payload_sha256 = Get-JsonSha256 -Value $receiptPayload
+        payload = $receiptPayload
+    })
+    $null = Assert-InstallReceipt -Path $receiptPath -Expected $receiptExpected
+}
+$receiptHash = (Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+
 $result = [pscustomobject]@{
     Installed = $true
     WhatIf = $false
@@ -311,6 +510,8 @@ $result = [pscustomobject]@{
     CommandRoot = (Join-Path $pythonTarget "bin")
     BundleAction = $bundleAction
     BundleTarget = $bundleTarget
+    InstallReceipt = $receiptPath
+    InstallReceiptSha256 = $receiptHash
     AutoCADLaunched = $false
     PublishEnabled = $false
     LivePublishProven = $false

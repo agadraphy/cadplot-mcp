@@ -602,6 +602,7 @@ def test_synthetic_batch_runner_is_bounded_and_never_overwrites_evidence() -> No
 
 def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     script = (REPOSITORY_ROOT / "scripts" / "uninstall-bundle.ps1").read_text(encoding="utf-8")
+    installer = (REPOSITORY_ROOT / "scripts" / "install-bundle.ps1").read_text(encoding="utf-8")
 
     assert "SupportsShouldProcess = $true" in script
     assert "C2E79B66-6076-40D4-AE45-E725A644B288" in script
@@ -614,6 +615,10 @@ def test_uninstaller_is_identity_gated_and_supports_what_if() -> None:
     assert "^\\.cadplot-bundle-removing-[0-9a-f]{32}$" in script
     assert "[System.IO.Directory]::Delete($deletePath, $true)" in script
     assert "Remove-Item -LiteralPath $destinationBundle -Recurse" not in script
+    for bundle_mutator in (installer, script):
+        assert 'Get-Process -Name "acad"' in bundle_mutator
+        assert "Close every AutoCAD process" in bundle_mutator
+        assert "Stop-Process" not in bundle_mutator
 
 
 def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> None:
@@ -632,10 +637,12 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
         "release_kit_self_verification_passed",
         "copied_hashes_verified = $true",
+        "bundle_install_autocad_process_blocked = $installProcessGuardBlocked",
         "existing_install_blocked = $overwriteBlocked",
         "unexpected_file_uninstall_blocked = $unexpectedFileBlocked",
         "bundle_uninstall_what_if_safe = $true",
         "bundle_uninstall_drive_root_blocked = $driveRootBlocked",
+        "bundle_uninstall_autocad_process_blocked = $uninstallProcessGuardBlocked",
         "bundle_uninstall_quarantine_removed = $true",
         "autocad_launched = $false",
         "live_publish_proven = $false",
@@ -756,6 +763,14 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "AutoCADLaunched = $false",
         "PublishEnabled = $false",
         "LivePublishProven = $false",
+        'Get-Process -Name "acad"',
+        "Assert-InstallReceipt",
+        "[System.IO.FileMode]::CreateNew",
+        "install-receipts",
+        "release_kit_manifest_sha256",
+        "payload_sha256",
+        "Get-JsonSha256",
+        "autocad_running_at_install = $false",
     ):
         assert required in release_installer
     for field in (
@@ -771,6 +786,8 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "release_install_completed",
         "release_install_resume_verified",
         "release_install_bundle_last",
+        "release_install_receipt_verified",
+        "release_install_receipt_tamper_blocked",
     ):
         assert field in bundle_smoke
 

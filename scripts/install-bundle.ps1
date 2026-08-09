@@ -40,6 +40,13 @@ function Assert-NoRedirectedAncestor {
     }
 }
 
+function Assert-AutoCADClosed {
+    $running = @(Get-Process -Name "acad" -ErrorAction SilentlyContinue)
+    if ($running.Count -gt 0) {
+        throw "Close every AutoCAD process (acad.exe) before installing the CadPlot bundle."
+    }
+}
+
 function Assert-SameBundleHashes {
     param(
         [Parameter(Mandatory = $true)]$Expected,
@@ -69,6 +76,7 @@ if (Test-Path -LiteralPath $destinationBundle) {
 }
 Assert-NoRedirectedAncestor -Path $resolvedSource
 Assert-NoRedirectedAncestor -Path $resolvedDestinationRoot
+Assert-AutoCADClosed
 
 if ($PSCmdlet.ShouldProcess($destinationBundle, "Install CadPlot MCP bundle")) {
     New-Item -ItemType Directory -Path $resolvedDestinationRoot -Force | Out-Null

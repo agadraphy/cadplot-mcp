@@ -419,6 +419,26 @@ try {
     ) {
         throw "Single-command release installation did not complete safely."
     }
+    if (-not (Test-Path -LiteralPath $orchestratedInstall.InstallReceipt -PathType Leaf)) {
+        throw "Single-command release installation did not retain its local receipt."
+    }
+    $installReceiptBytes = [System.IO.File]::ReadAllBytes($orchestratedInstall.InstallReceipt)
+    $installReceiptHash = (
+        Get-FileHash -LiteralPath $orchestratedInstall.InstallReceipt -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $installReceipt = Get-Content -LiteralPath $orchestratedInstall.InstallReceipt -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+    if (
+        $orchestratedInstall.InstallReceiptSha256 -cne $installReceiptHash -or
+        $installReceipt.payload.exact_commit -cne $orchestratedInstall.ExactCommit -or
+        [string]$installReceipt.payload_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $installReceipt.payload.autocad_running_at_install -ne $false -or
+        $installReceipt.payload.autocad_launched -ne $false -or
+        $installReceipt.payload.publish_enabled -ne $false -or
+        $installReceipt.payload.live_publish_proven -ne $false
+    ) {
+        throw "Release installation receipt identity or safety evidence is invalid."
+    }
     $orchestratedResume = & $releaseInstaller `
         -ReleaseRoot $resolvedSmokeRoot `
         -PilotRoot $orchestratedPilotRoot `
@@ -434,6 +454,53 @@ try {
     ) {
         throw "Release installer did not safely resume exact existing components."
     }
+    $resumeReceiptHash = (
+        Get-FileHash -LiteralPath $orchestratedResume.InstallReceipt -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    if (
+        $orchestratedResume.InstallReceipt -cne $orchestratedInstall.InstallReceipt -or
+        $orchestratedResume.InstallReceiptSha256 -cne $installReceiptHash -or
+        $resumeReceiptHash -cne $installReceiptHash
+    ) {
+        throw "Release installer overwrote or changed the exact existing install receipt."
+    }
+    $tamperedReceipt = Get-Content -LiteralPath $orchestratedInstall.InstallReceipt -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+    $tamperedReceipt.payload.live_publish_proven = $true
+    Write-SmokeJson -Path $orchestratedInstall.InstallReceipt -Value $tamperedReceipt
+    $writtenTamperedReceipt = Get-Content -LiteralPath $orchestratedInstall.InstallReceipt `
+        -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($writtenTamperedReceipt.payload.live_publish_proven -ne $true) {
+        throw "Release installer smoke did not write its intended receipt tamper fixture."
+    }
+    $tamperedReceiptHash = (
+        Get-FileHash -LiteralPath $orchestratedInstall.InstallReceipt -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $receiptTamperBlocked = $false
+    try {
+        & $releaseInstaller `
+            -ReleaseRoot $resolvedSmokeRoot `
+            -PilotRoot $orchestratedPilotRoot `
+            -PythonDestinationRoot $orchestratedPythonRoot `
+            -BundleDestinationRoot $orchestratedBundleRoot `
+            -AllowProtocolOnlyFixture `
+            -Confirm:$false `
+            -PassThru | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*receipt payload digest is invalid*") { throw }
+        $receiptTamperBlocked = $true
+    }
+    $receiptHashAfterRejection = (
+        Get-FileHash -LiteralPath $orchestratedInstall.InstallReceipt -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    if (-not $receiptTamperBlocked -or $receiptHashAfterRejection -cne $tamperedReceiptHash) {
+        throw (
+            "Release installer accepted or overwrote a modified local install receipt. " +
+            "blocked=$receiptTamperBlocked before=$tamperedReceiptHash after=$receiptHashAfterRejection"
+        )
+    }
+    [System.IO.File]::WriteAllBytes($orchestratedInstall.InstallReceipt, $installReceiptBytes)
     $orchestratedBundleUninstall = & (Join-Path $kitRoot "scripts\uninstall-bundle.ps1") `
         -DestinationRoot $orchestratedBundleRoot `
         -Confirm:$false `
@@ -496,6 +563,8 @@ try {
         release_install_completed = $true
         release_install_resume_verified = $true
         release_install_bundle_last = $true
+        release_install_receipt_verified = $true
+        release_install_receipt_tamper_blocked = $receiptTamperBlocked
         matching_sdk_bundle_built = $false
         autocad_launched = $false
         live_publish_proven = $false

@@ -24,6 +24,13 @@ function Assert-NoRedirectedPath {
     }
 }
 
+function Assert-AutoCADClosed {
+    $running = @(Get-Process -Name "acad" -ErrorAction SilentlyContinue)
+    if ($running.Count -gt 0) {
+        throw "Close every AutoCAD process (acad.exe) before removing the CadPlot bundle."
+    }
+}
+
 function Get-ExtendedLengthPath {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -85,6 +92,7 @@ if (-not (Test-Path -LiteralPath $destinationBundle -PathType Container)) {
 }
 
 Assert-NoRedirectedPath -Path $destinationBundle
+Assert-AutoCADClosed
 Assert-CadPlotBundleIdentity -BundlePath $destinationBundle
 $verifier = Join-Path $PSScriptRoot "verify-bundle.ps1"
 $verification = & $verifier -BundlePath $destinationBundle -PassThru

@@ -145,7 +145,9 @@ try {
         $releaseKitSmoke.release_install_overlap_blocked -ne $true -or
         $releaseKitSmoke.release_install_completed -ne $true -or
         $releaseKitSmoke.release_install_resume_verified -ne $true -or
-        $releaseKitSmoke.release_install_bundle_last -ne $true
+        $releaseKitSmoke.release_install_bundle_last -ne $true -or
+        $releaseKitSmoke.release_install_receipt_verified -ne $true -or
+        $releaseKitSmoke.release_install_receipt_tamper_blocked -ne $true
     ) {
         throw "Protocol-only combined release-kit smoke failed."
     }
@@ -168,12 +170,48 @@ try {
         throw "Release verifier accepted a modified bundle archive."
     }
 
+    $installProcessGuardBlocked = $false
+    function Get-Process {
+        [CmdletBinding()]
+        param([string]$Name)
+        [pscustomobject]@{ ProcessName = $Name; Id = 4242 }
+    }
+    try {
+        & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -WhatIf
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*Close every AutoCAD process*") { throw }
+        $installProcessGuardBlocked = $true
+    }
+    finally { Remove-Item Function:\Get-Process -Force }
+    if (-not $installProcessGuardBlocked -or (Test-Path -LiteralPath $installedBundle)) {
+        throw "Bundle installer did not fail closed for a simulated running acad.exe."
+    }
+
     & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -WhatIf
     if (Test-Path -LiteralPath $installedBundle) {
         throw "Install -WhatIf created a destination bundle."
     }
     & $installer -SourceBundle $fixtureBundle -DestinationRoot $destinationRoot -Confirm:$false
     $null = & $verifier -BundlePath $installedBundle -PassThru
+
+    $uninstallProcessGuardBlocked = $false
+    function Get-Process {
+        [CmdletBinding()]
+        param([string]$Name)
+        [pscustomobject]@{ ProcessName = $Name; Id = 4242 }
+    }
+    try {
+        & $uninstaller -DestinationRoot $destinationRoot -WhatIf
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*Close every AutoCAD process*") { throw }
+        $uninstallProcessGuardBlocked = $true
+    }
+    finally { Remove-Item Function:\Get-Process -Force }
+    if (-not $uninstallProcessGuardBlocked -or -not (Test-Path -LiteralPath $installedBundle)) {
+        throw "Bundle uninstaller did not preserve the bundle for a simulated running acad.exe."
+    }
 
     $overwriteBlocked = $false
     try {
@@ -274,13 +312,17 @@ try {
         release_install_completed = $releaseKitSmoke.release_install_completed
         release_install_resume_verified = $releaseKitSmoke.release_install_resume_verified
         release_install_bundle_last = $releaseKitSmoke.release_install_bundle_last
+        release_install_receipt_verified = $releaseKitSmoke.release_install_receipt_verified
+        release_install_receipt_tamper_blocked = $releaseKitSmoke.release_install_receipt_tamper_blocked
         what_if_install_mutated = $false
         copied_hashes_verified = $true
+        bundle_install_autocad_process_blocked = $installProcessGuardBlocked
         existing_install_blocked = $overwriteBlocked
         what_if_uninstall_mutated = $false
         unexpected_file_uninstall_blocked = $unexpectedFileBlocked
         bundle_uninstall_what_if_safe = $true
         bundle_uninstall_drive_root_blocked = $driveRootBlocked
+        bundle_uninstall_autocad_process_blocked = $uninstallProcessGuardBlocked
         bundle_uninstall_quarantine_removed = $true
         uninstall_verified = $true
         autocad_launched = $false
