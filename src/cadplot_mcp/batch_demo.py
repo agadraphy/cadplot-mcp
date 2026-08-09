@@ -124,6 +124,7 @@ def run_synthetic_batch_demo(
                             "ok": False,
                             "error": "queue_full",
                             "queueCapacity": queue_capacity,
+                            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
                             "queuePending": queue_capacity,
                             "queueRunning": 0,
                             "queueAvailable": 0,
@@ -138,6 +139,7 @@ def run_synthetic_batch_demo(
                     "plugin": {
                         "ok": True,
                         "queueCapacity": queue_capacity,
+                        "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
                         "queuePending": accepted_in_window,
                         "queueRunning": 0,
                         "queueAvailable": queue_capacity - accepted_in_window,
@@ -180,6 +182,7 @@ def run_synthetic_batch_demo(
                 "ok": True,
                 "publishEnabled": True,
                 "queueCapacity": 20,
+                "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
                 "queuePending": 0,
                 "queueRunning": 0,
                 "queueAvailable": 20,

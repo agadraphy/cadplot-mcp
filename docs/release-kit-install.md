@@ -195,3 +195,15 @@ pilot evidence to this exact transferred kit without exposing company-run detail
 Successful kit verification means the two installers and their source are cryptographically bound
 to one commit. It does not mean AutoCAD was launched or PDF publishing was proven. Record AutoCAD
 2016 and 2025 live evidence separately before any production-ready claim.
+
+## Queue authentication state
+
+The first publish-enabled AutoCAD start creates a random queue-authentication key under the current
+Windows user's local `CadPlotMcp\state` directory. Its bytes are protected with Windows DPAPI and
+are never stored in the pilot workspace, release kit, installer receipt, logs, or public evidence.
+Do not copy this file to another user/machine and do not replace it to revive old pending jobs.
+
+The release uninstaller deliberately preserves this state: deleting it automatically could turn an
+otherwise inspectable interrupted workspace into unrecoverable ambiguity. If CadPlot is permanently
+retired, first archive/review all workspaces and terminal receipts; key-state removal is a separate
+authorized local security action, not part of normal bundle/Python uninstall.

@@ -192,16 +192,25 @@ try {
         -PassThru
     if (
         $durableQueueEvidence.passed -ne $true -or
-        $durableQueueEvidence.exact_test_count -ne 5 -or
+        $durableQueueEvidence.exact_test_count -ne 11 -or
         $durableQueueEvidence.pending_intent_recovered -ne $true -or
         $durableQueueEvidence.exact_request_identity_preserved -ne $true -or
         $durableQueueEvidence.interrupted_job_not_replayed -ne $true -or
         $durableQueueEvidence.terminal_receipt_status_recovered -ne $true -or
         $durableQueueEvidence.tampered_intent_blocked -ne $true -or
         $durableQueueEvidence.completed_job_requeue_blocked -ne $true -or
+        $durableQueueEvidence.authentication_scheme -cne "windows-dpapi-current-user+hmac-sha256-v1" -or
+        $durableQueueEvidence.signed_intent_required -ne $true -or
+        $durableQueueEvidence.foreign_key_intent_blocked -ne $true -or
+        $durableQueueEvidence.started_marker_authentication_required -ne $true -or
+        $durableQueueEvidence.protected_key_outside_workspace -ne $true -or
+        $durableQueueEvidence.workspace_key_rejected -ne $true -or
+        $durableQueueEvidence.corrupt_key_blocked -ne $true -or
+        $durableQueueEvidence.net45_dpapi_runtime_proven -ne $true -or
+        $durableQueueEvidence.net45_core_image_runtime -cne "v4.0.30319" -or
         $durableQueueEvidence.autocad_launched -ne $false -or
         $durableQueueEvidence.live_publish_proven -ne $false -or
-        $durableQueueEvidence.evidence_scope -cne "production-core-with-synthetic-files"
+        $durableQueueEvidence.evidence_scope -cne "production-core-net45+net8-with-synthetic-files"
     ) {
         throw "Durable queue probe crossed a required restart or safety boundary."
     }

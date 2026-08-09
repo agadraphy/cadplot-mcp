@@ -43,6 +43,7 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
         "build_commit": "1" * 40,
         "plugin_sha256": plugin_sha256,
         "runtime_series": series,
+        "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
         "licensed": True,
         "authorized_test_asset": True,
         "plan_id": "sha256:" + digit * 64,

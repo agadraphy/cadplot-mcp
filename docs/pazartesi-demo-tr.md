@@ -16,9 +16,14 @@ SHA-256 hash'ini rapora bağlar. AutoCAD'i açmaz ve canlı plot kanıtı üretm
 `dependency_audit.passed=true`, Python/.NET açık sayılarının `0` ve
 `python_license_inventory.unknown_count=0` olduğunu da kontrol edin. Bu tarama ağdaki güncel
 veritabanlarının o andaki sonucudur; AutoCAD veya canlı yayın kanıtı değildir.
-`durable_queue_recovery.passed=true` ve beş exact senaryonun geçtiğini de gösterin: başlamamış onay
+`durable_queue_recovery.passed=true` ve on bir exact senaryonun geçtiğini de gösterin: başlamamış onay
 aynı kimlikle geri yüklenir, receipt'siz yarıda kesilen iş otomatik replay edilmez, terminal receipt
-durumu geri gelir, bozulmuş intent reddedilir ve tamamlanmış iş yeniden kuyruğa alınmaz.
+durumu geri gelir, bozulmuş/unsigned/başka anahtarla imzalanmış intent reddedilir, DPAPI anahtarı
+workspace dışında kalır ve tamamlanmış iş yeniden kuyruğa alınmaz. `authentication_scheme` değeri
+`windows-dpapi-current-user+hmac-sha256-v1` olmalıdır.
+`net45_dpapi_runtime_proven=true` ve `net45_core_image_runtime=v4.0.30319`, aynı anahtar yolunun
+AutoCAD 2016 hedefindeki gerçek .NET Framework core DLL'i içinde de çalıştığını gösterir; bu yine
+AutoCAD'in açıldığı veya plot yapıldığı anlamına gelmez.
 `-WriteReport`, aynı son JSON'u yeni ve üzerine yazılmayan bir geçici dosyada saklar; ekrandaki
 `report_path` değerini demo kaydı olarak koruyun.
 
@@ -94,7 +99,8 @@ taşınmaz.
     block kontrolünü sorumluya yaptırın.
 
 AutoCAD beklenmedik biçimde kapanırsa yeniden açıldığında `queueRecoveredOnStartup` ve
-`queueInterruptedOnStartup` değerlerini okuyun. Yalnız hiç başlamamış `Pending` intent devam eder;
+`queueInterruptedOnStartup` değerleriyle birlikte `queueAuthentication` alanını okuyun. Yalnız aynı
+Windows kullanıcısının DPAPI anahtarıyla doğrulanan, hiç başlamamış `Pending` intent devam eder;
 `job_interrupted` görülen işi aynı staged job üzerinde tekrar kuyruklamayın.
 
 ## Söylenecek net sınırlar

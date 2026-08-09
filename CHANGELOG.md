@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Windows-user-bound durable queue authentication: a no-overwrite DPAPI-protected 256-bit key
+  outside the workspace signs exact request and started records with deterministic HMAC-SHA256.
+  Unsigned, altered, foreign-key, or workspace-local key evidence fails closed; status and batch
+  telemetry expose/require the exact scheme. Eleven exact tests plus a built-net45 Windows Framework
+  DPAPI runtime probe are bound into release evidence.
 - Secret-free `cadplot-tunnel-preflight` administrator handoff for OpenAI Secure MCP Tunnel,
   including local config/command validation, STDIO-first and fixed-loopback command templates,
   redacted credential presence checks, and explicit external workspace/network/live-pilot gates.
@@ -17,7 +22,8 @@ All notable changes to this project are documented in this file.
 - Durable job-local queue intent for explicitly approved plan/manifest identities: never-started
   pending work is revalidated after restart, receipt-backed terminal status is restored, and an
   interrupted running job is held as `job_interrupted` instead of being replayed. Readiness,
-  demo-kit, and release-kit evidence bind five exact production-core recovery/tamper scenarios.
+  demo-kit, and release-kit evidence bind eleven exact production-core recovery/authentication/tamper
+  scenarios.
 - Flat, hash-verified Turkish Monday runbook and Secure MCP Tunnel handoff files in the portable
   local demo kit, so operators do not need to extract the commit-bound source archive first.
 - Live publish-queue capacity telemetry on status/queue/job responses plus batch response schema v2,

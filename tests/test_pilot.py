@@ -49,6 +49,7 @@ def _run(
         "build_commit": build_commit,
         "plugin_sha256": plugin_sha256 or (("6" if release == "2016" else "7") * 64),
         "runtime_series": "R20.1" if release == "2016" else "R25.0",
+        "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
         "licensed": True,
         "authorized_test_asset": True,
         "plan_id": "sha256:" + digit * 64,
@@ -95,7 +96,7 @@ def _evidence() -> dict:
     run_2016 = _run("2016", "3")
     run_2025 = _run("2025", "4")
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "repository_commit": "1" * 40,
         "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
@@ -235,6 +236,7 @@ def _status(release: str) -> dict:
         "publishEnabled": True,
         "runtimeSupported": True,
         "runtimeSeries": "R20.1" if release == "2016" else "R25.0",
+        "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
         "product": product,
         "adapter": adapter,
         "buildCommit": "1" * 40,
@@ -344,6 +346,7 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
     assert run["build_commit"] == "1" * 40
     assert run["plugin_sha256"] == "6" * 64
     assert run["runtime_series"] == "R20.1"
+    assert run["queue_authentication"] == "windows-dpapi-current-user+hmac-sha256-v1"
     assert run["visual_reference"]["sha256"] == hashlib.sha256(
         reference_pdf.read_bytes()
     ).hexdigest()
@@ -366,6 +369,26 @@ def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -
             authorized_test_asset=True,
             restart_receipt_verified=True,
             visual_checks={name: False for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
+        )
+
+
+def test_build_pilot_run_rejects_unsigned_queue_status(tmp_path: Path) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    status = _status("2016")
+    status.pop("queueAuthentication")
+
+    with pytest.raises(ValueError, match="authenticated durable queue intent"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=status,
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
         )
 
@@ -581,6 +604,10 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
         (
             lambda value: value["runs"][0].__setitem__("plugin_sha256", "9" * 64),
             "running plug-in binary mismatch",
+        ),
+        (
+            lambda value: value["runs"][1].__setitem__("queue_authentication", "unsigned"),
+            "queue authentication mismatch",
         ),
     ],
 )

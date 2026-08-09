@@ -62,7 +62,8 @@ namespace CadPlotMcp.AutoCAD
                     if (!(exception is ArgumentException)
                         && !(exception is IOException)
                         && !(exception is UnauthorizedAccessException)
-                        && !(exception is SecurityException))
+                        && !(exception is SecurityException)
+                        && !(exception is CryptographicException))
                         throw;
                     publishInitializationError = "publish_queue_initialization_failed";
                 }
@@ -85,7 +86,10 @@ namespace CadPlotMcp.AutoCAD
                     pluginSha256,
                     runtimeSeries,
                     runtimeSupported,
-                    publishInitializationError
+                    publishInitializationError,
+                    publishRequested && runtimeSupported
+                        ? PublishQueueJournal.AuthenticationScheme
+                        : null
                 )
             );
             _host.Start();

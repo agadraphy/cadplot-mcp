@@ -1,6 +1,6 @@
 # ADR 0004: Durable approved queue intent without automatic interrupted replay
 
-**Status:** Accepted and implemented; licensed AutoCAD acceptance pending  
+**Status:** Accepted and implemented; authentication amended by ADR 0005; licensed AutoCAD acceptance pending
 **Date:** 2026-08-09  
 **Deciders:** CadPlot maintainer; company CAD/IT owners approve live policy
 
@@ -19,6 +19,9 @@ plan/manifest approval, no source-DWG writes, and bounded machine-readable failu
 Each accepted job receives an immutable job-local `.cadplot-queue-request.json` only after the exact
 request passes the existing workspace, manifest, staged-DWG, output, and hash validators. Before
 execution, the worker atomically creates `.cadplot-queue-started.json`.
+
+ADR 0005 additionally authenticates both records with a Windows user-bound key outside the workspace;
+the job-local file alone is therefore no longer treated as proof that CadPlot accepted the request.
 
 At plug-in startup the queue scans only bounded, direct, valid job-ID directories:
 
@@ -84,5 +87,5 @@ trusted workspace.
 
 1. [x] Persist and recover exact queue intent.
 2. [x] Prevent automatic interrupted replay and restore terminal receipt status.
-3. [x] Bind five exact recovery/tamper tests into release evidence.
+3. [x] Bind eleven exact recovery/authentication/tamper tests into release evidence.
 4. [ ] Accept restart behavior separately on licensed AutoCAD 2016 and 2025.

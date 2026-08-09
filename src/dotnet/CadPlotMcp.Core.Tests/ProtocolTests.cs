@@ -79,7 +79,8 @@ public sealed class ProtocolTests
             () => "Test AutoCAD",
             trustedWorkspaceRoot: @"C:\CadPlot\jobs",
             publishEnabled: true,
-            publishInitializationError: "publish_queue_initialization_failed"
+            publishInitializationError: "publish_queue_initialization_failed",
+            queueAuthentication: PublishQueueJournal.AuthenticationScheme
         );
 
         var response = dispatcher.Dispatch(
@@ -89,8 +90,14 @@ public sealed class ProtocolTests
 
         Assert.False(response.PublishEnabled);
         Assert.Equal("publish_queue_initialization_failed", response.PublishInitializationError);
+        Assert.Equal(PublishQueueJournal.AuthenticationScheme, response.QueueAuthentication);
         Assert.Contains(
             "\"publishInitializationError\":\"publish_queue_initialization_failed\"",
+            json,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "\"queueAuthentication\":\"windows-dpapi-current-user+hmac-sha256-v1\"",
             json,
             StringComparison.Ordinal
         );

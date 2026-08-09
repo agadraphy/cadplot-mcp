@@ -74,17 +74,26 @@ try {
         $preflightSummary.synthetic_batch_rehearsal.queue_plugin_contacted -ne $false -or
         $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0 -or
         $preflightSummary.durable_queue_recovery.passed -ne $true -or
-        $preflightSummary.durable_queue_recovery.exact_test_count -ne 5 -or
+        $preflightSummary.durable_queue_recovery.exact_test_count -ne 11 -or
         $preflightSummary.durable_queue_recovery.pending_intent_recovered -ne $true -or
         $preflightSummary.durable_queue_recovery.exact_request_identity_preserved -ne $true -or
         $preflightSummary.durable_queue_recovery.interrupted_job_not_replayed -ne $true -or
         $preflightSummary.durable_queue_recovery.terminal_receipt_status_recovered -ne $true -or
         $preflightSummary.durable_queue_recovery.tampered_intent_blocked -ne $true -or
         $preflightSummary.durable_queue_recovery.completed_job_requeue_blocked -ne $true -or
+        $preflightSummary.durable_queue_recovery.authentication_scheme -cne "windows-dpapi-current-user+hmac-sha256-v1" -or
+        $preflightSummary.durable_queue_recovery.signed_intent_required -ne $true -or
+        $preflightSummary.durable_queue_recovery.foreign_key_intent_blocked -ne $true -or
+        $preflightSummary.durable_queue_recovery.started_marker_authentication_required -ne $true -or
+        $preflightSummary.durable_queue_recovery.protected_key_outside_workspace -ne $true -or
+        $preflightSummary.durable_queue_recovery.workspace_key_rejected -ne $true -or
+        $preflightSummary.durable_queue_recovery.corrupt_key_blocked -ne $true -or
+        $preflightSummary.durable_queue_recovery.net45_dpapi_runtime_proven -ne $true -or
+        $preflightSummary.durable_queue_recovery.net45_core_image_runtime -cne "v4.0.30319" -or
         $preflightSummary.durable_queue_recovery.autocad_launched -ne $false -or
         $preflightSummary.durable_queue_recovery.live_publish_proven -ne $false -or
         $preflightSummary.durable_queue_recovery.evidence_scope `
-            -cne "production-core-with-synthetic-files" -or
+            -cne "production-core-net45+net8-with-synthetic-files" -or
         $preflightSummary.wheel_install_smoke.passed -ne $true -or
         $preflightSummary.wheel_install_smoke.tool_count -ne 19 -or
         $preflightSummary.wheel_install_smoke.http_transport_tool_count -ne 19 -or

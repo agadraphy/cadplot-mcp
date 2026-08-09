@@ -40,6 +40,7 @@ namespace CadPlotMcp.Core
         public int Available { get; set; }
         public int RecoveredOnStartup { get; set; }
         public int InterruptedOnStartup { get; set; }
+        public string Authentication { get; set; }
     }
 
     public static class PublishJobValidator
@@ -186,6 +187,11 @@ namespace CadPlotMcp.Core
         private readonly int _interruptedOnStartup;
 
         public PublishJobQueue(string trustedWorkspaceRoot, int capacity)
+            : this(trustedWorkspaceRoot, capacity, PublishQueueKeyStore.DefaultPath())
+        {
+        }
+
+        public PublishJobQueue(string trustedWorkspaceRoot, int capacity, string authenticationKeyPath)
         {
             if (String.IsNullOrWhiteSpace(trustedWorkspaceRoot))
                 throw new ArgumentException("A trusted workspace root is required.", "trustedWorkspaceRoot");
@@ -196,7 +202,12 @@ namespace CadPlotMcp.Core
             if ((File.GetAttributes(_trustedWorkspaceRoot) & FileAttributes.ReparsePoint) != 0)
                 throw new ArgumentException("The trusted workspace root cannot be redirected.", "trustedWorkspaceRoot");
             _capacity = capacity;
-            _journal = new PublishQueueJournal(_trustedWorkspaceRoot);
+            var authenticationKey = PublishQueueKeyStore.LoadOrCreate(
+                authenticationKeyPath,
+                _trustedWorkspaceRoot
+            );
+            try { _journal = new PublishQueueJournal(_trustedWorkspaceRoot, authenticationKey); }
+            finally { Array.Clear(authenticationKey, 0, authenticationKey.Length); }
             var recovery = _journal.Recover(capacity);
             foreach (var request in recovery.Pending) _pending.Enqueue(request);
             foreach (var pair in recovery.States) _states.Add(pair.Key, pair.Value);
@@ -239,6 +250,7 @@ namespace CadPlotMcp.Core
                     Available = _capacity - _pending.Count,
                     RecoveredOnStartup = _recoveredOnStartup,
                     InterruptedOnStartup = _interruptedOnStartup,
+                    Authentication = PublishQueueJournal.AuthenticationScheme,
                 };
             }
         }

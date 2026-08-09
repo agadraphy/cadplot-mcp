@@ -319,6 +319,7 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
             "ok": True,
             "publishEnabled": True,
             "queueCapacity": 20,
+            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
             "queuePending": 4,
             "queueRunning": 1,
             "queueAvailable": 16,
@@ -344,6 +345,7 @@ def test_publish_batch_status_summarizes_live_states_and_final_queue_sample() ->
         "available": 16,
         "recovered_on_startup": 3,
         "interrupted_on_startup": 1,
+        "authentication": "windows-dpapi-current-user+hmac-sha256-v1",
     }
     assert result["queue_error"] is None
     assert result["items"][1]["job_error"] == "plot_failed"
@@ -373,10 +375,40 @@ def test_publish_batch_status_rejects_inconsistent_queue_telemetry() -> None:
             "ok": True,
             "publishEnabled": True,
             "queueCapacity": 20,
+            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
             "queuePending": 10,
             "queueRunning": 0,
             "queueAvailable": 11,
         },
+    )
+
+    assert result["queue"] is None
+    assert result["queue_error"] == "invalid_queue_telemetry"
+
+
+@pytest.mark.parametrize(
+    "authentication",
+    [None, "unsigned", "windows-dpapi-current-user+hmac-sha256-v2"],
+)
+def test_publish_batch_status_rejects_unsigned_queue_telemetry(
+    authentication: str | None,
+) -> None:
+    plan_id = "sha256:" + "a" * 64
+    plugin_status: dict[str, object] = {
+        "ok": True,
+        "publishEnabled": True,
+        "queueCapacity": 20,
+        "queuePending": 0,
+        "queueRunning": 0,
+        "queueAvailable": 20,
+    }
+    if authentication is not None:
+        plugin_status["queueAuthentication"] = authentication
+
+    result = build_publish_batch_status(
+        [plan_id],
+        lambda _: {"found": False, "plugin": {"ok": False, "error": "job_not_found"}},
+        lambda: plugin_status,
     )
 
     assert result["queue"] is None
@@ -400,6 +432,7 @@ def test_publish_batch_status_rejects_mismatched_plugin_plan_identity() -> None:
             "ok": True,
             "publishEnabled": True,
             "queueCapacity": 20,
+            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
             "queuePending": 0,
             "queueRunning": 0,
             "queueAvailable": 20,
@@ -441,6 +474,7 @@ def test_publish_batch_status_rejects_unbounded_failed_job_error() -> None:
             "ok": True,
             "publishEnabled": True,
             "queueCapacity": 20,
+            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
             "queuePending": 0,
             "queueRunning": 0,
             "queueAvailable": 20,

@@ -9,7 +9,8 @@ enables one explicitly approved sheet and proves the real in-memory layout/viewp
 - Managed API folder containing `AcMgd.dll`, `AcDbMgd.dll`, and `AcCoreMgd.dll` for that release.
 - One anonymized/non-production DWG copy.
 - The expected one-page PDF for that DWG, kept under an approved `allowed_roots` input boundary so
-  schema-v4 pilot collection can bind its path-redacted hash and page geometry.
+  schema-v5 pilot collection can bind its path-redacted hash, page geometry, and authenticated
+  durable-queue scheme.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
 - Exact case-sensitive canonical media name reported by AutoCAD for every custom PC3 paper.
 - If the title-block layout is external, its approved DWG/DWT path, layout name, and separately
@@ -104,7 +105,9 @@ them with the pilot evidence.
 1. Close AutoCAD. In the same launcher environment set `CADPLOT_ENABLE_PUBLISH=1`; keep the same
    `CADPLOT_WORKSPACE_ROOT`, then restart AutoCAD.
 2. Require `get_autocad_plugin_status` to report `runtimeSupported=true` and
-   `publishEnabled=true`. A runtime/adapter mismatch must remain fail-closed.
+   `publishEnabled=true`, plus
+   `queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`. A runtime/adapter or unsigned
+   queue mismatch must remain fail-closed.
 3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.
 4. Call `queue_publish_job` with the exact manifest path, approved `plan_id`, and approved
    `manifest_sha256` returned by staging.

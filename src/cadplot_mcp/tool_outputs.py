@@ -245,7 +245,7 @@ class PublishBatchStatusOutput(_ClosedOutput):
     schema_version: Literal[1]
     status_batch_id: PlanIdString
     summary: dict[str, int]
-    queue: dict[str, int] | None
+    queue: dict[str, int | str] | None
     queue_error: str | None
     items: list[dict[str, Any]]
 

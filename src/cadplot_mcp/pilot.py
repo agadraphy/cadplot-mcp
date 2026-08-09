@@ -29,6 +29,7 @@ VISUAL_CHECKS = {
     "fonts",
     "title_block",
 }
+QUEUE_AUTHENTICATION_SCHEME = "windows-dpapi-current-user+hmac-sha256-v1"
 RUN_FIELDS = {
     "autocad_release",
     "product",
@@ -36,6 +37,7 @@ RUN_FIELDS = {
     "build_commit",
     "plugin_sha256",
     "runtime_series",
+    "queue_authentication",
     "licensed",
     "authorized_test_asset",
     "plan_id",
@@ -139,6 +141,8 @@ def build_pilot_run_evidence(
     ):
         if plugin_status.get(field) is not True:
             raise ValueError(f"Live AutoCAD status requires {field}=true.")
+    if plugin_status.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME:
+        raise ValueError("Live AutoCAD status requires authenticated durable queue intent.")
     report = audit_publish_outputs(manifest_value, config)
     if report.get("publish_verified") is not True:
         raise ValueError("Pilot run requires publish_verified=true output evidence.")
@@ -159,6 +163,7 @@ def build_pilot_run_evidence(
         "build_commit": plugin_status.get("buildCommit"),
         "plugin_sha256": plugin_status.get("pluginSha256"),
         "runtime_series": plugin_status.get("runtimeSeries"),
+        "queue_authentication": plugin_status.get("queueAuthentication"),
         "licensed": licensed,
         "authorized_test_asset": authorized_test_asset,
         "plan_id": manifest["plan_id"],
@@ -208,7 +213,7 @@ def assemble_pilot_evidence(
     if validated_2025["autocad_release"] != "2025":
         raise ValueError("run_2025 must contain AutoCAD 2025 evidence.")
     raw = {
-        "schema_version": 4,
+        "schema_version": 5,
         "repository_commit": repository_commit,
         "package_version": package_version,
         "bundle_sha256": bundle_sha256,
@@ -232,7 +237,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
         "runs",
     }:
         raise ValueError("Pilot evidence must contain exactly the documented top-level fields.")
-    if raw["schema_version"] != 4:
+    if raw["schema_version"] != 5:
         raise ValueError("Unsupported pilot evidence schema.")
     if not isinstance(raw["repository_commit"], str) or not COMMIT.fullmatch(
         raw["repository_commit"]
@@ -266,7 +271,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             raise ValueError(f"AutoCAD {release} running plug-in binary mismatch.")
     return {
         "valid": True,
-        "schema_version": 4,
+        "schema_version": 5,
         "repository_commit": raw["repository_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": raw["bundle_sha256"],
@@ -297,6 +302,8 @@ def _validate_run(run: Any) -> dict[str, Any]:
         raise ValueError(f"AutoCAD {release} adapter identity mismatch.")
     if run["runtime_series"] != expected["acadver"]:
         raise ValueError(f"AutoCAD {release} normalized runtime series mismatch.")
+    if run["queue_authentication"] != QUEUE_AUTHENTICATION_SCHEME:
+        raise ValueError(f"AutoCAD {release} queue authentication mismatch.")
     product = run["product"]
     if (
         not isinstance(product, str)

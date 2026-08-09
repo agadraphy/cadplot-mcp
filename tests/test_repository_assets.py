@@ -529,7 +529,9 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
         "running plug-in binary mismatch",
-        '"schema_version": 4',
+        '"schema_version": 5',
+        '"queue_authentication"',
+        '"queueAuthentication"',
         '"template_assets"',
         '"published_pdf"',
         '"visual_reference"',
@@ -556,6 +558,7 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
 def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
     core = REPOSITORY_ROOT / "src" / "dotnet" / "CadPlotMcp.Core"
     journal = (core / "PublishQueueJournal.cs").read_text(encoding="utf-8")
+    authentication = (core / "PublishQueueAuthentication.cs").read_text(encoding="utf-8")
     jobs = (core / "PublishJobs.cs").read_text(encoding="utf-8")
     worker = (core / "PublishWorker.cs").read_text(encoding="utf-8")
     protocol = (core / "Protocol.cs").read_text(encoding="utf-8")
@@ -582,6 +585,9 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
         "RequirePlainFile",
         "PublishJobValidator.Validate",
         "PublishManifestReader.Validate",
+        "publish_queue_request_authentication_failed",
+        "publish_queue_started_authentication_failed",
+        "_authenticator.Verify",
     ):
         assert required in journal
     for required in (
@@ -591,12 +597,15 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
         "var blocked = _pending.Dequeue()",
         "RecoveredOnStartup",
         "InterruptedOnStartup",
+        "PublishQueueKeyStore.LoadOrCreate",
+        "PublishQueueJournal.AuthenticationScheme",
     ):
         assert required in jobs
     assert "out startError" in worker
     for required in (
         "queueRecoveredOnStartup",
         "queueInterruptedOnStartup",
+        "queueAuthentication",
         "publishInitializationError",
     ):
         assert required in protocol
@@ -607,8 +616,31 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
         "TerminalReceiptRestoresStatusAfterRestart",
         "TamperedPendingIntentDisablesRecovery",
         "ExistingReceiptCannotBeQueuedAsFreshWork",
+        "ForgedUnsignedPendingIntentCannotAuthorizeRestart",
+        "ForeignProtectedKeyCannotAuthorizeRestart",
+        "TamperedStartedIntentDisablesRecovery",
+        "AuthenticationKeyIsDpapiProtectedOutsideWorkspace",
+        "AuthenticationKeyInsideWorkspaceIsRejected",
+        "CorruptAuthenticationKeyDisablesInitialization",
     ):
         assert test_name in probe
+    for required in (
+        "CryptProtectData",
+        "CryptUnprotectData",
+        "HMACSHA256",
+        "RandomNumberGenerator.Create()",
+        "FileMode.CreateNew",
+        "queue-auth-key-v1.bin",
+        "The queue authentication key must be outside the trusted workspace",
+    ):
+        assert required in authentication
+    assert "windows-dpapi-current-user+hmac-sha256-v1" in probe
+    assert "net45_dpapi_runtime_proven" in probe
+    assert 'net45_core_image_runtime = $net45Assembly.ImageRuntimeVersion' in probe
+    assert "production-core-net45+net8-with-synthetic-files" in probe
+    assert "exact_test_count -ne 11" in (
+        REPOSITORY_ROOT / "scripts" / "run-local-preflight.ps1"
+    ).read_text(encoding="utf-8")
     assert "Start-Process" not in probe
 
     for script_name in (
@@ -623,6 +655,7 @@ def test_durable_queue_intent_is_fail_closed_and_release_evidenced() -> None:
     ):
         script = (REPOSITORY_ROOT / "scripts" / script_name).read_text(encoding="utf-8")
         assert "durable_queue_recovery" in script
+        assert "windows-dpapi-current-user+hmac-sha256-v1" in script
     for smoke_name in ("smoke-demo-kit.ps1", "smoke-release-kit.ps1"):
         smoke = (REPOSITORY_ROOT / "scripts" / smoke_name).read_text(encoding="utf-8")
         assert "durable_queue_tamper_blocked" in smoke

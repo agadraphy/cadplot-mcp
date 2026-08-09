@@ -9,6 +9,8 @@ namespace CadPlotMcp.Core.Tests;
 public sealed class PublishJobTests : IDisposable
 {
     private readonly string _workspaceRoot;
+    private readonly string _stateRoot;
+    private readonly string _authenticationKeyPath;
     private readonly string _jobRoot;
     private readonly PublishJobRequest _request;
 
@@ -18,6 +20,12 @@ public sealed class PublishJobTests : IDisposable
             Path.GetTempPath(),
             "cadplot-tests-" + Guid.NewGuid().ToString("N")
         );
+        _stateRoot = Path.Combine(
+            Path.GetTempPath(),
+            "cadplot-state-tests-" + Guid.NewGuid().ToString("N")
+        );
+        Directory.CreateDirectory(_stateRoot);
+        _authenticationKeyPath = Path.Combine(_stateRoot, "queue-auth-key-v1.bin");
         _jobRoot = Path.Combine(
             _workspaceRoot,
             "job-20260809T120000000000Z-" + Guid.NewGuid().ToString("N")[..12]
@@ -43,7 +51,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void ValidJobMovesThroughExpectedStates()
     {
-        var queue = new PublishJobQueue(_workspaceRoot, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5, _authenticationKeyPath);
 
         Assert.True(queue.TryEnqueue(_request, out var error));
         Assert.Null(error);
@@ -53,8 +61,24 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(4, queue.AvailableCount);
         Assert.Equal(0, queue.GetTelemetry().RecoveredOnStartup);
         Assert.Equal(0, queue.GetTelemetry().InterruptedOnStartup);
+        Assert.Equal(
+            PublishQueueJournal.AuthenticationScheme,
+            queue.GetTelemetry().Authentication
+        );
         Assert.Equal(PublishJobState.Pending, queue.GetStatus(_request.PlanId)!.State);
         Assert.True(File.Exists(Path.Combine(_jobRoot, PublishQueueJournal.PendingFileName)));
+        using (var pending = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(_jobRoot, PublishQueueJournal.PendingFileName))
+        ))
+        {
+            Assert.Equal(1, pending.RootElement.GetProperty("authentication_version").GetInt32());
+            Assert.Equal(
+                32,
+                Convert.FromBase64String(
+                    pending.RootElement.GetProperty("authentication_tag").GetString()!
+                ).Length
+            );
+        }
         Assert.False(File.Exists(Path.Combine(_jobRoot, PublishQueueJournal.StartedFileName)));
         Assert.True(queue.TryStartNext(out var started, out var startError));
         Assert.Null(startError);
@@ -147,7 +171,7 @@ public sealed class PublishJobTests : IDisposable
 
         var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
 
-        Assert.Contains("manifest_sheet_count_mismatch", exception.Message);
+        Assert.Contains("publish_queue_request_authentication_failed", exception.Message);
     }
 
     [Fact]
@@ -174,18 +198,132 @@ public sealed class PublishJobTests : IDisposable
 
         Assert.False(queue.TryStartNext(out var request, out var error));
         Assert.Null(request);
-        Assert.Equal("queue_state_invalid", error);
+        Assert.Equal("queue_state_authentication_failed", error);
         Assert.Equal(0, queue.PendingCount);
         Assert.Equal(PublishJobState.Failed, queue.GetStatus(_request.PlanId)!.State);
-        Assert.Equal("queue_state_invalid", queue.GetStatus(_request.PlanId)!.Error);
+        Assert.Equal("queue_state_authentication_failed", queue.GetStatus(_request.PlanId)!.Error);
         Assert.False(queue.TryStartNext(out _, out var repeatedError));
         Assert.Equal("no_pending_job", repeatedError);
     }
 
     [Fact]
+    public void ForgedUnsignedPendingIntentCannotAuthorizeRestart()
+    {
+        _ = NewQueue();
+        var unsignedRecord = new
+        {
+            schema_version = 1,
+            plan_id = _request.PlanId,
+            manifest_path = _request.ManifestPath,
+            manifest_sha256 = _request.ManifestSha256,
+            staged_drawing = _request.StagedDrawing,
+            output_directory = _request.OutputDirectory,
+            sheet_count = _request.SheetCount,
+            queued_utc = DateTime.UtcNow.ToString("o"),
+            authentication_version = 1,
+        };
+        File.WriteAllText(
+            Path.Combine(_jobRoot, PublishQueueJournal.PendingFileName),
+            JsonSerializer.Serialize(unsignedRecord)
+        );
+
+        var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
+
+        Assert.Contains("publish_queue_request_authentication_failed", exception.Message);
+    }
+
+    [Fact]
+    public void ForeignProtectedKeyCannotAuthorizeRestart()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        var foreignState = Path.Combine(
+            Path.GetTempPath(),
+            "cadplot-foreign-state-" + Guid.NewGuid().ToString("N")
+        );
+        Directory.CreateDirectory(foreignState);
+        try
+        {
+            var foreignKey = Path.Combine(foreignState, "queue-auth-key-v1.bin");
+
+            var exception = Assert.Throws<InvalidDataException>(() =>
+                new PublishJobQueue(_workspaceRoot, 5, foreignKey)
+            );
+
+            Assert.Contains("publish_queue_request_authentication_failed", exception.Message);
+        }
+        finally
+        {
+            Directory.Delete(foreignState, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TamperedStartedIntentDisablesRecovery()
+    {
+        var original = NewQueue();
+        Assert.True(original.TryEnqueue(_request, out _));
+        Assert.True(original.TryStartNext(out _, out _));
+        var startedPath = Path.Combine(_jobRoot, PublishQueueJournal.StartedFileName);
+        var started = JsonNode.Parse(File.ReadAllText(startedPath))!.AsObject();
+        started["started_utc"] = DateTime.UtcNow.AddMinutes(1).ToString("o");
+        File.WriteAllText(startedPath, started.ToJsonString());
+
+        var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
+
+        Assert.Contains("publish_queue_started_authentication_failed", exception.Message);
+    }
+
+    [Fact]
+    public void AuthenticationKeyIsDpapiProtectedOutsideWorkspace()
+    {
+        var queue = NewQueue();
+        Assert.True(queue.TryEnqueue(_request, out _));
+        var keyBytes = File.ReadAllBytes(_authenticationKeyPath);
+        var header = System.Text.Encoding.ASCII.GetBytes("CADPLOT_QUEUE_KEY_V1\n");
+
+        Assert.False(
+            Path.GetFullPath(_authenticationKeyPath).StartsWith(
+                Path.GetFullPath(_workspaceRoot) + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase
+            )
+        );
+        Assert.True(keyBytes.Length > header.Length + 32);
+        Assert.True(keyBytes.Take(header.Length).SequenceEqual(header));
+        Assert.Equal(
+            PublishQueueJournal.AuthenticationScheme,
+            queue.GetTelemetry().Authentication
+        );
+    }
+
+    [Fact]
+    public void AuthenticationKeyInsideWorkspaceIsRejected()
+    {
+        var insideWorkspace = Path.Combine(_workspaceRoot, "queue-auth-key-v1.bin");
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new PublishJobQueue(_workspaceRoot, 5, insideWorkspace)
+        );
+
+        Assert.Contains("outside the trusted workspace", exception.Message);
+        Assert.False(File.Exists(insideWorkspace));
+    }
+
+    [Fact]
+    public void CorruptAuthenticationKeyDisablesInitialization()
+    {
+        _ = NewQueue();
+        File.WriteAllText(_authenticationKeyPath, "corrupt");
+
+        var exception = Assert.Throws<InvalidDataException>(() => NewQueue());
+
+        Assert.Contains("queue_auth_key_size_invalid", exception.Message);
+    }
+
+    [Fact]
     public void DuplicatePlanIsRejected()
     {
-        var queue = new PublishJobQueue(_workspaceRoot, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5, _authenticationKeyPath);
         Assert.True(queue.TryEnqueue(_request, out _));
 
         Assert.False(queue.TryEnqueue(_request, out var error));
@@ -195,7 +333,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void QueueCapacityIsEnforced()
     {
-        var queue = new PublishJobQueue(_workspaceRoot, 1);
+        var queue = new PublishJobQueue(_workspaceRoot, 1, _authenticationKeyPath);
         Assert.True(queue.TryEnqueue(_request, out _));
 
         Assert.False(queue.TryEnqueue(_request, out var error));
@@ -206,7 +344,7 @@ public sealed class PublishJobTests : IDisposable
     public void DrawingOutsideJobIsRejected()
     {
         _request.StagedDrawing = Path.Combine(Path.GetTempPath(), "outside.dwg");
-        var queue = new PublishJobQueue(_workspaceRoot, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5, _authenticationKeyPath);
 
         Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("drawing_outside_job", error);
@@ -215,7 +353,7 @@ public sealed class PublishJobTests : IDisposable
     [Fact]
     public void FailedJobKeepsAuditStatusAndCannotBeRepeated()
     {
-        var queue = new PublishJobQueue(_workspaceRoot, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5, _authenticationKeyPath);
         Assert.True(queue.TryEnqueue(_request, out _));
         Assert.True(queue.TryStartNext(out _, out _));
 
@@ -235,7 +373,7 @@ public sealed class PublishJobTests : IDisposable
         Directory.CreateDirectory(otherWorkspace);
         try
         {
-            var queue = new PublishJobQueue(otherWorkspace, 5);
+            var queue = new PublishJobQueue(otherWorkspace, 5, _authenticationKeyPath);
 
             Assert.False(queue.TryEnqueue(_request, out var error));
             Assert.Equal("job_outside_workspace", error);
@@ -251,14 +389,16 @@ public sealed class PublishJobTests : IDisposable
     {
         var missing = Path.Combine(Path.GetTempPath(), "cadplot-missing-" + Guid.NewGuid());
 
-        Assert.Throws<ArgumentException>(() => new PublishJobQueue(missing, 5));
+        Assert.Throws<ArgumentException>(() =>
+            new PublishJobQueue(missing, 5, _authenticationKeyPath)
+        );
     }
 
     [Fact]
     public void ManifestPlanMismatchIsRejected()
     {
         _request.PlanId = "sha256:" + new string('b', 64);
-        var queue = new PublishJobQueue(_workspaceRoot, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5, _authenticationKeyPath);
 
         Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("manifest_plan_mismatch", error);
@@ -268,7 +408,7 @@ public sealed class PublishJobTests : IDisposable
     public void ManifestPdfEscapeIsRejected()
     {
         WriteManifest(firstPdf: Path.Combine(Path.GetTempPath(), "outside.pdf"));
-        var queue = new PublishJobQueue(_workspaceRoot, 5);
+        var queue = new PublishJobQueue(_workspaceRoot, 5, _authenticationKeyPath);
 
         Assert.False(queue.TryEnqueue(_request, out var error));
         Assert.Equal("pdf_outside_job", error);
@@ -518,6 +658,7 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(4, queued.QueueAvailable);
         Assert.Equal(0, queued.QueueRecoveredOnStartup);
         Assert.Equal(0, queued.QueueInterruptedOnStartup);
+        Assert.Equal(PublishQueueJournal.AuthenticationScheme, queued.QueueAuthentication);
         Assert.True(status.Ok);
         Assert.True(status.ReadOnly);
         Assert.Equal("Pending", status.JobState);
@@ -527,6 +668,7 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(4, status.QueueAvailable);
         Assert.Equal(0, status.QueueRecoveredOnStartup);
         Assert.Equal(0, status.QueueInterruptedOnStartup);
+        Assert.Equal(PublishQueueJournal.AuthenticationScheme, status.QueueAuthentication);
     }
 
     [Fact]
@@ -720,7 +862,7 @@ public sealed class PublishJobTests : IDisposable
         Assert.Equal(PublishJobState.Failed, queue.GetStatus(_request.PlanId)!.State);
     }
 
-    private PublishJobQueue NewQueue() => new(_workspaceRoot, 5);
+    private PublishJobQueue NewQueue() => new(_workspaceRoot, 5, _authenticationKeyPath);
 
     private PipeRequest JobPipeRequest(string command) => new()
     {
@@ -843,5 +985,6 @@ public sealed class PublishJobTests : IDisposable
     public void Dispose()
     {
         Directory.Delete(_workspaceRoot, recursive: true);
+        Directory.Delete(_stateRoot, recursive: true);
     }
 }

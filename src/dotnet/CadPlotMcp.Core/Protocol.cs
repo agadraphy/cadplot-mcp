@@ -59,6 +59,7 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "queueAvailable", EmitDefaultValue = false)] public int? QueueAvailable { get; set; }
         [DataMember(Name = "queueRecoveredOnStartup", EmitDefaultValue = false)] public int? QueueRecoveredOnStartup { get; set; }
         [DataMember(Name = "queueInterruptedOnStartup", EmitDefaultValue = false)] public int? QueueInterruptedOnStartup { get; set; }
+        [DataMember(Name = "queueAuthentication", EmitDefaultValue = false)] public string QueueAuthentication { get; set; }
         [DataMember(Name = "publishInitializationError", EmitDefaultValue = false)] public string PublishInitializationError { get; set; }
     }
 
@@ -108,6 +109,7 @@ namespace CadPlotMcp.Core
         private readonly string _buildCommit;
         private readonly string _pluginSha256;
         private readonly string _publishInitializationError;
+        private readonly string _queueAuthentication;
         private readonly string _runtimeSeries;
         private readonly bool _runtimeSupported;
 
@@ -121,7 +123,8 @@ namespace CadPlotMcp.Core
             string pluginSha256 = null,
             string runtimeSeries = null,
             bool runtimeSupported = true,
-            string publishInitializationError = null
+            string publishInitializationError = null,
+            string queueAuthentication = null
         )
         {
             _adapter = adapter ?? "unknown";
@@ -134,6 +137,7 @@ namespace CadPlotMcp.Core
             _buildCommit = buildCommit;
             _pluginSha256 = pluginSha256;
             _publishInitializationError = publishInitializationError;
+            _queueAuthentication = queueAuthentication;
         }
 
         public PipeResponse Dispatch(PipeRequest request)
@@ -158,6 +162,9 @@ namespace CadPlotMcp.Core
                 response.WorkspaceConfigured = !String.IsNullOrWhiteSpace(_trustedWorkspaceRoot);
                 response.PublishEnabled = _publishEnabled;
                 response.PublishInitializationError = _publishInitializationError;
+                response.QueueAuthentication = _publishQueue == null
+                    ? _queueAuthentication
+                    : PublishQueueJournal.AuthenticationScheme;
                 PopulateQueueTelemetry(response);
                 return response;
             }
@@ -295,6 +302,7 @@ namespace CadPlotMcp.Core
             response.QueueAvailable = telemetry.Available;
             response.QueueRecoveredOnStartup = telemetry.RecoveredOnStartup;
             response.QueueInterruptedOnStartup = telemetry.InterruptedOnStartup;
+            response.QueueAuthentication = telemetry.Authentication;
         }
 
         private static PublishJobRequest CreateJob(PipeRequest request)

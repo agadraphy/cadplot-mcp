@@ -13,6 +13,7 @@ QueueBuilder = Callable[[dict[str, str]], dict[str, Any]]
 StatusBuilder = Callable[[str], dict[str, Any]]
 PluginStatusBuilder = Callable[[], dict[str, Any]]
 PUBLISH_JOB_STATES = {"Pending", "Running", "Succeeded", "Failed"}
+QUEUE_AUTHENTICATION_SCHEME = "windows-dpapi-current-user+hmac-sha256-v1"
 
 
 def build_drawing_inventory_id(items: Sequence[dict[str, Any]]) -> str:
@@ -264,7 +265,7 @@ def build_publish_batch_status(
             }
         items.append(_normalize_live_status(plan_id, response))
 
-    queue: dict[str, int] | None = None
+    queue: dict[str, int | str] | None = None
     queue_error: str | None = None
     try:
         queue = _normalize_queue_telemetry(plugin_status_builder())
@@ -354,7 +355,7 @@ def _normalize_live_status(plan_id: str, response: Any) -> dict[str, Any]:
     }
 
 
-def _normalize_queue_telemetry(response: Any) -> dict[str, int]:
+def _normalize_queue_telemetry(response: Any) -> dict[str, int | str]:
     if not isinstance(response, dict) or response.get("ok") is not True:
         error = response.get("error") if isinstance(response, dict) else None
         raise ValueError(_bounded_status_error(error or "invalid_plugin_status"))
@@ -374,6 +375,7 @@ def _normalize_queue_telemetry(response: Any) -> dict[str, int]:
         raise ValueError("invalid_queue_telemetry")
     if (
         response.get("publishEnabled") is not True
+        or response.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME
         or not 1 <= values["capacity"] <= 1_000
         or values["pending"] > values["capacity"]
         or values["available"] > values["capacity"]
@@ -382,6 +384,7 @@ def _normalize_queue_telemetry(response: Any) -> dict[str, int]:
         or values["pending"] + values["available"] != values["capacity"]
     ):
         raise ValueError("invalid_queue_telemetry")
+    values["authentication"] = QUEUE_AUTHENTICATION_SCHEME
     return values
 
 

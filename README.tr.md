@@ -32,8 +32,9 @@ Hazır olan parçalar:
   denetleme;
 - AutoCAD 2016 ve 2025-2026 için ayrı .NET adaptör/bundle yapısı;
 - varsayılan kapalı, ana AutoCAD thread'inde çalışan sınırlı yayın kuyruğu;
-- açık plan+manifest onayını job klasöründe kalıcılaştıran restart güvenli kuyruk niyeti; hiç
-  başlamamış işler aynı kimlikle geri yüklenir, yarıda kesilen işler otomatik tekrar basılmaz;
+- açık plan+manifest onayını workspace dışındaki Windows DPAPI korumalı anahtarla imzalayan restart
+  güvenli kuyruk niyeti; hiç başlamamış işler aynı kimlikle geri yüklenir, yarıda kesilen işler
+  otomatik tekrar basılmaz;
 - staged DWG içinde bellekte layout/page setup/viewport kurup her pafta için ayrı PDF üreten
   ortak executor.
 
@@ -63,8 +64,9 @@ adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
 - Var olan PDF'nin üstüne yazılmaz; meşgul PlotEngine veya hatalı sayfa ölçüsü işi durdurur.
 - `CADPLOT_ENABLE_PUBLISH=1` açıkça verilmedikçe gerçek yayın komutu kapalıdır.
 - Kuyruğa kabul yalnız immutable `.cadplot-queue-request.json` yazıldıktan sonra başarılı döner;
-  çalışma başlangıcı ayrı marker ile kaydedilir. Receipt'siz kesinti `job_interrupted` olur ve
-  yeniden onay/staging incelemesi olmadan otomatik replay edilmez.
+  çalışma başlangıcı ayrı marker ile kaydedilir. İki marker da workspace dışında tutulan, Windows
+  kullanıcısına DPAPI ile bağlı anahtarın HMAC-SHA256 etiketi olmadan geçersizdir. Receipt'siz
+  kesinti `job_interrupted` olur ve yeniden onay/staging incelemesi olmadan otomatik replay edilmez.
 - Çalışma alanı symlink/junction üzerinden yönlendirilemez.
 - 19 MCP aracının tamamı kapalı üst-seviye structured-output şeması yayınlar; plan ve receipt
   kimliklerinde kesin digest kalıpları bulunur ve gerçek STDIO `call_tool` testi bu sözleşmeyi sınar.
@@ -212,8 +214,10 @@ Canlı ilerlemeyi tek tek MCP çağrılarıyla izlemek yerine en fazla 20 benzer
 `get_publish_batch_status` aracına verin. Araç job durumlarını ayrı ayrı özetler ve çağrı sonunda
 tutarlı tek bir kuyruk kapasitesi örneği döndürür; bu örnek bütün job geçişlerinin aynı anda
 görüldüğü anlamına gelmez.
-AutoCAD kapanınca canlı kuyruk durumu silinir; terminal sonuçtaki `receipt.json` silinmez.
-Yeniden başladıktan sonra `read_publish_receipt` ile kaldığınız işi güvenle doğrulayabilirsiniz.
+AutoCAD yeniden açıldığında yalnız aynı Windows kullanıcısının DPAPI anahtarıyla doğrulanan,
+başlamamış pending işler geri yüklenir; started fakat receipt'siz iş `job_interrupted` olur.
+Terminal `receipt.json` kalıcıdır. `queueAuthentication` değeri
+`windows-dpapi-current-user+hmac-sha256-v1` değilse batch ilerlemesi reddedilir.
 Tüm çalışma alanını kaldığınız yerden taramak için `create_publish_operations_report` çağrısını
 `has_more=false` olana kadar `next_after_job_id` ile sayfalayın. Her `report_page_id` bir kontrol
 noktasıdır. Yalnız `awaiting_execution` işlerinde yeniden sıra onayı döner; önce canlı durum bakılır.

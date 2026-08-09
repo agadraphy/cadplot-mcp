@@ -65,11 +65,17 @@ Those claims require the licensed-workstation pilot and an authorized test drawi
 ## Current limitations
 
 - Exact approved queue intent is job-local and durable. On startup, never-started pending jobs are
-  revalidated and restored with their original request identity. A job that had a started marker
-  but no terminal receipt becomes `Failed/job_interrupted` and is never replayed automatically.
+  authenticated by a 256-bit HMAC key stored outside the workspace and protected for the current
+  Windows user with DPAPI. Unsigned, altered, or foreign-key markers cannot authorize execution.
+  Never-started pending jobs are revalidated and restored with their original request identity. A
+  job that had a started marker but no terminal receipt becomes `Failed/job_interrupted` and is
+  never replayed automatically.
   Valid terminal receipt state is restored into live status. Corrupt, redirected, over-capacity,
   or identity-mismatched recovery data disables publishing with the bounded
   `publish_queue_initialization_failed` status.
+- Queue authorization is intentionally non-portable: copying a workspace to another user or machine
+  preserves review evidence but not permission to resume pending publishing. Missing or corrupt key
+  state fails closed; the protected key/path is never copied into a demo or release artifact.
 - Queue telemetry reports pending-slot capacity, pending, running, and available counts. A bounded
   batch stops after its first `queue_full` response and returns the untouched remainder as
   retryable `deferred` approvals; it never disguises capacity backpressure as terminal failure.

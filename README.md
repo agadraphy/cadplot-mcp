@@ -16,8 +16,9 @@ The repository now provides:
 - structured warnings suitable for an approval-first publish plan.
 - copy-only staging with a second SHA-256 check in the plug-in;
 - an opt-in, bounded queue drained on AutoCAD's main application context;
-- durable, hash-bound queue intent: never-started approvals recover after restart while an
-  interrupted running job is held as `job_interrupted` and is never replayed automatically;
+- durable, authenticated queue intent: a Windows DPAPI-protected key outside the workspace signs
+  exact approvals; never-started work recovers after restart while an interrupted running job is
+  held as `job_interrupted` and is never replayed automatically;
 - in-memory layout/page-setup/viewport creation and one PDF per sheet;
 - structural and physical-size PDF auditing.
 
@@ -126,8 +127,9 @@ uv run python scripts/run-synthetic-demo.py
 
 - `validate_environment`: report configuration and AutoCAD connection readiness.
 - `get_autocad_plugin_status`: verify the local read-only .NET plug-in bridge. When publishing is
-  enabled it also reports `queueCapacity`, `queuePending`, `queueRunning`, and `queueAvailable` so
-  large-run clients can apply backpressure without guessing.
+  enabled it also reports `queueCapacity`, `queuePending`, `queueRunning`, `queueAvailable`, and the
+  exact `queueAuthentication` scheme so large-run clients can apply backpressure without trusting
+  an unsigned restart queue.
 - `scan_drawings`: find DWG files under an allowed project folder.
 - `inspect_drawing`: read layouts, plot properties, labelled rectangular polylines, and strictly
   validated orthogonal block frames backed by instance attributes or bounded read-only nested
@@ -246,9 +248,11 @@ large run autonomously; the operator still retains AutoCAD's publish opt-in gate
 Use `get_publish_batch_status` for bounded live polling instead of issuing one MCP call per plan;
 its queue telemetry is sampled once after the per-job reads and is not claimed to be a simultaneous
 snapshot of every job transition.
-Process-local queue status disappears when AutoCAD exits, but every terminal job writes an
-immutable `receipt.json`. Use `read_publish_receipt` or the audit report to resume verification
-without guessing from the presence of PDFs alone.
+Restart state is reconstructed only from authenticated durable intent and immutable terminal
+`receipt.json` evidence. Never-started pending work is restored; started work without a receipt is
+held as `job_interrupted` and is not replayed. Use `read_publish_receipt` or the audit report to
+resume verification without guessing from PDFs alone. Copying the workspace to another Windows
+user or machine does not transfer pending authorization because the DPAPI key remains user-bound.
 For a large run, call `create_publish_operations_report` until `has_more=false`, passing each
 `next_after_job_id` to the next call. Its summary is page-local; retain every `report_page_id` as a
 checkpoint. Only items in `awaiting_execution` include a `queue_approval`, and live status must be
@@ -389,7 +393,8 @@ a source-checkout wrapper); its completed company
 evidence file stays outside the public repository. Live status exposes the embedded build commit
 and running adapter DLL SHA-256. The pilot assembler derives the release commit from the verified
 `bundle-build.json`, re-hashes every bundle ZIP entry, and refuses either version when its running
-binary does not match the corresponding adapter artifact. Pilot schema v4 also derives a
+binary does not match the corresponding adapter artifact. Pilot schema v5 also requires the exact
+authenticated durable-queue scheme and derives a
 path-redacted external-template record from each immutable job manifest and requires the approved,
 post-pilot company-source, and staged-copy hashes to remain identical. Each run also binds the
 authorized one-page reference PDF and published output by path-redacted SHA-256/size/page geometry,

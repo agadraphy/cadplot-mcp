@@ -20,6 +20,8 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "output_directory")] public string OutputDirectory { get; set; }
         [DataMember(Name = "sheet_count")] public int SheetCount { get; set; }
         [DataMember(Name = "queued_utc")] public string QueuedUtc { get; set; }
+        [DataMember(Name = "authentication_version")] public int AuthenticationVersion { get; set; }
+        [DataMember(Name = "authentication_tag")] public string AuthenticationTag { get; set; }
     }
 
     [DataContract]
@@ -29,6 +31,8 @@ namespace CadPlotMcp.Core
         [DataMember(Name = "plan_id")] public string PlanId { get; set; }
         [DataMember(Name = "manifest_sha256")] public string ManifestSha256 { get; set; }
         [DataMember(Name = "started_utc")] public string StartedUtc { get; set; }
+        [DataMember(Name = "authentication_version")] public int AuthenticationVersion { get; set; }
+        [DataMember(Name = "authentication_tag")] public string AuthenticationTag { get; set; }
     }
 
     internal sealed class PublishQueueRecovery
@@ -51,6 +55,7 @@ namespace CadPlotMcp.Core
     /// </summary>
     public sealed class PublishQueueJournal
     {
+        public const string AuthenticationScheme = "windows-dpapi-current-user+hmac-sha256-v1";
         public const string PendingFileName = ".cadplot-queue-request.json";
         public const string StartedFileName = ".cadplot-queue-started.json";
         private const int MaxRecordBytes = 65536;
@@ -64,10 +69,12 @@ namespace CadPlotMcp.Core
             RegexOptions.CultureInvariant
         );
         private readonly string _trustedWorkspaceRoot;
+        private readonly PublishQueueAuthenticator _authenticator;
 
-        public PublishQueueJournal(string trustedWorkspaceRoot)
+        internal PublishQueueJournal(string trustedWorkspaceRoot, byte[] authenticationKey)
         {
             _trustedWorkspaceRoot = Path.GetFullPath(trustedWorkspaceRoot ?? String.Empty);
+            _authenticator = new PublishQueueAuthenticator(authenticationKey);
         }
 
         internal PublishQueueRecovery Recover(int capacity)
@@ -94,10 +101,10 @@ namespace CadPlotMcp.Core
                 }
 
                 RequirePlainFile(pendingPath);
-                var request = ValidateRequestRecord(
-                    ReadRecord<PublishQueueRequestRecord>(pendingPath),
-                    jobRoot
-                );
+                var pendingRecord = ReadRecord<PublishQueueRequestRecord>(pendingPath);
+                if (!_authenticator.Verify(pendingRecord))
+                    throw new InvalidDataException("publish_queue_request_authentication_failed");
+                var request = ValidateRequestRecord(pendingRecord, jobRoot);
                 if (recovery.States.ContainsKey(request.PlanId))
                     throw new InvalidDataException("publish_queue_duplicate_plan");
 
@@ -107,20 +114,20 @@ namespace CadPlotMcp.Core
                     if (!File.Exists(startedPath))
                         throw new InvalidDataException("publish_queue_started_marker_missing");
                     RequirePlainFile(startedPath);
-                    ValidateStartedRecord(
-                        ReadRecord<PublishQueueStartedRecord>(startedPath),
-                        request
-                    );
+                    var startedRecord = ReadRecord<PublishQueueStartedRecord>(startedPath);
+                    if (!_authenticator.Verify(startedRecord))
+                        throw new InvalidDataException("publish_queue_started_authentication_failed");
+                    ValidateStartedRecord(startedRecord, request);
                     RequirePlainFile(receiptPath);
                     snapshot = ReadReceiptSnapshot(receiptPath, request);
                 }
                 else if (File.Exists(startedPath))
                 {
                     RequirePlainFile(startedPath);
-                    ValidateStartedRecord(
-                        ReadRecord<PublishQueueStartedRecord>(startedPath),
-                        request
-                    );
+                    var startedRecord = ReadRecord<PublishQueueStartedRecord>(startedPath);
+                    if (!_authenticator.Verify(startedRecord))
+                        throw new InvalidDataException("publish_queue_started_authentication_failed");
+                    ValidateStartedRecord(startedRecord, request);
                     snapshot = new PublishJobSnapshot
                     {
                         PlanId = request.PlanId,
@@ -164,7 +171,9 @@ namespace CadPlotMcp.Core
                 OutputDirectory = request.OutputDirectory,
                 SheetCount = request.SheetCount,
                 QueuedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                AuthenticationVersion = 1,
             };
+            record.AuthenticationTag = _authenticator.Sign(record);
             try
             {
                 WriteAtomicCreate(pendingPath, record);
@@ -187,23 +196,22 @@ namespace CadPlotMcp.Core
             {
                 if (!File.Exists(pendingPath)) return "queue_state_missing";
                 RequirePlainFile(pendingPath);
-                var persisted = ValidateRequestRecord(
-                    ReadRecord<PublishQueueRequestRecord>(pendingPath),
-                    jobRoot
-                );
+                var pendingRecord = ReadRecord<PublishQueueRequestRecord>(pendingPath);
+                if (!_authenticator.Verify(pendingRecord)) return "queue_state_authentication_failed";
+                var persisted = ValidateRequestRecord(pendingRecord, jobRoot);
                 if (!SameRequest(persisted, request)) return "queue_state_changed";
                 if (File.Exists(receiptPath)) return "job_already_completed";
                 if (File.Exists(startedPath)) return "job_already_started";
-                WriteAtomicCreate(
-                    startedPath,
-                    new PublishQueueStartedRecord
-                    {
-                        SchemaVersion = 1,
-                        PlanId = request.PlanId,
-                        ManifestSha256 = request.ManifestSha256,
-                        StartedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-                    }
-                );
+                var record = new PublishQueueStartedRecord
+                {
+                    SchemaVersion = 1,
+                    PlanId = request.PlanId,
+                    ManifestSha256 = request.ManifestSha256,
+                    StartedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                    AuthenticationVersion = 1,
+                };
+                record.AuthenticationTag = _authenticator.Sign(record);
+                WriteAtomicCreate(startedPath, record);
                 return null;
             }
             catch (InvalidDataException)

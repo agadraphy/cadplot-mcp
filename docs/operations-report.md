@@ -24,15 +24,21 @@ read through `has_more=false` and every item is `complete`. Presence of a PDF al
 execution evidence. To keep MCP responses bounded, at most 20 output issues are included per job;
 use `output_issue_count` and `output_issues_truncated` to detect a longer list.
 
-For a live large run, use the plug-in's `queueAvailable` value as the feed window. The same status
-also reports `queueRecoveredOnStartup` and `queueInterruptedOnStartup`; an interrupted item is a
-manual-review boundary, not permission to replay it. If
+For a live large run, use the plug-in's `queueAvailable` value as the feed window and require
+`queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`. The same status also reports
+`queueRecoveredOnStartup` and `queueInterruptedOnStartup`; an interrupted item is a manual-review
+boundary, not permission to replay it. If
 `queue_publish_batch` returns schema v2 `deferred` items, retain their exact manifest paths, plan
 IDs, and manifest digests and retry them after slots reopen. After an AutoCAD restart, live status
 revalidates durable pending intents and terminal receipts. Regenerate this report as the workspace
 inventory, check live status first, and use a returned `awaiting_execution` `queue_approval` only
 when the plug-in does not already report that exact plan. A `job_interrupted` plan must be reviewed
 and staged as a new job rather than queued in place.
+
+The queue authentication key is Windows-user-bound state outside this report and workspace. Never
+copy, publish, or embed it in acceptance evidence. Moving only the workspace to another user/machine
+must leave pending jobs non-executable; preserve the old job for review and create a fresh staged
+approval on the authorized target instead.
 
 `get_publish_batch_status` accepts 1 to 20 unique exact plan IDs. It isolates per-plan connection,
 not-found, and protocol errors; summarizes `Pending`, `Running`, `Succeeded`, and `Failed`; then

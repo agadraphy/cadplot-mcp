@@ -114,16 +114,25 @@ try {
         }
         durable_queue_recovery = [ordered]@{
             passed = $true
-            exact_test_count = 5
+            exact_test_count = 11
             pending_intent_recovered = $true
             exact_request_identity_preserved = $true
             interrupted_job_not_replayed = $true
             terminal_receipt_status_recovered = $true
             tampered_intent_blocked = $true
             completed_job_requeue_blocked = $true
+            authentication_scheme = "windows-dpapi-current-user+hmac-sha256-v1"
+            signed_intent_required = $true
+            foreign_key_intent_blocked = $true
+            started_marker_authentication_required = $true
+            protected_key_outside_workspace = $true
+            workspace_key_rejected = $true
+            corrupt_key_blocked = $true
+            net45_dpapi_runtime_proven = $true
+            net45_core_image_runtime = "v4.0.30319"
             autocad_launched = $false
             live_publish_proven = $false
-            evidence_scope = "production-core-with-synthetic-files"
+            evidence_scope = "production-core-net45+net8-with-synthetic-files"
         }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300; ready = 300; staged = 300; outputs_complete = 300
@@ -192,7 +201,7 @@ try {
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     $durableTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
-    $durableTamper.durable_queue_recovery.interrupted_job_not_replayed = $false
+    $durableTamper.durable_queue_recovery.authentication_scheme = "unsigned"
     [System.IO.File]::WriteAllText(
         $manifestPath,
         ($durableTamper | ConvertTo-Json -Depth 7),

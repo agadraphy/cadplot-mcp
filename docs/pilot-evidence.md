@@ -36,7 +36,8 @@ cadplot-collect-pilot C:\CadPlotPilot\2016-job\manifest.json `
 Repeat with the 2025 job and `--release 2025`. The collector is read-only with respect to the job,
 DWG, receipt, and PDFs. It queries the live named-pipe status, requires publishing/workspace to be
 enabled, requires `runtimeSupported=true`, records the normalized `runtimeSeries`, the running
-adapter's embedded `buildCommit`, and on-disk `pluginSha256`, audits
+adapter's embedded `buildCommit`, on-disk `pluginSha256`, and exact
+`queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`, audits
 `publish_verified=true`, re-hashes source/staged files, requires exactly one PDF, and refuses to
 overwrite an existing evidence file. These declaration flags are human attestations; do not pass
 them before the corresponding checks are actually complete. The seven
@@ -65,7 +66,7 @@ input, and requires each live `pluginSha256` to equal the corresponding adapter 
 manifest. It revalidates both runs, requires distinct 2016/2025 evidence, and refuses to overwrite
 its output.
 
-The schema-v4 top level contains the full `repository_commit`, `package_version`, bundle and build
+The schema-v5 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`. Each run records:
 
 - `autocad_release`, live `product` including normalized and raw ACADVER, exact `adapter`, normalized
@@ -96,7 +97,8 @@ proves the recorded gates only; the actual evidence files and licensed workstati
 authoritative.
 
 Schema-v3 final pilot JSON and older run JSON files are intentionally not upgraded in place.
-Re-collect both runs with the schema-v4 wheel so the exact visual reference and external-template
+Re-collect both runs with the schema-v5 wheel so the exact visual reference, queue authentication,
+and external-template
 use or non-use are derived from authorized local files and the immutable job manifest instead of
 being supplied manually.
 

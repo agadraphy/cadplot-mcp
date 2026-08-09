@@ -153,16 +153,25 @@ foreach ($evidence in @($outer, $manifest)) {
     $durableQueue = $evidence.durable_queue_recovery
     if (
         $durableQueue.passed -ne $true -or
-        $durableQueue.exact_test_count -ne 5 -or
+        $durableQueue.exact_test_count -ne 11 -or
         $durableQueue.pending_intent_recovered -ne $true -or
         $durableQueue.exact_request_identity_preserved -ne $true -or
         $durableQueue.interrupted_job_not_replayed -ne $true -or
         $durableQueue.terminal_receipt_status_recovered -ne $true -or
         $durableQueue.tampered_intent_blocked -ne $true -or
         $durableQueue.completed_job_requeue_blocked -ne $true -or
+        $durableQueue.authentication_scheme -cne "windows-dpapi-current-user+hmac-sha256-v1" -or
+        $durableQueue.signed_intent_required -ne $true -or
+        $durableQueue.foreign_key_intent_blocked -ne $true -or
+        $durableQueue.started_marker_authentication_required -ne $true -or
+        $durableQueue.protected_key_outside_workspace -ne $true -or
+        $durableQueue.workspace_key_rejected -ne $true -or
+        $durableQueue.corrupt_key_blocked -ne $true -or
+        $durableQueue.net45_dpapi_runtime_proven -ne $true -or
+        $durableQueue.net45_core_image_runtime -cne "v4.0.30319" -or
         $durableQueue.autocad_launched -ne $false -or
         $durableQueue.live_publish_proven -ne $false -or
-        $durableQueue.evidence_scope -cne "production-core-with-synthetic-files"
+        $durableQueue.evidence_scope -cne "production-core-net45+net8-with-synthetic-files"
     ) {
         throw "Release kit has no valid durable queue recovery evidence."
     }

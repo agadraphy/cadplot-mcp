@@ -44,9 +44,11 @@ Use this checklist for every alpha release.
       removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.
 - [ ] `dotnet test src/dotnet/CadPlotMcp.Core.Tests/CadPlotMcp.Core.Tests.csproj --configuration Release` passes.
-- [ ] `scripts/probe-durable-queue.ps1` reports all five exact production-core scenarios passed:
+- [ ] `scripts/probe-durable-queue.ps1` reports all eleven exact production-core scenarios passed:
       pending recovery with identical request, no interrupted replay, terminal receipt recovery,
-      tamper rejection, and completed-job requeue rejection; AutoCAD/live publish remain false.
+      completed-job requeue rejection, unsigned/altered/foreign-key/started-marker rejection, and a
+      DPAPI-protected key outside the workspace, including corrupt-key rejection. It also loads the built `net45` core under Windows
+      .NET Framework and proves DPAPI key creation there; AutoCAD/live publish remain false.
 - [ ] The compile-only API probe passes against an installed managed API folder, is labelled
       compile-only evidence, and records the correct release target (`R20.1/net45` or
       `R25.0/net8.0-windows`).
@@ -89,7 +91,8 @@ Use this checklist for every alpha release.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.
-- [ ] Each schema-v4 licensed pilot run contains a path-redacted `template_assets` list; every used
+- [ ] Each schema-v5 licensed pilot run contains the exact authenticated queue scheme and a
+      path-redacted `template_assets` list; every used
       asset's approved, post-pilot source, and staged-copy SHA-256 values are identical, or the list
       is explicitly empty when that run used no external template.
 - [ ] Each run binds the exact published and authorized one-page reference PDFs by path-redacted
