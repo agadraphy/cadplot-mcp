@@ -12,7 +12,7 @@ from mcp.types import ToolAnnotations
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
 from cadplot_mcp.audit import load_staged_manifest
 from cadplot_mcp.audit import read_publish_receipt as load_publish_receipt
-from cadplot_mcp.backends.autocad_com import AutoCADComInspector
+from cadplot_mcp.backends.isolated_autocad import IsolatedAutoCADInspector
 from cadplot_mcp.batch import (
     build_batch_page,
     build_drawing_inventory_id,
@@ -153,14 +153,14 @@ def scan_drawings(
 def inspect_drawing(path: PathString) -> InspectDrawingOutput:
     """Inspect one explicit DWG read-only: layouts, plot settings, and labelled frames."""
     config = _config()
-    return AutoCADComInspector(config.path_policy).inspect_drawing(path).to_dict()
+    return _inspector(config).inspect_drawing(path).to_dict()
 
 
 @mcp.tool(title="Inventory office plot resources", annotations=READ_ONLY)
 def inventory_office_resources(path: PathString) -> OfficeInventoryOutput:
     """Inventory exact frame/layout/page-setup/plot resource names; never approves or writes."""
     config = _config()
-    inspection = AutoCADComInspector(config.path_policy).inspect_drawing(path)
+    inspection = _inspector(config).inspect_drawing(path)
     return build_office_inventory_report(inspection)
 
 
@@ -390,11 +390,18 @@ def match_paper_profile(label: LabelString) -> MatchPaperProfileOutput:
 
 def _build_current_plan(path: str, config: CadPlotConfig) -> dict[str, Any]:
     before = fingerprint_drawing(path, config.path_policy)
-    inspection = AutoCADComInspector(config.path_policy).inspect_drawing(path)
+    inspection = _inspector(config).inspect_drawing(path)
     after = fingerprint_drawing(path, config.path_policy)
     if before != after:
         raise RuntimeError("Drawing changed during inspection; retry after it is stable.")
     return build_publish_plan(inspection, config, drawing_fingerprint=after)
+
+
+def _inspector(config: CadPlotConfig) -> IsolatedAutoCADInspector:
+    return IsolatedAutoCADInspector(
+        config.path_policy,
+        timeout_seconds=config.inspection_timeout_seconds,
+    )
 
 
 def _file_sha256(path: str | Path) -> str:

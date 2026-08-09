@@ -277,6 +277,7 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"cadplot-assemble-pilot"',
         '"cadplot-validate-pilot"',
         '"pilot_cli_commands": len(pilot_commands)',
+        '"inspector_worker_protocol": True',
     ):
         assert required in script
 
@@ -660,6 +661,22 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "publish_verified=true" in deployment
     assert "The DWG stays" in architecture
     assert "Not implemented or claimed" in architecture
+
+
+def test_server_routes_drawing_inspection_through_bounded_helper() -> None:
+    server = (REPOSITORY_ROOT / "src" / "cadplot_mcp" / "server.py").read_text(
+        encoding="utf-8"
+    )
+    isolation = (REPOSITORY_ROOT / "docs" / "inspection-isolation.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "IsolatedAutoCADInspector" in server
+    assert "AutoCADComInspector" not in server
+    assert "inspection_timeout_seconds" in server
+    assert "standard input" in isolation
+    assert "never kills AutoCAD" in isolation
+    assert "licensed-pilot" in isolation
 
 
 def test_github_templates_warn_against_proprietary_assets_and_false_evidence() -> None:

@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Bounded per-DWG inspection deadlines after helper startup through a killable subprocess with
+  closed stdin/JSON protocol, bounded output, exact path replay, and batch-level timeout isolation
+  without terminating AutoCAD.
 - Read-only detection of orthogonal attribute-backed block frames with fail-closed rejection of
   conflicting labels, mismatched bounds, non-orthogonal rotation, and equal-size competition.
 - Dry-run and onboarding enforcement that approved named page setups use `PlotType=Layout`, matching

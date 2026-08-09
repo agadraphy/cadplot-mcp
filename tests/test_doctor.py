@@ -35,6 +35,7 @@ def test_config_doctor_is_read_only_and_allows_not_yet_created_workspace(tmp_pat
     report = diagnose_environment(config, mode="config")
 
     assert report["ready"] is True
+    assert report["inspection_timeout_seconds"] == 120
     assert report["allowed_roots"] == [str((tmp_path / "project").resolve())]
     assert report["allowed_root_status"] == [
         {"path": str((tmp_path / "project").resolve()), "exists": True}

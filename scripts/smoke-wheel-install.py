@@ -12,11 +12,18 @@ from pathlib import Path
 from typing import Any
 
 
-def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> str:
+def _run(
+    command: list[str],
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    input_text: str | None = None,
+) -> str:
     result = subprocess.run(
         command,
         cwd=cwd,
         env=environment,
+        input=input_text,
         capture_output=True,
         text=True,
         check=False,
@@ -143,6 +150,19 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         if protocol.get("passed") is not True:
             raise RuntimeError("Installed wheel failed the real MCP STDIO smoke test.")
 
+        inspector_output = _run(
+            [str(interpreter), "-m", "cadplot_mcp.inspector_worker"],
+            cwd=temporary_root,
+            environment=environment,
+            input_text="{}",
+        )
+        inspector_protocol = json.loads(inspector_output)
+        if inspector_protocol != {
+            "ok": False,
+            "error": "Inspection request schema is invalid.",
+        }:
+            raise RuntimeError("Installed wheel failed the isolated inspector protocol smoke.")
+
         command_root = venv_root / ("Scripts" if os.name == "nt" else "bin")
         command_suffix = ".exe" if os.name == "nt" else ""
         pilot_commands = (
@@ -171,6 +191,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "closed_output_schemas": protocol["closed_output_schemas"],
         "structured_output_calls": protocol["structured_output_calls"],
         "pilot_cli_commands": len(pilot_commands),
+        "inspector_worker_protocol": True,
         "isolated_install": True,
         "locked_dependencies": True,
         "dependency_hashes_required": True,

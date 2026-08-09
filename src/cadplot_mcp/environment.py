@@ -49,6 +49,7 @@ def diagnose_environment(
 
     report["config"] = str(config.source)
     report["paper_profiles"] = len(config.paper_profiles)
+    report["inspection_timeout_seconds"] = config.inspection_timeout_seconds
     for root in config.path_policy.allowed_roots:
         exists = root.is_dir()
         report["allowed_roots"].append(str(root))

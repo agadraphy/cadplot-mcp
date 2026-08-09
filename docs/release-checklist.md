@@ -32,7 +32,7 @@ Use this checklist for every alpha release.
 - [ ] `uv build` and `uv run python scripts/audit-release-artifacts.py dist` pass.
 - [ ] `uv run python scripts/smoke-wheel-install.py dist` installs the exact wheel into an isolated
       temporary environment using frozen, hash-checked lock dependencies and passes the real MCP
-      STDIO/tool contract without source-tree import.
+      STDIO/tool contract plus isolated-inspector module protocol without source-tree import.
 - [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection, and
       removal of machine-local API paths from the portable demo manifest.
 - [ ] `dotnet build src/dotnet/CadPlotMcp.sln --configuration Release` passes.

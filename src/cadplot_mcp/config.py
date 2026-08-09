@@ -24,6 +24,7 @@ TOP_LEVEL_KEYS = {
     "layout_prefix",
     "pdf_page_tolerance_mm",
     "minimum_frame_confidence",
+    "inspection_timeout_seconds",
     "frame_layers",
     "paper_profiles",
 }
@@ -64,6 +65,7 @@ class CadPlotConfig:
     layout_prefix: str = "CADPLOT"
     pdf_page_tolerance_mm: float = 2.0
     minimum_frame_confidence: float = 0.85
+    inspection_timeout_seconds: int = 120
     frame_layers: tuple[str, ...] = ()
 
     def match_paper_profile(self, label: str) -> PaperProfile | None:
@@ -149,6 +151,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
     layout_prefix = str(raw.get("layout_prefix", "CADPLOT"))
     pdf_page_tolerance_mm = float(raw.get("pdf_page_tolerance_mm", 2.0))
     minimum_frame_confidence = float(raw.get("minimum_frame_confidence", 0.85))
+    inspection_timeout_seconds = raw.get("inspection_timeout_seconds", 120)
     frame_layer_values = raw.get("frame_layers", [])
     if not isinstance(frame_layer_values, list) or any(
         not isinstance(item, str) for item in frame_layer_values
@@ -173,6 +176,12 @@ def load_config(path: str | Path) -> CadPlotConfig:
         raise ValueError("pdf_page_tolerance_mm must be between 0 and 10")
     if not 0 <= minimum_frame_confidence <= 1:
         raise ValueError("minimum_frame_confidence must be between 0 and 1")
+    if (
+        not isinstance(inspection_timeout_seconds, int)
+        or isinstance(inspection_timeout_seconds, bool)
+        or not 5 <= inspection_timeout_seconds <= 600
+    ):
+        raise ValueError("inspection_timeout_seconds must be an integer between 5 and 600")
     if len(frame_layers) > 256 or any(
         not item or len(item) > 255 or _has_control_character(item) for item in frame_layers
     ):
@@ -203,6 +212,7 @@ def load_config(path: str | Path) -> CadPlotConfig:
         layout_prefix=layout_prefix,
         pdf_page_tolerance_mm=pdf_page_tolerance_mm,
         minimum_frame_confidence=minimum_frame_confidence,
+        inspection_timeout_seconds=inspection_timeout_seconds,
         frame_layers=frame_layers,
     )
 

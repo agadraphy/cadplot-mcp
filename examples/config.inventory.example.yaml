@@ -14,6 +14,7 @@ require_page_setup_match: true
 layout_prefix: "CADPLOT"
 pdf_page_tolerance_mm: 2
 minimum_frame_confidence: 0.85
+inspection_timeout_seconds: 120
 frame_layers: []
 
 # Deliberately cannot match a normal paper label. Replace it only after inspect_drawing reports

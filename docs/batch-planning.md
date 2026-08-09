@@ -8,6 +8,8 @@ the entire run inside one MCP call.
 - Drawings are sorted deterministically by normalized full path.
 - Each drawing becomes `ready`, `blocked`, or `error`.
 - An AutoCAD error for one DWG does not discard other results on the page.
+- Each DWG inspection has the configured subprocess deadline; a timeout becomes that item's
+  bounded `error` result and later drawings continue.
 - Every page has a deterministic SHA-256 `batch_page_id`.
 - The first page returns a metadata-bound `inventory_id`; every later page must repeat it as
   `expected_inventory_id`. Added, removed, renamed, resized, or retimestamped DWGs stop pagination.
@@ -23,6 +25,8 @@ Example sequence for 300 drawings:
 
 Batch planning is read-only. It does not imply approval and does not stage or plot any drawing.
 If the inventory changes, restart at offset zero and review the newly generated plan IDs.
+Resolve any AutoCAD modal prompt before retrying a timed-out item; CadPlot terminates only its helper
+and never kills the licensed AutoCAD process.
 
 ## Target-count rehearsal
 

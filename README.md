@@ -81,8 +81,10 @@ The script copies only the public non-matching inventory config and creates empt
 `pilot-work` folders. It never copies company assets or enables publishing.
 
 AutoCAD must already be running for `inspect_drawing`. The server will not launch it silently.
-Close modal AutoCAD dialogs before inspection; COM-level timeouts will be added with the isolated
-worker used by the write-capable milestone.
+Each drawing inspection runs in a separate helper process with the bounded
+`inspection_timeout_seconds` deadline (default 120). A hung COM call becomes an isolated file error
+instead of freezing the MCP server or batch page. See
+[inspection isolation](docs/inspection-isolation.md).
 
 Before AutoCAD testing, run the clearly labelled platform-independent
 [synthetic demo](docs/synthetic-demo.md):

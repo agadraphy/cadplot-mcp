@@ -79,6 +79,9 @@ uv run cadplot-doctor --mode full
 
 `config` yalnız config/yol güvenliğini, `inspection` çalışan AutoCAD COM bağlantısını, `full` ise
 yerel named-pipe eklentisini ve güvenilir workspace ayarını da denetler. Komut AutoCAD'i başlatmaz.
+Her DWG incelemesi ayrı bir yardımcı süreçte çalışır. `inspection_timeout_seconds` varsayılan 120
+saniyedir; takılan COM çağrısı MCP'yi veya batch sayfasını sonsuza kadar bekletmek yerine yalnız o
+dosyayı bounded hata yapar. Ayrıntılar: [izole AutoCAD incelemesi](docs/inspection-isolation.md).
 
 İlk ofis envanteri için hiçbir mevcut hedefin üstüne yazmadan boş pilot klasörü oluşturabilirsiniz:
 

@@ -33,6 +33,7 @@ paper_profiles:
     assert config.path_policy.allowed_roots == (project.resolve(),)
     assert config.workspace_root == (tmp_path / "work").absolute()
     assert config.drawing_unit_mm == 1
+    assert config.inspection_timeout_seconds == 120
     assert 50 in config.scale_denominators
 
 
@@ -94,6 +95,10 @@ paper_profiles:
         ("require_page_setup_match: maybe", "must be true or false"),
         ("pdf_page_tolerance_mm: 20", "between 0 and 10"),
         ("minimum_frame_confidence: 2", "between 0 and 1"),
+        ("inspection_timeout_seconds: 4", "integer between 5 and 600"),
+        ("inspection_timeout_seconds: 601", "integer between 5 and 600"),
+        ("inspection_timeout_seconds: true", "integer between 5 and 600"),
+        ("inspection_timeout_seconds: 30.5", "integer between 5 and 600"),
         ("frame_layers: [SHEET, sheet]", "unique ignoring case"),
         ("drawing_unit_mm: .nan", "finite value"),
         ("scale_denominators: [1, .inf]", "positive values"),

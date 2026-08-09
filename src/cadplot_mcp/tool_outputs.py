@@ -149,6 +149,7 @@ class EnvironmentValidationOutput(_ClosedOutput):
     plugin: dict[str, Any]
     errors: list[str]
     paper_profiles: int | None = None
+    inspection_timeout_seconds: int | None = None
 
 
 class AutoCADPluginStatusOutput(_ClosedOutput):
