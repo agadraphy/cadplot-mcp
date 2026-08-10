@@ -6,11 +6,12 @@ import math
 import re
 import zipfile
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+from pypdf.errors import LimitReachedError, PdfReadError
 
 from cadplot_mcp.audit import (
     audit_publish_outputs,
@@ -734,34 +735,57 @@ def _collect_visual_reference(
     reference = config.path_policy.require_allowed(supplied, suffix=".pdf")
     if not reference.is_file():
         raise ValueError("Visual reference PDF must be a regular file.")
-    size = reference.stat().st_size
+    before = reference.stat()
+    size = before.st_size
     if size <= 0 or size > MAX_REFERENCE_PDF_BYTES:
         raise ValueError("Visual reference PDF must be between 1 byte and 128 MiB.")
-    with reference.open("rb") as stream:
-        if stream.read(5) != b"%PDF-":
-            raise ValueError("Visual reference does not have a PDF header.")
     try:
-        with reference.open("rb") as stream:
-            reader = PdfReader(stream, strict=False)
-            if reader.is_encrypted:
-                raise ValueError("Visual reference PDF must not be encrypted.")
-            if len(reader.pages) != 1:
-                raise ValueError("Visual reference PDF must contain exactly one page.")
-            page = reader.pages[0]
-            media_box = page.mediabox
-            width_mm = float(media_box.width) * 25.4 / 72
-            height_mm = float(media_box.height) * 25.4 / 72
-            rotation = int(page.get("/Rotate", 0) or 0)
-            if rotation % 90 != 0:
-                raise ValueError("Visual reference PDF rotation must be a multiple of 90 degrees.")
-            if rotation % 180 != 0:
-                width_mm, height_mm = height_mm, width_mm
-            if pdf_page_marking_evidence(page)["marking_operator_count"] < 1:
-                raise ValueError("Visual reference PDF has no marking content.")
+        reference_bytes = reference.read_bytes()
+        after_read = reference.stat()
+    except OSError as exc:
+        raise ValueError("Visual reference PDF could not be read.") from exc
+    if len(reference_bytes) != size or _file_snapshot_changed(before, after_read):
+        raise ValueError("Visual reference PDF changed while being read.")
+    if reference_bytes[:5] != b"%PDF-":
+        raise ValueError("Visual reference does not have a PDF header.")
+    try:
+        reader = PdfReader(BytesIO(reference_bytes), strict=False)
+        if reader.is_encrypted:
+            raise ValueError("Visual reference PDF must not be encrypted.")
+        if len(reader.pages) != 1:
+            raise ValueError("Visual reference PDF must contain exactly one page.")
+        page = reader.pages[0]
+        media_box = page.mediabox
+        width_mm = float(media_box.width) * 25.4 / 72
+        height_mm = float(media_box.height) * 25.4 / 72
+        rotation = int(page.get("/Rotate", 0) or 0)
+        if rotation % 90 != 0:
+            raise ValueError("Visual reference PDF rotation must be a multiple of 90 degrees.")
+        if rotation % 180 != 0:
+            width_mm, height_mm = height_mm, width_mm
+        if pdf_page_marking_evidence(page)["marking_operator_count"] < 1:
+            raise ValueError("Visual reference PDF has no marking content.")
+    except LimitReachedError as exc:
+        raise ValueError(
+            "Visual reference PDF decoded content exceeds the audit safety limit."
+        ) from exc
     except (OSError, PdfReadError, TypeError, ValueError) as exc:
         if isinstance(exc, ValueError) and str(exc).startswith("Visual reference"):
             raise
         raise ValueError("Visual reference PDF structure is invalid.") from exc
+    try:
+        after_parse = reference.stat()
+        current_path = supplied.resolve(strict=True)
+        path_redirected = _is_reparse(supplied) or current_path != reference
+    except OSError:
+        after_parse = None
+        path_redirected = True
+    if (
+        after_parse is None
+        or path_redirected
+        or _file_snapshot_changed(before, after_parse)
+    ):
+        raise ValueError("Visual reference PDF changed while being audited.")
     if not all(math.isfinite(value) and value > 0 for value in (width_mm, height_mm)):
         raise ValueError("Visual reference PDF page size is invalid.")
     output_width = output.get("page_width_mm")
@@ -779,13 +803,20 @@ def _collect_visual_reference(
             "Visual reference PDF orientation or page size does not match the published PDF."
         )
     return {
-        "sha256": _sha256(reference),
+        "sha256": hashlib.sha256(reference_bytes).hexdigest(),
         "size_bytes": size,
         "page_count": 1,
         "page_width_mm": round(width_mm, 3),
         "page_height_mm": round(height_mm, 3),
         "comparison_tolerance_mm": config.pdf_page_tolerance_mm,
     }
+
+
+def _file_snapshot_changed(before: Any, after: Any) -> bool:
+    return any(
+        getattr(before, field, None) != getattr(after, field, None)
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    )
 
 
 def _collect_published_pdf(output: dict[str, Any]) -> dict[str, Any]:

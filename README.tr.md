@@ -33,8 +33,10 @@ Hazır olan parçalar:
 - orijinale dokunmadan izole çalışma klasörüne doğrulanmış DWG kopyası alma;
 - beklenen PDF'leri yönlendirilmemiş iş klasöründe, 128 MiB sınır altında tek ve değişmez byte
   snapshot'ından yol, gerçek PDF yapısı, tek sayfa, sayfa ölçüsü, boyut ve SHA-256 açısından
-  denetleme; audit sırasında değişen dosyayı ve doğru ölçülü fakat çizgi/dolgu/yazı/görsel
-  işaretleme operatörü taşımayan boş sayfayı reddetme;
+  denetleme; 64 MiB decoded-content ve 8 MiB marking-scan sınırı ile tam pypdf operasyon listesi
+  oluşturmayan lexer kullanarak audit sırasında değişen dosyayı ve doğru ölçülü fakat
+  çizgi/dolgu/yazı/görsel işaretleme
+  operatörü taşımayan boş sayfayı reddetme;
 - AutoCAD 2016 ve 2025 için ayrı, exact sürüme kilitli .NET adaptör/bundle yapısı;
 - varsayılan kapalı, ana AutoCAD thread'inde çalışan sınırlı yayın kuyruğu;
 - açık plan+manifest onayını workspace dışındaki Windows DPAPI korumalı anahtarla imzalayan restart

@@ -66,7 +66,11 @@ staged DWG, invalid/encrypted PDF content, and any output that is not exactly on
 limited to 128 MiB and read into one stable byte snapshot. Page structure, geometry, marking
 operators, byte length, and SHA-256 are all derived from that same snapshot. A device/file identity,
 size, or modification-time change while reading yields `pdf_changed_during_audit`; an oversized file
-yields `pdf_too_large`. A correctly sized page is still rejected as `blank_pdf_page` unless its
+yields `pdf_too_large`. Decoded page content is separately capped at 64 MiB; marking detection uses
+a linear lexer that ignores strings, names, hexadecimal operands, and comments without building
+pypdf's full operation-object list. Decoder or aggregate content limits yield
+`pdf_content_limit_exceeded`; so does failure to find complete, balanced marking evidence within the
+first 8 MiB. A correctly sized page is still rejected as `blank_pdf_page` unless its
 decoded content contains a path-paint, text-show, shading, image, or form-invocation operator. The
 report retains decoded content byte and marking-operator counts; this is a strong blank-page guard,
 not a replacement for visual crop/scale/style review. Its report also includes page dimensions,

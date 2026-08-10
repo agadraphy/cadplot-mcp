@@ -22,7 +22,8 @@ The repository now provides:
 - durable pending cancellation: an exact signed tombstone survives restart, while a running
   PlotEngine operation is never force-aborted;
 - in-memory layout/page-setup/viewport creation and one PDF per sheet;
-- bounded, snapshot-consistent structural, physical-size, and nonblank PDF auditing;
+- bounded, snapshot-consistent structural, physical-size, and nonblank PDF auditing, including a
+  64 MiB decoded-content cap and allocation-safe, 8 MiB marking lexer;
 - deterministic CycloneDX 1.7 SBOM generation bound to the exact commit, lock, runtime dependency
   inventory, wheel/source archive, and release DLL hashes, with no workstation paths or Autodesk
   binaries.

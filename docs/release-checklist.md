@@ -109,6 +109,10 @@ Use this checklist for every alpha release.
 - [ ] Output audit rejects a redirected PDF/job path, files above the 128 MiB per-output limit, and
       files changed while their snapshot is read. Geometry, marking evidence, byte size, and SHA-256
       for every valid PDF come from the identical immutable byte snapshot.
+- [ ] Decoded page content above 64 MiB or pypdf's stricter decoder/aggregate limits is rejected as
+      `pdf_content_limit_exceeded`; complete marking evidence must appear within an 8 MiB scan.
+      Tokens inside strings, names, hexadecimal operands, or comments do not satisfy the nonblank
+      gate, unbalanced operands are invalid structure, and no full pypdf operation list is materialized.
 - [ ] Source-revision and timestamp-drift tests prove that staged validation, direct queueing,
       restart reporting, and final output audit all fail closed before claiming current output;
       `source_changed` jobs expose no requeue approval and `publish_verified=false`.
@@ -122,7 +126,8 @@ Use this checklist for every alpha release.
 - [ ] Each run binds the exact nonblank published and authorized one-page reference PDFs by
       path-redacted SHA-256, byte length, and page geometry; the receipt output count/digest independently
       revalidates against the published PDF, their orientation/size relationship revalidates, and
-      all seven visual checks were separately attested by the named reviewer.
+      all seven visual checks were separately attested by the named reviewer. Reference geometry and
+      SHA-256 come from one stable snapshot; in-flight change or decoded-content overflow is rejected.
 - [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.
 - [ ] `cadplot-collect-recovery` produced distinct 2–20 job, exact-workspace post-restart records
       for both AutoCAD 2016 and 2025; every retained job is receipt-output-bound,

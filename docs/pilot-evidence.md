@@ -113,7 +113,8 @@ two `batch_recovery` records. Each one-sheet run records:
   remained readable after restart;
 - a path-redacted `visual_reference` record containing the authorized one-page office reference
   PDF's SHA-256, byte length, page count, physical width/height, and bounded comparison tolerance.
-  Collection requires that file to be under an allowed root; both collection and later schema
+  Collection requires that file to be under an allowed root, below raw/decoded content limits, and
+  unchanged while one snapshot supplies both geometry and SHA-256; both collection and later schema
   validation require its effective orientation/page size, including PDF `/Rotate`, to match the
   `published_pdf` evidence;
 - seven explicit visual checks: orientation, crop, viewport scale, lineweights, plot style, fonts,

@@ -41,6 +41,9 @@ operator only proves that the page is not structurally empty; visual acceptance 
 `pdf_too_large` rejects output above the 128 MiB per-file audit limit. `pdf_changed_during_audit`
 means the file identity, size, or timestamp changed while its single audit snapshot was being read;
 neither state exposes a SHA-256 or qualifies for execution/output binding.
+`pdf_content_limit_exceeded` means decoded page content exceeded CadPlot's 64 MiB cap, a stricter
+pypdf decoder/aggregate limit, or no complete marking evidence appeared inside the 8 MiB lexical
+scan window. It is invalid output and must never be retried over the old file.
 
 Every report rebuild re-fingerprints the original allowed-root DWG. This is a currency check, not a
 claim that CadPlot modified the source: a user or upstream sync may have produced a newer revision.

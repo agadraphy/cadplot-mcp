@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
-from pypdf.generic import DecodedStreamObject, NameObject, NumberObject
+from pypdf.generic import ContentStream, DecodedStreamObject, NameObject, NumberObject
 
 from cadplot_mcp import audit as audit_module
 from cadplot_mcp import server as mcp_server
@@ -347,6 +347,123 @@ def test_output_audit_rejects_content_stream_without_paint_operator(
     assert report["outputs"][0]["status"] == "blank_pdf_page"
     assert report["outputs"][0]["content_stream_bytes"] > 0
     assert report["outputs"][0]["marking_operator_count"] == 0
+
+
+def test_output_audit_ignores_marking_tokens_inside_pdf_operands_and_comments(
+    tmp_path: Path,
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=842, height=595)
+    content = DecodedStreamObject()
+    content.set_data(
+        b"/S (S Tj Do \\(nested\\)) <53 20 54 6a> % S Tj Do B\n"
+        b"<< /Name /Do /Text (B*) >> 10 10 m 100 100 l n"
+    )
+    page.replace_contents(content)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["outputs"][0]["status"] == "blank_pdf_page"
+    assert report["outputs"][0]["marking_operator_count"] == 0
+
+
+def test_output_audit_does_not_materialize_pypdf_operation_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    _add_marked_page(writer, width=842, height=595)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    def reject_operation_materialization(_content):
+        raise AssertionError("pypdf operation list must not be materialized")
+
+    monkeypatch.setattr(
+        ContentStream,
+        "operations",
+        property(reject_operation_materialization),
+    )
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is True
+    assert report["outputs"][0]["marking_operator_count"] == 1
+
+
+@pytest.mark.parametrize(
+    "content_data",
+    [
+        b"10 10 m 100 100 l S (unterminated",
+        b"10 10 m 100 100 l S [1 2 3",
+        b"10 10 m 100 100 l S << /Key /Value",
+        b"10 10 m 100 100 l S <53 20",
+    ],
+)
+def test_output_audit_rejects_unterminated_pdf_content_operands(
+    tmp_path: Path, content_data: bytes
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=842, height=595)
+    content = DecodedStreamObject()
+    content.set_data(content_data)
+    page.replace_contents(content)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["outputs"][0]["status"] == "invalid_pdf_structure"
+    assert report["outputs"][0]["sha256"] is None
+
+
+def test_output_audit_rejects_decoded_page_content_above_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    writer = PdfWriter()
+    _add_marked_page(writer, width=842, height=595)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+    monkeypatch.setattr(audit_module, "MAX_DECODED_PAGE_CONTENT_BYTES", 8)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["outputs"][0]["status"] == "pdf_content_limit_exceeded"
+    assert report["outputs"][0]["max_decoded_content_bytes"] == 8
+    assert report["outputs"][0]["sha256"] is None
+
+
+def test_output_audit_rejects_page_without_early_bounded_marking_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    writer = PdfWriter()
+    _add_marked_page(writer, width=842, height=595)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+    monkeypatch.setattr(audit_module, "MAX_MARKING_SCAN_BYTES", 8)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["outputs"][0]["status"] == "pdf_content_limit_exceeded"
+    assert report["outputs"][0]["max_marking_scan_bytes"] == 8
+    assert report["outputs"][0]["sha256"] is None
 
 
 def test_output_audit_rejects_pdf_above_snapshot_limit(

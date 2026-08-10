@@ -12,6 +12,12 @@ All notable changes to this project are documented in this file.
   or modification time changes while the snapshot is read is reported as
   `pdf_changed_during_audit`; oversized output is reported as `pdf_too_large`. This closes the
   Python audit-side path-redirection and parse/hash time-of-check/time-of-use gap.
+- Decoded page content now has a separate 64 MiB CadPlot limit and a bounded lexical marking scan
+  that ignores strings, names, hexadecimal operands, and comments without materializing pypdf's
+  potentially huge Python operation list. The lexer validates balanced strings/arrays/dictionaries
+  and requires complete marking evidence within the first 8 MiB. Decoder/aggregate/scan limits return
+  `pdf_content_limit_exceeded`. Licensed visual-reference PDFs use the same decoded-content guard
+  and now bind geometry plus SHA-256 to one stable snapshot, rejecting in-flight changes.
 - PDF auditing now rejects a correctly sized but blank page unless its decoded content stream
   contains at least one path-paint, text-show, shading, image, or form invocation operator. Valid
   reports retain decoded-byte and marking-operator counts; the 300-drawing rehearsal proves the

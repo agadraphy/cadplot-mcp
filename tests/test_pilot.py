@@ -10,8 +10,10 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
+from pypdf.errors import LimitReachedError
 from pypdf.generic import DecodedStreamObject, NameObject, NumberObject
 
+from cadplot_mcp import pilot as pilot_module
 from cadplot_mcp.audit import build_receipt_output_digest
 from cadplot_mcp.config import load_config
 from cadplot_mcp.pilot import (
@@ -759,6 +761,61 @@ def test_build_pilot_run_rejects_blank_visual_reference(tmp_path: Path) -> None:
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=blank_reference,
+        )
+
+
+def test_build_pilot_run_rejects_reference_decoded_content_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+
+    def reject_large_content(_page):
+        raise LimitReachedError("synthetic decoded-content limit")
+
+    monkeypatch.setattr(pilot_module, "pdf_page_marking_evidence", reject_large_content)
+
+    with pytest.raises(ValueError, match="decoded content exceeds"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
+        )
+
+
+def test_build_pilot_run_rejects_reference_changed_while_snapshotting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    original_read_bytes = Path.read_bytes
+
+    def read_then_mutate(path: Path) -> bytes:
+        data = original_read_bytes(path)
+        if path == reference_pdf:
+            with path.open("ab") as stream:
+                stream.write(b"\nchanged-during-reference-audit")
+        return data
+
+    monkeypatch.setattr(Path, "read_bytes", read_then_mutate)
+
+    with pytest.raises(ValueError, match="changed while being read"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
         )
 
 

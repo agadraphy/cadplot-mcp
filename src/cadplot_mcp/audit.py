@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+from pypdf.errors import LimitReachedError, PdfReadError
 
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.fingerprint import fingerprint_drawing
@@ -23,8 +23,12 @@ from cadplot_mcp.security import (
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_RECEIPT_BYTES = 64 * 1024
 MAX_OUTPUT_PDF_BYTES = 128 * 1024 * 1024
+MAX_DECODED_PAGE_CONTENT_BYTES = 64 * 1024 * 1024
+MAX_MARKING_SCAN_BYTES = 8 * 1024 * 1024
 HASH_CHUNK_BYTES = 1024 * 1024
 RECEIPT_OUTPUT_DOMAIN = b"cadplot-receipt-outputs-v1\0"
+PDF_WHITESPACE = frozenset({0, 9, 10, 12, 13, 32})
+PDF_DELIMITERS = frozenset(b"()<>[]{}/%")
 PDF_MARKING_OPERATORS = frozenset(
     {
         b"S",
@@ -42,6 +46,7 @@ PDF_MARKING_OPERATORS = frozenset(
         b"'",
         b'"',
         b"Do",
+        b"BI",
         b"INLINE IMAGE",
     }
 )
@@ -151,12 +156,119 @@ def pdf_page_marking_evidence(page: Any) -> dict[str, int]:
     contents = page.get_contents()
     if contents is None:
         return {"content_stream_bytes": 0, "marking_operator_count": 0}
+    content_data = contents.get_data()
+    if len(content_data) > MAX_DECODED_PAGE_CONTENT_BYTES:
+        raise LimitReachedError(
+            "Decoded page content exceeds the 64 MiB CadPlot audit safety limit."
+        )
+    scan_data = content_data[:MAX_MARKING_SCAN_BYTES]
+    try:
+        marking_operator_count = _count_marking_operators(scan_data)
+    except PdfReadError:
+        if len(content_data) > MAX_MARKING_SCAN_BYTES:
+            raise LimitReachedError(
+                "No complete marking evidence was found within the 8 MiB scan limit."
+            ) from None
+        raise
+    if marking_operator_count < 1 and len(content_data) > MAX_MARKING_SCAN_BYTES:
+        raise LimitReachedError(
+            "No marking operator was found within the 8 MiB scan limit."
+        )
     return {
-        "content_stream_bytes": len(contents.get_data()),
-        "marking_operator_count": sum(
-            operator in PDF_MARKING_OPERATORS for _, operator in contents.operations
-        ),
+        "content_stream_bytes": len(content_data),
+        "marking_operator_count": marking_operator_count,
     }
+
+
+def _count_marking_operators(content: bytes) -> int:
+    """Lex PDF content without materializing pypdf's potentially huge operation list."""
+    index = 0
+    length = len(content)
+    containers: list[bytes] = []
+    marking_found = False
+    while index < length:
+        current = content[index]
+        if current in PDF_WHITESPACE:
+            index += 1
+            continue
+        if current == ord("%"):
+            index += 1
+            while index < length and content[index] not in {10, 13}:
+                index += 1
+            continue
+        if current == ord("("):
+            index = _skip_pdf_literal_string(content, index + 1)
+            continue
+        if current == ord("<") and index + 1 < length and content[index + 1] == ord("<"):
+            containers.append(b">>")
+            index += 2
+            continue
+        if current == ord("<"):
+            index += 1
+            while index < length and content[index] != ord(">"):
+                index += 1
+            if index >= length:
+                raise PdfReadError("Unterminated hexadecimal string in PDF content stream.")
+            index += 1
+            continue
+        if current == ord("/"):
+            index += 1
+            while (
+                index < length
+                and content[index] not in PDF_WHITESPACE
+                and content[index] not in PDF_DELIMITERS
+            ):
+                index += 1
+            continue
+        if current == ord("["):
+            containers.append(b"]")
+            index += 1
+            continue
+        if current == ord("]"):
+            if not containers or containers.pop() != b"]":
+                raise PdfReadError("Unbalanced array in PDF content stream.")
+            index += 1
+            continue
+        if current == ord(">") and index + 1 < length and content[index + 1] == ord(">"):
+            if not containers or containers.pop() != b">>":
+                raise PdfReadError("Unbalanced dictionary in PDF content stream.")
+            index += 2
+            continue
+        if current in PDF_DELIMITERS:
+            raise PdfReadError("Unexpected delimiter in PDF content stream.")
+        start = index
+        while (
+            index < length
+            and content[index] not in PDF_WHITESPACE
+            and content[index] not in PDF_DELIMITERS
+        ):
+            index += 1
+        operator = content[start:index]
+        if not containers and operator in PDF_MARKING_OPERATORS:
+            marking_found = True
+            if operator == b"BI":
+                return 1
+    if containers:
+        raise PdfReadError("Unterminated container in PDF content stream.")
+    return int(marking_found)
+
+
+def _skip_pdf_literal_string(content: bytes, index: int) -> int:
+    depth = 1
+    length = len(content)
+    while index < length and depth:
+        current = content[index]
+        if current == ord("\\"):
+            index += 2
+            continue
+        if current == ord("("):
+            depth += 1
+        elif current == ord(")"):
+            depth -= 1
+        index += 1
+    if depth:
+        raise PdfReadError("Unterminated literal string in PDF content stream.")
+    return index
 
 
 def read_publish_receipt(
@@ -530,6 +642,7 @@ def _audit_pdf(
             "sha256": None,
             "page_count": None,
         }
+    page_count: int | None = None
     try:
         reader = PdfReader(BytesIO(pdf_bytes), strict=False)
         if reader.is_encrypted:
@@ -557,6 +670,16 @@ def _audit_pdf(
         marking = pdf_page_marking_evidence(page)
         content_stream_bytes = marking["content_stream_bytes"]
         marking_operator_count = marking["marking_operator_count"]
+    except LimitReachedError:
+        return {
+            **result,
+            "status": "pdf_content_limit_exceeded",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": page_count,
+            "max_decoded_content_bytes": MAX_DECODED_PAGE_CONTENT_BYTES,
+            "max_marking_scan_bytes": MAX_MARKING_SCAN_BYTES,
+        }
     except (OSError, PdfReadError, TypeError, ValueError):
         return {
             **result,
