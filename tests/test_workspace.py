@@ -8,6 +8,7 @@ import pytest
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, NameObject, NumberObject
 
+from cadplot_mcp import audit as audit_module
 from cadplot_mcp import server as mcp_server
 from cadplot_mcp.audit import (
     audit_publish_outputs,
@@ -24,6 +25,7 @@ from cadplot_mcp.models import (
 )
 from cadplot_mcp.planner import create_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
+from cadplot_mcp.security import PathPolicyError
 from cadplot_mcp.workspace import stage_publish_job
 
 
@@ -345,6 +347,105 @@ def test_output_audit_rejects_content_stream_without_paint_operator(
     assert report["outputs"][0]["status"] == "blank_pdf_page"
     assert report["outputs"][0]["content_stream_bytes"] > 0
     assert report["outputs"][0]["marking_operator_count"] == 0
+
+
+def test_output_audit_rejects_pdf_above_snapshot_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    writer = PdfWriter()
+    _add_marked_page(writer, width=842, height=595)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+    monkeypatch.setattr(audit_module, "MAX_OUTPUT_PDF_BYTES", pdf.stat().st_size - 1)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["outputs"][0]["status"] == "pdf_too_large"
+    assert report["outputs"][0]["size_bytes"] == pdf.stat().st_size
+    assert report["outputs"][0]["max_size_bytes"] == pdf.stat().st_size - 1
+
+
+def test_output_audit_rejects_pdf_changed_while_snapshotting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    pdf = Path(job["outputs"][0]["pdf"])
+    writer = PdfWriter()
+    _add_marked_page(writer, width=842, height=595)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+    original_read_bytes = Path.read_bytes
+
+    def read_then_mutate(path: Path) -> bytes:
+        data = original_read_bytes(path)
+        if path == pdf:
+            with path.open("ab") as stream:
+                stream.write(b"\nchanged-during-audit")
+        return data
+
+    monkeypatch.setattr(Path, "read_bytes", read_then_mutate)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["publish_verified"] is False
+    assert report["outputs"][0]["status"] == "pdf_changed_during_audit"
+    assert report["outputs"][0]["sha256"] is None
+
+
+def test_output_audit_rejects_redirected_pdf_file(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    expected_pdf = Path(job["outputs"][0]["pdf"])
+    outside_pdf = tmp_path / "redirect-target.pdf"
+    writer = PdfWriter()
+    _add_marked_page(writer, width=842, height=595)
+    with outside_pdf.open("wb") as stream:
+        writer.write(stream)
+    try:
+        expected_pdf.symlink_to(outside_pdf)
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+
+    with pytest.raises(PathPolicyError, match="symlink or reparse point"):
+        audit_publish_outputs(job["manifest"], config)
+
+
+def test_output_audit_rejects_redirected_output_directory(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    output_directory = Path(job["output_directory"])
+    redirect_target = tmp_path / "redirected-output"
+    output_directory.rmdir()
+    redirect_target.mkdir()
+    try:
+        output_directory.symlink_to(redirect_target, target_is_directory=True)
+    except OSError:
+        pytest.skip("Creating directory symlinks is not permitted on this Windows installation")
+
+    with pytest.raises(PathPolicyError, match="redirected directory"):
+        audit_publish_outputs(job["manifest"], config)
+
+
+def test_receipt_reader_rejects_redirected_receipt_file(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    actual_receipt = manifest_path.with_name("receipt-actual.json")
+    actual_receipt.write_text("{}", encoding="utf-8")
+    receipt_path = manifest_path.with_name("receipt.json")
+    try:
+        receipt_path.symlink_to(actual_receipt)
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+
+    with pytest.raises(PathPolicyError, match="symlink or reparse point"):
+        read_publish_receipt(manifest_path, config)
 
 
 def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path) -> None:

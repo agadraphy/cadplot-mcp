@@ -106,6 +106,9 @@ Use this checklist for every alpha release.
 - [ ] Correct-size blank and non-painting content-stream PDFs are rejected; the 300-drawing
       rehearsal reports `blank_pdf_rejected=true` and `marking_content_verified=300`. Treat this as
       a blank-page guard, not as proof of crop, scale, lineweight, style, font, or title-block quality.
+- [ ] Output audit rejects a redirected PDF/job path, files above the 128 MiB per-output limit, and
+      files changed while their snapshot is read. Geometry, marking evidence, byte size, and SHA-256
+      for every valid PDF come from the identical immutable byte snapshot.
 - [ ] Source-revision and timestamp-drift tests prove that staged validation, direct queueing,
       restart reporting, and final output audit all fail closed before claiming current output;
       `source_changed` jobs expose no requeue approval and `publish_verified=false`.

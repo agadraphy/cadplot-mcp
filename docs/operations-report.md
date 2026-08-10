@@ -38,6 +38,9 @@ execution evidence. To keep MCP responses bounded, at most 20 output issues are 
 use `output_issue_count` and `output_issues_truncated` to detect a longer list.
 `blank_pdf_page` is an invalid output issue even when page count and MediaBox are correct. A marking
 operator only proves that the page is not structurally empty; visual acceptance remains separate.
+`pdf_too_large` rejects output above the 128 MiB per-file audit limit. `pdf_changed_during_audit`
+means the file identity, size, or timestamp changed while its single audit snapshot was being read;
+neither state exposes a SHA-256 or qualifies for execution/output binding.
 
 Every report rebuild re-fingerprints the original allowed-root DWG. This is a currency check, not a
 claim that CadPlot modified the source: a user or upstream sync may have produced a newer revision.

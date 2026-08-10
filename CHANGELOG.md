@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
+  snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
+  marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,
+  or modification time changes while the snapshot is read is reported as
+  `pdf_changed_during_audit`; oversized output is reported as `pdf_too_large`. This closes the
+  Python audit-side path-redirection and parse/hash time-of-check/time-of-use gap.
 - PDF auditing now rejects a correctly sized but blank page unless its decoded content stream
   contains at least one path-paint, text-show, shading, image, or form invocation operator. Valid
   reports retain decoded-byte and marking-operator counts; the 300-drawing rehearsal proves the

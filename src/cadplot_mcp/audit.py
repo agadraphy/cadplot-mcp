@@ -5,6 +5,7 @@ import json
 import re
 import struct
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -13,10 +14,15 @@ from pypdf.errors import PdfReadError
 
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.fingerprint import fingerprint_drawing
-from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT, PathPolicyError
+from cadplot_mcp.security import (
+    FILE_ATTRIBUTE_REPARSE_POINT,
+    PathPolicyError,
+    require_plain_directory_path,
+)
 
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_RECEIPT_BYTES = 64 * 1024
+MAX_OUTPUT_PDF_BYTES = 128 * 1024 * 1024
 HASH_CHUNK_BYTES = 1024 * 1024
 RECEIPT_OUTPUT_DOMAIN = b"cadplot-receipt-outputs-v1\0"
 PDF_MARKING_OPERATORS = frozenset(
@@ -162,6 +168,8 @@ def read_publish_receipt(
     receipt_path = job_root / "receipt.json"
     if not receipt_path.exists():
         return {"found": False, "receipt": None}
+    if _is_reparse(receipt_path):
+        raise PathPolicyError("Publish receipt cannot be a symlink or reparse point.")
     resolved = receipt_path.resolve(strict=True)
     if resolved.parent != job_root.resolve(strict=True) or not resolved.is_file():
         raise PathPolicyError("Publish receipt is outside its job boundary.")
@@ -267,10 +275,19 @@ def load_staged_manifest(
 ) -> tuple[dict[str, Any], Path]:
     if config.workspace_root is None:
         raise ValueError("workspace_root must be configured before auditing outputs.")
-    workspace_root = config.workspace_root.resolve(strict=True)
-    manifest_path = Path(manifest_value).expanduser().resolve(strict=True)
-    if manifest_path.name != "manifest.json":
+    workspace_value = require_plain_directory_path(config.workspace_root)
+    workspace_root = workspace_value.resolve(strict=True)
+    if workspace_value != workspace_root:
+        raise PathPolicyError("Configured workspace_root resolves through a filesystem redirect.")
+    manifest_candidate = Path(manifest_value).expanduser().absolute()
+    if manifest_candidate.name != "manifest.json":
         raise PathPolicyError("Expected a job manifest named manifest.json.")
+    require_plain_directory_path(manifest_candidate.parent)
+    if not manifest_candidate.is_file():
+        raise PathPolicyError("Job manifest is not a regular file.")
+    if _is_reparse(manifest_candidate):
+        raise PathPolicyError("Job manifest cannot be a symlink or reparse point.")
+    manifest_path = manifest_candidate.resolve(strict=True)
     if workspace_root not in manifest_path.parents:
         raise PathPolicyError("Job manifest is outside the configured workspace_root.")
     if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
@@ -288,11 +305,22 @@ def load_staged_manifest(
     job_root = manifest_path.parent
     if job_root.parent != workspace_root or raw.get("job_id") != job_root.name:
         raise PathPolicyError("Job manifest identity does not match its workspace directory.")
-    output_root = (job_root / "output").resolve(strict=True)
+    source_root_value = job_root / "source"
+    output_root_value = job_root / "output"
+    if (
+        _is_reparse(job_root)
+        or _is_reparse(source_root_value)
+        or _is_reparse(output_root_value)
+    ):
+        raise PathPolicyError("Job workspace cannot contain a redirected directory.")
+    output_root = output_root_value.resolve(strict=True)
     if Path(str(raw.get("output_directory", ""))).resolve(strict=True) != output_root:
         raise PathPolicyError("Manifest output_directory is outside its job boundary.")
 
-    staged_drawing = Path(str(raw.get("staged_drawing", ""))).resolve(strict=True)
+    staged_drawing_value = Path(str(raw.get("staged_drawing", ""))).expanduser().absolute()
+    if _is_reparse(staged_drawing_value):
+        raise PathPolicyError("Manifest staged_drawing cannot be a symlink or reparse point.")
+    staged_drawing = staged_drawing_value.resolve(strict=True)
     if (
         job_root / "source" not in staged_drawing.parents
         or staged_drawing.suffix.casefold() != ".dwg"
@@ -380,8 +408,13 @@ def load_staged_manifest(
     for output in outputs:
         if not isinstance(output, dict):
             raise ValueError("Job manifest contains an invalid output entry.")
-        pdf = Path(str(output.get("pdf", ""))).resolve(strict=False)
-        if pdf.parent != output_root or pdf.suffix.casefold() != ".pdf":
+        pdf_value = Path(str(output.get("pdf", ""))).expanduser().absolute()
+        if pdf_value.parent != output_root_value or pdf_value.suffix.casefold() != ".pdf":
+            raise PathPolicyError("Expected PDF path is outside its job output directory.")
+        if pdf_value.exists() and _is_reparse(pdf_value):
+            raise PathPolicyError("Expected PDF cannot be a symlink or reparse point.")
+        pdf = pdf_value.resolve(strict=False)
+        if pdf.parent != output_root:
             raise PathPolicyError("Expected PDF path is outside its job output directory.")
         if pdf in seen:
             raise ValueError("Job manifest contains duplicate PDF paths.")
@@ -426,13 +459,15 @@ def _valid_resource_name(value: Any) -> bool:
 def _audit_pdf(
     item: dict[str, Any], job_root: Path, page_tolerance_mm: float
 ) -> dict[str, Any]:
-    pdf = Path(str(item["pdf"])).resolve(strict=False)
+    pdf_value = Path(str(item["pdf"])).expanduser().absolute()
+    pdf = pdf_value.resolve(strict=False)
+    output_root_value = job_root / "output"
     result = {
         "sheet_index": item.get("sheet_index"),
         "frame_handle": item.get("frame_handle"),
         "pdf": str(pdf),
     }
-    if not pdf.exists():
+    if not pdf_value.exists():
         return {
             **result,
             "status": "missing",
@@ -440,8 +475,7 @@ def _audit_pdf(
             "sha256": None,
             "page_count": None,
         }
-    resolved = pdf.resolve(strict=True)
-    if resolved.parent != (job_root / "output").resolve(strict=True) or not resolved.is_file():
+    if _is_reparse(output_root_value) or _is_reparse(pdf_value):
         return {
             **result,
             "status": "invalid_path",
@@ -449,10 +483,46 @@ def _audit_pdf(
             "sha256": None,
             "page_count": None,
         }
-    size = resolved.stat().st_size
-    with resolved.open("rb") as stream:
-        header = stream.read(5)
-    if header != b"%PDF-":
+    resolved = pdf_value.resolve(strict=True)
+    if resolved.parent != output_root_value.resolve(strict=True) or not resolved.is_file():
+        return {
+            **result,
+            "status": "invalid_path",
+            "size_bytes": None,
+            "sha256": None,
+            "page_count": None,
+        }
+    before = resolved.stat()
+    size = before.st_size
+    if size > MAX_OUTPUT_PDF_BYTES:
+        return {
+            **result,
+            "status": "pdf_too_large",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": None,
+            "max_size_bytes": MAX_OUTPUT_PDF_BYTES,
+        }
+    try:
+        pdf_bytes = resolved.read_bytes()
+        after_read = resolved.stat()
+    except OSError:
+        return {
+            **result,
+            "status": "invalid_pdf_structure",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": None,
+        }
+    if len(pdf_bytes) != size or _file_snapshot_changed(before, after_read):
+        return {
+            **result,
+            "status": "pdf_changed_during_audit",
+            "size_bytes": len(pdf_bytes),
+            "sha256": None,
+            "page_count": None,
+        }
+    if pdf_bytes[:5] != b"%PDF-":
         return {
             **result,
             "status": "invalid_pdf_header",
@@ -461,33 +531,32 @@ def _audit_pdf(
             "page_count": None,
         }
     try:
-        with resolved.open("rb") as stream:
-            reader = PdfReader(stream, strict=False)
-            if reader.is_encrypted:
-                return {
-                    **result,
-                    "status": "encrypted_pdf",
-                    "size_bytes": size,
-                    "sha256": None,
-                    "page_count": None,
-                }
-            page_count = len(reader.pages)
-            if page_count != 1:
-                return {
-                    **result,
-                    "status": "unexpected_page_count",
-                    "size_bytes": size,
-                    "sha256": None,
-                    "page_count": page_count,
-                }
-            page = reader.pages[0]
-            media_box = page.mediabox
-            width_points = float(media_box.width)
-            height_points = float(media_box.height)
-            rotation = int(page.get("/Rotate", 0) or 0)
-            marking = pdf_page_marking_evidence(page)
-            content_stream_bytes = marking["content_stream_bytes"]
-            marking_operator_count = marking["marking_operator_count"]
+        reader = PdfReader(BytesIO(pdf_bytes), strict=False)
+        if reader.is_encrypted:
+            return {
+                **result,
+                "status": "encrypted_pdf",
+                "size_bytes": size,
+                "sha256": None,
+                "page_count": None,
+            }
+        page_count = len(reader.pages)
+        if page_count != 1:
+            return {
+                **result,
+                "status": "unexpected_page_count",
+                "size_bytes": size,
+                "sha256": None,
+                "page_count": page_count,
+            }
+        page = reader.pages[0]
+        media_box = page.mediabox
+        width_points = float(media_box.width)
+        height_points = float(media_box.height)
+        rotation = int(page.get("/Rotate", 0) or 0)
+        marking = pdf_page_marking_evidence(page)
+        content_stream_bytes = marking["content_stream_bytes"]
+        marking_operator_count = marking["marking_operator_count"]
     except (OSError, PdfReadError, TypeError, ValueError):
         return {
             **result,
@@ -557,11 +626,34 @@ def _audit_pdf(
             "content_stream_bytes": content_stream_bytes,
             "marking_operator_count": 0,
         }
+    try:
+        after_parse = resolved.stat()
+        current_path = pdf_value.resolve(strict=True)
+        path_redirected = (
+            _is_reparse(output_root_value)
+            or _is_reparse(pdf_value)
+            or current_path != resolved
+        )
+    except OSError:
+        after_parse = None
+        path_redirected = True
+    if (
+        after_parse is None
+        or path_redirected
+        or _file_snapshot_changed(before, after_parse)
+    ):
+        return {
+            **result,
+            "status": "pdf_changed_during_audit",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": None,
+        }
     return {
         **result,
         "status": "valid",
         "size_bytes": size,
-        "sha256": _sha256(resolved),
+        "sha256": hashlib.sha256(pdf_bytes).hexdigest(),
         "page_count": 1,
         "page_width_points": round(width_points, 3),
         "page_height_points": round(height_points, 3),
@@ -570,6 +662,13 @@ def _audit_pdf(
         "content_stream_bytes": content_stream_bytes,
         "marking_operator_count": marking_operator_count,
     }
+
+
+def _file_snapshot_changed(before: Any, after: Any) -> bool:
+    return any(
+        getattr(before, field, None) != getattr(after, field, None)
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    )
 
 
 def _sha256(path: Path) -> str:
