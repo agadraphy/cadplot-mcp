@@ -31,6 +31,11 @@ All notable changes to this project are documented in this file.
   bytes, and rechecks every input after bundle validation and schema-v7 assembly. Redirected or
   replaced intermediates fail closed before the no-overwrite final evidence is written; standalone
   pilot-evidence validation applies the same parse/validate/final-recheck contract.
+- Release acceptance now parses and hashes its outer/inner manifests, pilot evidence, and retained
+  acceptance report from bounded stable bytes; fingerprints the release ZIP before and after exact
+  entry inspection; and snapshots every manifest-listed kit file. All inputs and the exact tree are
+  rechecked before a live/public readiness decision is returned, rejecting same-metadata mutation,
+  redirected files, or late additions instead of combining different artifact generations.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,

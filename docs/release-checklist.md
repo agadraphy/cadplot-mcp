@@ -76,6 +76,9 @@ Use this checklist for every alpha release.
 - [ ] `verify-release-kit.ps1` matched both manifests, the exact kit tree, embedded bundle evidence,
       SBOM component/artifact hashes, and every outer ZIP entry without extraction; its live/public
       readiness flags remained false.
+- [ ] Final acceptance used stable outer/inner manifest and pilot snapshots, pre/post release-ZIP
+      fingerprints, retained kit-file fingerprints, and a final exact-tree comparison; mutation,
+      redirect, or late additions failed before any live/public readiness decision.
 - [ ] If production policy requires Authenticode, an authorized organization certificate and
       timestamp service signed the final DLLs and the signed hashes were re-piloted. Unsigned local
       builds are never described as signed.

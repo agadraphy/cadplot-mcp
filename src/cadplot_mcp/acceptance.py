@@ -6,10 +6,12 @@ import os
 import re
 import stat
 import zipfile
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from cadplot_mcp.fingerprint import fingerprint_file, read_stable_bytes
 from cadplot_mcp.pilot import validate_bundle_build_evidence, validate_pilot_evidence
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -107,6 +109,29 @@ INNER_MANIFEST_FIELDS = {
     "autocad_launched",
     "live_publish_proven",
 }
+
+
+@dataclass(frozen=True)
+class _JsonSnapshot:
+    path: Path
+    label: str
+    max_bytes: int
+    content: bytes
+    fingerprint: dict[str, Any]
+    value: Any
+
+    def require_unchanged(self, context: str) -> None:
+        try:
+            content, fingerprint = read_stable_bytes(
+                self.path,
+                min_bytes=2,
+                max_bytes=self.max_bytes,
+                label=self.label,
+            )
+        except ValueError as exc:
+            raise ValueError(f"{self.label} changed during {context}.") from exc
+        if content != self.content or fingerprint != self.fingerprint:
+            raise ValueError(f"{self.label} changed during {context}.")
 
 
 def build_release_acceptance(
@@ -214,12 +239,14 @@ def load_and_validate_release_acceptance(
     pilot_evidence_value: str | Path,
 ) -> dict[str, Any]:
     acceptance = _plain_file(acceptance_value, label="Release acceptance")
-    raw = _load_json(acceptance, label="Release acceptance")
-    return validate_release_acceptance(
-        raw,
+    snapshot = _load_json_snapshot(acceptance, label="Release acceptance")
+    result = validate_release_acceptance(
+        snapshot.value,
         release_root_value=release_root_value,
         pilot_evidence_value=pilot_evidence_value,
     )
+    snapshot.require_unchanged("acceptance validation")
+    return result
 
 
 def require_new_acceptance_output(value: str | Path) -> Path:
@@ -237,35 +264,50 @@ def _collect_acceptance_inputs(
 ) -> dict[str, Any]:
     release_root = _plain_directory(release_root_value, label="Release root")
     _require_plain_tree(release_root)
-    if {item.name for item in release_root.iterdir()} != {
+    expected_top_level = {
         "CadPlotMcp.release",
         "CadPlotMcp.release.zip",
         "release-kit-build.json",
-    }:
+    }
+    if {item.name for item in release_root.iterdir()} != expected_top_level:
         raise ValueError("Release-kit top-level contents are not exact.")
 
     kit_root = release_root / "CadPlotMcp.release"
-    archive_path = release_root / "CadPlotMcp.release.zip"
-    outer_path = release_root / "release-kit-build.json"
+    if not kit_root.is_dir() or _is_reparse(kit_root):
+        raise ValueError("Release-kit directory must be a plain directory.")
+    archive_path = _plain_file(
+        release_root / "CadPlotMcp.release.zip", label="Release-kit archive"
+    )
+    outer_path = _plain_file(
+        release_root / "release-kit-build.json", label="Outer release manifest"
+    )
     manifest_path = kit_root / "release-kit.json"
-    outer = _load_json(
-        _plain_file(outer_path, label="Outer release manifest"),
+    outer_snapshot = _load_json_snapshot(
+        outer_path,
         label="Outer release manifest",
     )
-    manifest = _load_json(
+    manifest_snapshot = _load_json_snapshot(
         _plain_file(manifest_path, label="Release-kit manifest"),
         label="Release-kit manifest",
     )
+    outer = outer_snapshot.value
+    manifest = manifest_snapshot.value
     _validate_release_manifest_identity(outer, manifest)
 
-    manifest_hash = _sha256(manifest_path)
-    archive_hash = _sha256(archive_path)
+    manifest_hash = manifest_snapshot.fingerprint["sha256"]
+    archive_fingerprint = fingerprint_file(archive_path, label="Release-kit archive")
+    archive_hash = archive_fingerprint["sha256"]
     if outer.get("kit_manifest_sha256") != manifest_hash:
         raise ValueError("Release-kit manifest hash does not match outer evidence.")
     if outer.get("kit_archive_sha256") != archive_hash:
         raise ValueError("Release-kit archive hash does not match outer evidence.")
-    _validate_kit_files(kit_root, manifest)
-    _validate_kit_archive(archive_path, kit_root)
+    kit_files = _validate_kit_files(kit_root, manifest)
+    archive_hashes = {
+        f"CadPlotMcp.release/{relative}": fingerprint["sha256"]
+        for relative, (_, fingerprint) in kit_files.items()
+    }
+    archive_hashes["CadPlotMcp.release/release-kit.json"] = manifest_hash
+    _validate_kit_archive(archive_path, archive_hashes)
 
     wheel = manifest.get("wheel")
     if not isinstance(wheel, dict) or set(wheel) != {"file", "sha256"}:
@@ -273,7 +315,8 @@ def _collect_acceptance_inputs(
     wheel_path = _safe_kit_file(kit_root, wheel["file"], label="Wheel")
     if not re.fullmatch(r"cadplot_mcp-[0-9A-Za-z.]+-py3-none-any\.whl", wheel_path.name):
         raise ValueError("Release-kit wheel name is invalid.")
-    wheel_hash = _sha256(wheel_path)
+    wheel_relative = wheel_path.relative_to(kit_root).as_posix()
+    wheel_hash = kit_files[wheel_relative][1]["sha256"]
     if wheel.get("sha256") != wheel_hash:
         raise ValueError("Release-kit wheel hash is invalid.")
     source_path = _safe_kit_file(
@@ -293,7 +336,10 @@ def _collect_acceptance_inputs(
         raise ValueError("Embedded bundle identity does not match the release kit.")
 
     pilot_path = _plain_file(pilot_evidence_value, label="Pilot evidence")
-    pilot_raw = _load_json(pilot_path, label="Pilot evidence", max_bytes=256 * 1024)
+    pilot_snapshot = _load_json_snapshot(
+        pilot_path, label="Pilot evidence", max_bytes=256 * 1024
+    )
+    pilot_raw = pilot_snapshot.value
     pilot = validate_pilot_evidence(pilot_raw)
     comparisons = {
         "repository_commit": bundle["repository_commit"],
@@ -306,6 +352,31 @@ def _collect_acceptance_inputs(
         if pilot_raw.get(field) != value:
             raise ValueError(f"Pilot evidence does not match the release kit: {field}.")
 
+    outer_snapshot.require_unchanged("acceptance validation")
+    manifest_snapshot.require_unchanged("acceptance validation")
+    pilot_snapshot.require_unchanged("acceptance validation")
+    try:
+        current_archive_fingerprint = fingerprint_file(
+            archive_path, label="Release-kit archive"
+        )
+    except ValueError as exc:
+        raise ValueError("Release-kit archive changed during acceptance validation.") from exc
+    if current_archive_fingerprint != archive_fingerprint:
+        raise ValueError("Release-kit archive changed during acceptance validation.")
+    _require_kit_files_unchanged(kit_files)
+    _require_plain_tree(release_root)
+    if (
+        _is_reparse(kit_root)
+        or {item.name for item in release_root.iterdir()} != expected_top_level
+        or {
+            path.relative_to(kit_root).as_posix()
+            for path in kit_root.rglob("*")
+            if path.is_file()
+        }
+        != set(kit_files) | {"release-kit.json"}
+    ):
+        raise ValueError("Release-kit tree changed during acceptance validation.")
+
     return {
         "exact_commit": manifest["exact_commit"],
         "package_version": manifest["package_version"],
@@ -314,7 +385,7 @@ def _collect_acceptance_inputs(
         "wheel_sha256": wheel_hash,
         "bundle_sha256": bundle["bundle_sha256"],
         "bundle_build_manifest_sha256": bundle["bundle_build_manifest_sha256"],
-        "pilot_evidence_sha256": _sha256(pilot_path),
+        "pilot_evidence_sha256": pilot_snapshot.fingerprint["sha256"],
         "accepted_releases": pilot["accepted_releases"],
         "batch_recovery_releases": pilot["batch_recovery_releases"],
         "batch_recovery_job_counts": {
@@ -380,7 +451,9 @@ def _validate_release_manifest_identity(outer: Any, manifest: Any) -> None:
         raise ValueError("Release kit has no valid 300-drawing synthetic evidence.")
 
 
-def _validate_kit_files(kit_root: Path, manifest: dict[str, Any]) -> None:
+def _validate_kit_files(
+    kit_root: Path, manifest: dict[str, Any]
+) -> dict[str, tuple[Path, dict[str, Any]]]:
     recorded = manifest.get("files")
     if not isinstance(recorded, list):
         raise ValueError("Release-kit file evidence must be a list.")
@@ -402,9 +475,29 @@ def _validate_kit_files(kit_root: Path, manifest: dict[str, Any]) -> None:
         raise ValueError("Release-kit file evidence set is not exact.")
     if not REQUIRED_KIT_PATHS.issubset(actual):
         raise ValueError("Release-kit required public file set is incomplete.")
+    snapshots: dict[str, tuple[Path, dict[str, Any]]] = {}
     for relative, path in actual.items():
-        if _sha256(path) != expected[relative]:
+        fingerprint = fingerprint_file(path, label=f"Release-kit file {relative}")
+        if fingerprint["sha256"] != expected[relative]:
             raise ValueError(f"Release-kit file hash mismatch: {relative}.")
+        snapshots[relative] = (path, fingerprint)
+    return snapshots
+
+
+def _require_kit_files_unchanged(
+    snapshots: dict[str, tuple[Path, dict[str, Any]]],
+) -> None:
+    for relative, (path, expected) in snapshots.items():
+        try:
+            current = fingerprint_file(path, label=f"Release-kit file {relative}")
+        except ValueError as exc:
+            raise ValueError(
+                f"Release-kit file changed during acceptance validation: {relative}."
+            ) from exc
+        if current != expected:
+            raise ValueError(
+                f"Release-kit file changed during acceptance validation: {relative}."
+            )
 
 
 def _validate_public_asset_boundary(kit_root: Path, source_archive: Path) -> None:
@@ -433,12 +526,7 @@ def _validate_public_asset_boundary(kit_root: Path, source_archive: Path) -> Non
         raise ValueError("Release-kit source archive is not a valid ZIP file.") from exc
 
 
-def _validate_kit_archive(archive_path: Path, kit_root: Path) -> None:
-    expected = {
-        f"CadPlotMcp.release/{path.relative_to(kit_root).as_posix()}": path
-        for path in kit_root.rglob("*")
-        if path.is_file()
-    }
+def _validate_kit_archive(archive_path: Path, expected: dict[str, str]) -> None:
     try:
         with zipfile.ZipFile(archive_path) as archive:
             entries = [item for item in archive.infolist() if not item.is_dir()]
@@ -456,7 +544,7 @@ def _validate_kit_archive(archive_path: Path, kit_root: Path) -> None:
                 with archive.open(entry) as stream:
                     while chunk := stream.read(1024 * 1024):
                         digest.update(chunk)
-                if digest.hexdigest() != _sha256(expected[name]):
+                if digest.hexdigest() != expected[name]:
                     raise ValueError(f"Release-kit archive entry hash mismatch: {name}.")
     except zipfile.BadZipFile as exc:
         raise ValueError("Release-kit archive is not a valid ZIP file.") from exc
@@ -522,13 +610,20 @@ def _absolute_path(value: str | Path) -> Path:
     return Path(os.path.abspath(Path(value).expanduser()))
 
 
-def _load_json(path: Path, *, label: str, max_bytes: int = MAX_JSON_BYTES) -> Any:
-    if path.stat().st_size > max_bytes:
-        raise ValueError(f"{label} exceeds the size limit.")
+def _load_json_snapshot(
+    path: Path, *, label: str, max_bytes: int = MAX_JSON_BYTES
+) -> _JsonSnapshot:
+    content, fingerprint = read_stable_bytes(
+        path,
+        min_bytes=2,
+        max_bytes=max_bytes,
+        label=label,
+    )
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"{label} must be valid UTF-8 JSON.") from exc
+    return _JsonSnapshot(path, label, max_bytes, content, fingerprint, value)
 
 
 def _require_timestamp(value: Any) -> None:
@@ -543,11 +638,3 @@ def _require_timestamp(value: Any) -> None:
 def _require_digest(value: Any, field: str) -> None:
     if not isinstance(value, str) or not SHA256.fullmatch(value):
         raise ValueError(f"{field} must be a lowercase SHA-256 digest.")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()

@@ -27,6 +27,12 @@ even if a modified manifest attempts to re-hash them. It records `licensed_live_
 and `live_publish_proven=true`, while leaving
 `public_release_ready=false` until both publication approvals are explicit.
 
+Outer/inner release manifests, pilot evidence, and a retained acceptance report are parsed and
+hashed from bounded stable byte snapshots. The release ZIP receives a two-pass streaming fingerprint
+before and after exact entry inspection. Every manifest-listed kit file is fingerprinted before use,
+then rechecked with the exact kit tree at the end. Redirects, late additions, in-flight replacement,
+or same-size/mtime-restored mutation fail closed before any live/public readiness result is accepted.
+
 Only after the company authorizes publication of the sanitized result and the maintainer reviews the
 release artifacts, repeat to a new filename with both declarations:
 

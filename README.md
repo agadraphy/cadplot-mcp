@@ -479,6 +479,9 @@ release-kit directory/ZIP, wheel, bundle, build manifest, commit, and package ve
 report excludes company-run details and keeps `public_release_ready=false` until separate company
 publication and maintainer release approvals are explicit; see
 [release acceptance](docs/release-acceptance.md).
+The finalizer uses bounded stable JSON snapshots, pre/post release-ZIP fingerprints, retained
+per-file fingerprints, and a final exact-tree comparison so a readiness result cannot mix release
+manifest, pilot, archive-entry, or kit-file generations.
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration

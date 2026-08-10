@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import zipfile
@@ -10,8 +11,10 @@ from pathlib import Path
 
 import pytest
 
+from cadplot_mcp import acceptance as acceptance_module
 from cadplot_mcp.acceptance import (
     build_release_acceptance,
+    load_and_validate_release_acceptance,
     validate_release_acceptance,
 )
 from cadplot_mcp.audit import build_receipt_output_digest
@@ -20,6 +23,13 @@ from cadplot_mcp.pilot import assemble_pilot_evidence
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _mutate_same_size_and_restore_mtime(path: Path) -> None:
+    original_stat = path.stat()
+    content = path.read_bytes()
+    path.write_bytes(bytes([content[0] ^ 1]) + content[1:])
+    os.utime(path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
 
 
 def _run(release: str, digit: str, plugin_sha256: str) -> dict:
@@ -426,6 +436,157 @@ def test_acceptance_rejects_release_tamper(tmp_path: Path) -> None:
             pilot,
             company_publication_approved=False,
             maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_rejects_outer_manifest_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    outer = release_root / "release-kit-build.json"
+    original_validate = acceptance_module._validate_release_manifest_identity
+
+    def mutate_after_parse(outer_raw, manifest_raw):
+        original_validate(outer_raw, manifest_raw)
+        _mutate_same_size_and_restore_mtime(outer)
+
+    monkeypatch.setattr(
+        acceptance_module, "_validate_release_manifest_identity", mutate_after_parse
+    )
+
+    with pytest.raises(ValueError, match="Outer release manifest changed"):
+        build_release_acceptance(
+            release_root,
+            pilot,
+            company_publication_approved=False,
+            maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_rejects_archive_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    archive = release_root / "CadPlotMcp.release.zip"
+    original_validate = acceptance_module._validate_kit_archive
+
+    def mutate_after_entry_validation(*args, **kwargs):
+        original_validate(*args, **kwargs)
+        _mutate_same_size_and_restore_mtime(archive)
+
+    monkeypatch.setattr(acceptance_module, "_validate_kit_archive", mutate_after_entry_validation)
+
+    with pytest.raises(ValueError, match="archive changed during acceptance validation"):
+        build_release_acceptance(
+            release_root,
+            pilot,
+            company_publication_approved=False,
+            maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_rejects_kit_file_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    readme = release_root / "CadPlotMcp.release" / "README.md"
+    original_validate = acceptance_module.validate_bundle_build_evidence
+
+    def mutate_after_kit_validation(*args, **kwargs):
+        result = original_validate(*args, **kwargs)
+        _mutate_same_size_and_restore_mtime(readme)
+        return result
+
+    monkeypatch.setattr(
+        acceptance_module, "validate_bundle_build_evidence", mutate_after_kit_validation
+    )
+
+    with pytest.raises(ValueError, match="Release-kit file changed.*README.md"):
+        build_release_acceptance(
+            release_root,
+            pilot,
+            company_publication_approved=False,
+            maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_rejects_pilot_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    original_validate = acceptance_module.validate_pilot_evidence
+
+    def mutate_after_pilot_validation(raw):
+        result = original_validate(raw)
+        _mutate_same_size_and_restore_mtime(pilot)
+        return result
+
+    monkeypatch.setattr(
+        acceptance_module, "validate_pilot_evidence", mutate_after_pilot_validation
+    )
+
+    with pytest.raises(ValueError, match="Pilot evidence changed"):
+        build_release_acceptance(
+            release_root,
+            pilot,
+            company_publication_approved=False,
+            maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_rejects_kit_tree_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    unexpected = release_root / "CadPlotMcp.release" / "unexpected.txt"
+    original_validate = acceptance_module.validate_pilot_evidence
+
+    def add_file_after_pilot_validation(raw):
+        result = original_validate(raw)
+        unexpected.write_text("late file", encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(
+        acceptance_module, "validate_pilot_evidence", add_file_after_pilot_validation
+    )
+
+    with pytest.raises(ValueError, match="tree changed during acceptance validation"):
+        build_release_acceptance(
+            release_root,
+            pilot,
+            company_publication_approved=False,
+            maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_loader_rejects_report_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    report = build_release_acceptance(
+        release_root,
+        pilot,
+        company_publication_approved=False,
+        maintainer_release_approved=False,
+    )
+    acceptance = tmp_path / "release-acceptance.json"
+    acceptance.write_text(json.dumps(report), encoding="utf-8")
+    original_validate = acceptance_module.validate_release_acceptance
+
+    def mutate_after_report_validation(*args, **kwargs):
+        result = original_validate(*args, **kwargs)
+        _mutate_same_size_and_restore_mtime(acceptance)
+        return result
+
+    monkeypatch.setattr(
+        acceptance_module, "validate_release_acceptance", mutate_after_report_validation
+    )
+
+    with pytest.raises(ValueError, match="Release acceptance changed"):
+        load_and_validate_release_acceptance(
+            acceptance,
+            release_root_value=release_root,
+            pilot_evidence_value=pilot,
         )
 
 
