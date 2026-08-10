@@ -18,6 +18,7 @@ from cadplot_mcp.audit import (
     load_staged_manifest,
 )
 from cadplot_mcp.config import CadPlotConfig
+from cadplot_mcp.reporting import JOB_ID_PATTERN, build_publish_operations_report
 from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -63,6 +64,41 @@ RUN_FIELDS = {
     "visual_checks",
     "approved_by",
     "completed_utc",
+}
+RECOVERY_FIELDS = {
+    "autocad_release",
+    "product",
+    "adapter",
+    "build_commit",
+    "plugin_sha256",
+    "runtime_series",
+    "queue_authentication",
+    "licensed",
+    "authorized_test_assets",
+    "restart_verified",
+    "report_page_id",
+    "workspace_report_complete",
+    "workspace_job_count",
+    "job_count",
+    "jobs",
+    "approved_by",
+    "completed_utc",
+}
+RECOVERY_JOB_FIELDS = {
+    "job_id",
+    "plan_id",
+    "manifest_sha256",
+    "receipt_manifest_sha256",
+    "receipt_state",
+    "receipt_output_count",
+    "receipt_outputs_sha256",
+    "receipt_output_binding_verified",
+    "source_sha256_before",
+    "source_sha256_after",
+    "staged_sha256_before",
+    "staged_sha256_after",
+    "outputs_complete",
+    "publish_verified",
 }
 VISUAL_REFERENCE_FIELDS = {
     "sha256",
@@ -207,9 +243,247 @@ def validate_pilot_run_evidence(raw: Any) -> dict[str, Any]:
     return _validate_run(raw)
 
 
+def build_batch_recovery_evidence(
+    manifest_values: list[str | Path],
+    config: CadPlotConfig,
+    *,
+    autocad_release: str,
+    plugin_status: dict[str, Any],
+    approved_by: str,
+    licensed: bool,
+    authorized_test_assets: bool,
+    restart_verified: bool,
+    completed_utc: str | None = None,
+) -> dict[str, Any]:
+    """Collect a path-redacted small-batch recovery record after an AutoCAD restart."""
+    if not 2 <= len(manifest_values) <= 20:
+        raise ValueError("Batch recovery evidence requires 2 to 20 completed manifests.")
+    if autocad_release not in EXPECTED:
+        raise ValueError("autocad_release must be 2016 or 2025.")
+    for field in (
+        "ok",
+        "readOnly",
+        "workspaceConfigured",
+        "publishEnabled",
+        "runtimeSupported",
+    ):
+        if plugin_status.get(field) is not True:
+            raise ValueError(f"Live AutoCAD status requires {field}=true.")
+    if plugin_status.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME:
+        raise ValueError("Live AutoCAD status requires authenticated durable queue intent.")
+
+    manifest_paths = [
+        Path(value).expanduser().resolve(strict=True) for value in manifest_values
+    ]
+    if len(set(manifest_paths)) != len(manifest_paths):
+        raise ValueError("Batch recovery manifests must be distinct.")
+
+    operations = build_publish_operations_report(config, limit=50)
+    if operations["has_more"] is not False:
+        raise ValueError(
+            "Batch recovery requires an isolated workspace with at most 50 staged jobs."
+        )
+    if operations["processed"] != len(manifest_paths):
+        raise ValueError(
+            "Batch recovery requires an isolated workspace containing exactly the approved batch."
+        )
+    indexed = {item["job_id"]: item for item in operations["items"]}
+    jobs: list[dict[str, Any]] = []
+    for manifest_path in manifest_paths:
+        manifest, job_root = load_staged_manifest(manifest_path, config)
+        job_id = manifest["job_id"]
+        item = indexed.get(job_id)
+        if (
+            item is None
+            or item.get("status") != "complete"
+            or item.get("publish_verified") is not True
+            or Path(str(item.get("manifest_path", ""))).resolve(strict=True)
+            != manifest_path
+        ):
+            raise ValueError(
+                f"Batch recovery job {job_id!r} is not complete in the current operations report."
+            )
+        report = audit_publish_outputs(manifest_path, config)
+        if (
+            report.get("outputs_complete") is not True
+            or report.get("receipt_output_binding_verified") is not True
+            or report.get("publish_verified") is not True
+        ):
+            raise ValueError(
+                f"Batch recovery job {job_id!r} lacks verified receipt-bound outputs."
+            )
+        receipt = report["execution_receipt"]["receipt"]
+        source_before = manifest["source_fingerprint"]["sha256"]
+        source = config.path_policy.require_allowed(
+            manifest["source_drawing"], suffix=".dwg"
+        )
+        staged = Path(manifest["staged_drawing"]).resolve(strict=True)
+        jobs.append(
+            {
+                "job_id": job_id,
+                "plan_id": manifest["plan_id"],
+                "manifest_sha256": _sha256(manifest_path),
+                "receipt_manifest_sha256": receipt["manifest_sha256"],
+                "receipt_state": receipt["state"],
+                "receipt_output_count": receipt["output_count"],
+                "receipt_outputs_sha256": receipt["outputs_sha256"],
+                "receipt_output_binding_verified": report[
+                    "receipt_output_binding_verified"
+                ],
+                "source_sha256_before": source_before,
+                "source_sha256_after": _sha256(source),
+                "staged_sha256_before": source_before,
+                "staged_sha256_after": _sha256(staged),
+                "outputs_complete": report["outputs_complete"],
+                "publish_verified": report["publish_verified"],
+            }
+        )
+
+    jobs.sort(key=lambda item: item["job_id"])
+    recovery = {
+        "autocad_release": autocad_release,
+        "product": plugin_status.get("product"),
+        "adapter": plugin_status.get("adapter"),
+        "build_commit": plugin_status.get("buildCommit"),
+        "plugin_sha256": plugin_status.get("pluginSha256"),
+        "runtime_series": plugin_status.get("runtimeSeries"),
+        "queue_authentication": plugin_status.get("queueAuthentication"),
+        "licensed": licensed,
+        "authorized_test_assets": authorized_test_assets,
+        "restart_verified": restart_verified,
+        "report_page_id": operations["report_page_id"],
+        "workspace_report_complete": True,
+        "workspace_job_count": operations["processed"],
+        "job_count": len(jobs),
+        "jobs": jobs,
+        "approved_by": approved_by,
+        "completed_utc": completed_utc or datetime.now(UTC).isoformat(),
+    }
+    return validate_batch_recovery_evidence(recovery)
+
+
+def validate_batch_recovery_evidence(raw: Any) -> dict[str, Any]:
+    """Validate one release's bounded post-restart batch recovery record."""
+    if not isinstance(raw, dict) or set(raw) != RECOVERY_FIELDS:
+        raise ValueError("Batch recovery evidence fields are incomplete.")
+    release = raw["autocad_release"]
+    if release not in EXPECTED:
+        raise ValueError("autocad_release must be 2016 or 2025.")
+    expected = EXPECTED[release]
+    if raw["adapter"] != expected["adapter"]:
+        raise ValueError(f"AutoCAD {release} recovery adapter identity mismatch.")
+    if raw["runtime_series"] != expected["acadver"]:
+        raise ValueError(f"AutoCAD {release} recovery runtime series mismatch.")
+    if raw["queue_authentication"] != QUEUE_AUTHENTICATION_SCHEME:
+        raise ValueError(f"AutoCAD {release} recovery queue authentication mismatch.")
+    product = raw["product"]
+    if (
+        not isinstance(product, str)
+        or f"AutoCAD {release}" not in product
+        or f"ACADVER {expected['acadver']}" not in product
+    ):
+        raise ValueError(f"AutoCAD {release} recovery product/ACADVER mismatch.")
+    if not isinstance(raw["build_commit"], str) or not COMMIT.fullmatch(
+        raw["build_commit"]
+    ):
+        raise ValueError(f"AutoCAD {release} recovery build_commit is invalid.")
+    _require_digest(raw["plugin_sha256"], "recovery.plugin_sha256")
+    for flag in (
+        "licensed",
+        "authorized_test_assets",
+        "restart_verified",
+        "workspace_report_complete",
+    ):
+        if raw[flag] is not True:
+            raise ValueError(f"AutoCAD {release} recovery requires {flag}=true.")
+    report_page_id = raw["report_page_id"]
+    if not isinstance(report_page_id, str) or not PLAN_ID.fullmatch(report_page_id):
+        raise ValueError(f"AutoCAD {release} recovery report_page_id is invalid.")
+    workspace_job_count = raw["workspace_job_count"]
+    job_count = raw["job_count"]
+    if (
+        not isinstance(workspace_job_count, int)
+        or isinstance(workspace_job_count, bool)
+        or not isinstance(job_count, int)
+        or isinstance(job_count, bool)
+        or not 2 <= job_count <= 20
+        or workspace_job_count != job_count
+    ):
+        raise ValueError(f"AutoCAD {release} recovery job counts are invalid.")
+    jobs = raw["jobs"]
+    if not isinstance(jobs, list) or len(jobs) != job_count:
+        raise ValueError(f"AutoCAD {release} recovery jobs are incomplete.")
+    job_ids: set[str] = set()
+    plan_ids: set[str] = set()
+    for job in jobs:
+        if not isinstance(job, dict) or set(job) != RECOVERY_JOB_FIELDS:
+            raise ValueError(f"AutoCAD {release} recovery job fields are incomplete.")
+        job_id = job["job_id"]
+        if not isinstance(job_id, str) or not JOB_ID_PATTERN.fullmatch(job_id):
+            raise ValueError(f"AutoCAD {release} recovery job_id is invalid.")
+        if job_id in job_ids:
+            raise ValueError(f"AutoCAD {release} recovery jobs must be distinct.")
+        job_ids.add(job_id)
+        plan_id = job["plan_id"]
+        if not isinstance(plan_id, str) or not PLAN_ID.fullmatch(plan_id):
+            raise ValueError(f"AutoCAD {release} recovery plan_id is invalid.")
+        if plan_id in plan_ids:
+            raise ValueError(f"AutoCAD {release} recovery plans must be distinct.")
+        plan_ids.add(plan_id)
+        for field in (
+            "manifest_sha256",
+            "receipt_manifest_sha256",
+            "receipt_outputs_sha256",
+            "source_sha256_before",
+            "source_sha256_after",
+            "staged_sha256_before",
+            "staged_sha256_after",
+        ):
+            _require_digest(job[field], f"recovery.jobs.{field}")
+        if job["manifest_sha256"] != job["receipt_manifest_sha256"]:
+            raise ValueError(
+                f"AutoCAD {release} recovery receipt is not bound to its manifest."
+            )
+        if job["source_sha256_before"] != job["source_sha256_after"]:
+            raise ValueError(f"AutoCAD {release} recovery source DWG changed.")
+        if job["staged_sha256_before"] != job["staged_sha256_after"]:
+            raise ValueError(f"AutoCAD {release} recovery staged DWG changed.")
+        if job["receipt_state"] != "succeeded":
+            raise ValueError(f"AutoCAD {release} recovery receipt did not succeed.")
+        if (
+            not isinstance(job["receipt_output_count"], int)
+            or isinstance(job["receipt_output_count"], bool)
+            or job["receipt_output_count"] < 1
+        ):
+            raise ValueError(f"AutoCAD {release} recovery output count is invalid.")
+        for flag in (
+            "receipt_output_binding_verified",
+            "outputs_complete",
+            "publish_verified",
+        ):
+            if job[flag] is not True:
+                raise ValueError(
+                    f"AutoCAD {release} recovery job requires {flag}=true."
+                )
+    if [job["job_id"] for job in jobs] != sorted(job_ids):
+        raise ValueError(f"AutoCAD {release} recovery jobs must be ordered by job_id.")
+    approved_by = raw["approved_by"]
+    if not isinstance(approved_by, str) or not approved_by.strip() or len(approved_by) > 200:
+        raise ValueError(f"AutoCAD {release} recovery approved_by is invalid.")
+    try:
+        completed = datetime.fromisoformat(raw["completed_utc"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"AutoCAD {release} recovery completed_utc is invalid.") from exc
+    if completed.tzinfo is None:
+        raise ValueError(f"AutoCAD {release} recovery completed_utc needs a timezone.")
+    return raw
+
+
 def assemble_pilot_evidence(
     run_2016: Any,
     run_2025: Any,
+    recovery_2016: Any,
+    recovery_2025: Any,
     *,
     repository_commit: str,
     bundle_sha256: str,
@@ -224,14 +498,21 @@ def assemble_pilot_evidence(
         raise ValueError("run_2016 must contain AutoCAD 2016 evidence.")
     if validated_2025["autocad_release"] != "2025":
         raise ValueError("run_2025 must contain AutoCAD 2025 evidence.")
+    validated_recovery_2016 = validate_batch_recovery_evidence(recovery_2016)
+    validated_recovery_2025 = validate_batch_recovery_evidence(recovery_2025)
+    if validated_recovery_2016["autocad_release"] != "2016":
+        raise ValueError("recovery_2016 must contain AutoCAD 2016 evidence.")
+    if validated_recovery_2025["autocad_release"] != "2025":
+        raise ValueError("recovery_2025 must contain AutoCAD 2025 evidence.")
     raw = {
-        "schema_version": 6,
+        "schema_version": 7,
         "repository_commit": repository_commit,
         "package_version": package_version,
         "bundle_sha256": bundle_sha256,
         "bundle_build_manifest_sha256": bundle_build_manifest_sha256,
         "adapter_sha256": adapter_sha256,
         "runs": [validated_2016, validated_2025],
+        "batch_recovery": [validated_recovery_2016, validated_recovery_2025],
     }
     validate_pilot_evidence(raw)
     return raw
@@ -247,9 +528,10 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
         "bundle_build_manifest_sha256",
         "adapter_sha256",
         "runs",
+        "batch_recovery",
     }:
         raise ValueError("Pilot evidence must contain exactly the documented top-level fields.")
-    if raw["schema_version"] != 6:
+    if raw["schema_version"] != 7:
         raise ValueError("Unsupported pilot evidence schema.")
     if not isinstance(raw["repository_commit"], str) or not COMMIT.fullmatch(
         raw["repository_commit"]
@@ -281,14 +563,55 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             raise ValueError(f"AutoCAD {release} running plug-in commit mismatch.")
         if run["plugin_sha256"] != adapter_sha256[release]:
             raise ValueError(f"AutoCAD {release} running plug-in binary mismatch.")
+    recovery = raw["batch_recovery"]
+    if not isinstance(recovery, list) or len(recovery) != 2:
+        raise ValueError(
+            "Pilot evidence must contain one batch recovery record for each AutoCAD release."
+        )
+    validated_recovery = [validate_batch_recovery_evidence(item) for item in recovery]
+    recovery_releases = [item["autocad_release"] for item in validated_recovery]
+    if sorted(recovery_releases) != ["2016", "2025"]:
+        raise ValueError(
+            "Pilot evidence must contain distinct AutoCAD 2016 and 2025 batch recovery records."
+        )
+    for item in validated_recovery:
+        release = item["autocad_release"]
+        matching_run = next(run for run in validated if run["autocad_release"] == release)
+        if item["build_commit"] != raw["repository_commit"]:
+            raise ValueError(f"AutoCAD {release} recovery plug-in commit mismatch.")
+        if item["plugin_sha256"] != adapter_sha256[release]:
+            raise ValueError(f"AutoCAD {release} recovery plug-in binary mismatch.")
+        for field in (
+            "product",
+            "adapter",
+            "build_commit",
+            "plugin_sha256",
+            "runtime_series",
+            "queue_authentication",
+        ):
+            if item[field] != matching_run[field]:
+                raise ValueError(
+                    f"AutoCAD {release} recovery and one-sheet runtime identity mismatch."
+                )
+        if matching_run["plan_id"] in {job["plan_id"] for job in item["jobs"]}:
+            raise ValueError(
+                f"AutoCAD {release} recovery batch must be distinct from the one-sheet pilot."
+            )
+        if datetime.fromisoformat(item["completed_utc"]) <= datetime.fromisoformat(
+            matching_run["completed_utc"]
+        ):
+            raise ValueError(
+                f"AutoCAD {release} recovery must be completed after the one-sheet pilot."
+            )
     return {
         "valid": True,
-        "schema_version": 6,
+        "schema_version": 7,
         "repository_commit": raw["repository_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": raw["bundle_sha256"],
         "bundle_build_manifest_sha256": raw["bundle_build_manifest_sha256"],
         "accepted_releases": sorted(releases),
+        "batch_recovery_releases": sorted(recovery_releases),
     }
 
 
@@ -421,9 +744,15 @@ def _collect_visual_reference(
                 raise ValueError("Visual reference PDF must not be encrypted.")
             if len(reader.pages) != 1:
                 raise ValueError("Visual reference PDF must contain exactly one page.")
-            media_box = reader.pages[0].mediabox
+            page = reader.pages[0]
+            media_box = page.mediabox
             width_mm = float(media_box.width) * 25.4 / 72
             height_mm = float(media_box.height) * 25.4 / 72
+            rotation = int(page.get("/Rotate", 0) or 0)
+            if rotation % 90 != 0:
+                raise ValueError("Visual reference PDF rotation must be a multiple of 90 degrees.")
+            if rotation % 180 != 0:
+                width_mm, height_mm = height_mm, width_mm
     except (OSError, PdfReadError, TypeError, ValueError) as exc:
         if isinstance(exc, ValueError) and str(exc).startswith("Visual reference"):
             raise

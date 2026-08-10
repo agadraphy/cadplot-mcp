@@ -10,6 +10,12 @@ offset pages. Do not stage more jobs in the middle of one paginated snapshot; fi
 scan, then start again without a cursor to include later work. Each page has a content-derived
 `report_page_id` that can be retained in an operator log.
 
+For licensed release acceptance, `cadplot-collect-recovery` requires an isolated workspace that
+contains exactly 2–20 approved completed jobs after AutoCAD restart. It recomputes the complete
+operations page and every receipt/output/source/staged identity, then retains the path-redacted
+`report_page_id`. A partial page or extra workspace job is rejected instead of being omitted from
+the recovery claim.
+
 The report classifies each job:
 
 - `complete`: valid successful receipt whose canonical output-set binding still matches, plus every

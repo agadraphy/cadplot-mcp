@@ -10,6 +10,7 @@ from cadplot_mcp.config import load_config
 from cadplot_mcp.pilot import (
     VISUAL_CHECKS,
     assemble_pilot_evidence,
+    build_batch_recovery_evidence,
     build_pilot_run_evidence,
     load_and_validate_pilot_evidence,
     validate_bundle_build_evidence,
@@ -94,12 +95,79 @@ def collect_main() -> int:
     return 0
 
 
+def collect_recovery_main() -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Collect a bounded licensed AutoCAD batch-recovery record after restart "
+            "without modifying jobs or drawings."
+        )
+    )
+    parser.add_argument(
+        "manifests",
+        nargs="+",
+        help="Two to twenty completed staged-job manifest.json files.",
+    )
+    parser.add_argument("--release", choices=("2016", "2025"), required=True)
+    parser.add_argument("--approved-by", required=True, help="Authorized CAD approver name/role.")
+    parser.add_argument(
+        "--output", required=True, help="New local JSON file; existing files refuse."
+    )
+    parser.add_argument("--timeout-ms", type=int, default=2_000)
+    parser.add_argument("--licensed", action="store_true")
+    parser.add_argument("--authorized-test-assets", action="store_true")
+    parser.add_argument("--restart-verified", action="store_true")
+    args = parser.parse_args()
+
+    config_path = os.environ.get("CADPLOT_CONFIG")
+    if not config_path:
+        return _fail("collected", "CADPLOT_CONFIG is not set.")
+    output = Path(args.output).expanduser().resolve(strict=False)
+    if output.exists():
+        return _fail(
+            "collected", "Output already exists; recovery evidence is never overwritten."
+        )
+    try:
+        config = load_config(config_path)
+        status = get_plugin_status(timeout_ms=args.timeout_ms)
+        recovery = build_batch_recovery_evidence(
+            args.manifests,
+            config,
+            autocad_release=args.release,
+            plugin_status=status,
+            approved_by=args.approved_by,
+            licensed=args.licensed,
+            authorized_test_assets=args.authorized_test_assets,
+            restart_verified=args.restart_verified,
+        )
+        _write_new_json(output, recovery)
+    except (OSError, PluginConnectionError, ValueError) as exc:
+        return _fail("collected", str(exc))
+    print(
+        json.dumps(
+            {
+                "collected": True,
+                "release": recovery["autocad_release"],
+                "build_commit": recovery["build_commit"],
+                "plugin_sha256": recovery["plugin_sha256"],
+                "report_page_id": recovery["report_page_id"],
+                "job_count": recovery["job_count"],
+                "output": str(output),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def assemble_main() -> int:
     parser = argparse.ArgumentParser(
         description="Assemble distinct 2016 and 2025 pilot runs into final validated evidence."
     )
     parser.add_argument("--run-2016", required=True)
     parser.add_argument("--run-2025", required=True)
+    parser.add_argument("--recovery-2016", required=True)
+    parser.add_argument("--recovery-2025", required=True)
     parser.add_argument("--bundle", required=True, help="Verified CadPlot bundle ZIP.")
     parser.add_argument(
         "--bundle-build-manifest",
@@ -124,6 +192,8 @@ def assemble_main() -> int:
         evidence = assemble_pilot_evidence(
             _load_run(args.run_2016),
             _load_run(args.run_2025),
+            _load_run(args.recovery_2016),
+            _load_run(args.recovery_2025),
             **bundle_evidence,
         )
         _write_new_json(output, evidence)
@@ -134,6 +204,7 @@ def assemble_main() -> int:
             {
                 "assembled": True,
                 "accepted_releases": ["2016", "2025"],
+                "batch_recovery_releases": ["2016", "2025"],
                 "bundle_sha256": evidence["bundle_sha256"],
                 "repository_commit": evidence["repository_commit"],
                 "bundle_build_manifest_sha256": evidence["bundle_build_manifest_sha256"],

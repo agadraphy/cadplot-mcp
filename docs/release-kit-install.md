@@ -127,6 +127,7 @@ $pythonInstall = & "$kit\scripts\install-python.ps1" `
 $commandRoot = $pythonInstall.CommandRoot
 & "$commandRoot\cadplot-doctor.cmd" --help
 & "$commandRoot\cadplot-collect-pilot.cmd" --help
+& "$commandRoot\cadplot-collect-recovery.cmd" --help
 & "$commandRoot\cadplot-assemble-pilot.cmd" --help
 & "$commandRoot\cadplot-validate-pilot.cmd" --help
 & "$commandRoot\cadplot-acceptance.cmd" --help
@@ -188,10 +189,12 @@ release kit.
 
 Set `CADPLOT_CONFIG` to that external file. Keep `CADPLOT_ENABLE_PUBLISH` unset during inspection and
 dry-run. Follow `docs/pazartesi-demo-tr.md` for the licensed one-sheet acceptance flow. After both
-licensed runs, use the installed `cadplot-collect-pilot`, `cadplot-assemble-pilot`, and
+licensed runs and both per-release small-batch recovery checks, use the installed
+`cadplot-collect-pilot`, `cadplot-collect-recovery`, `cadplot-assemble-pilot`, and
 `cadplot-validate-pilot` commands documented in `docs/pilot-evidence.md`; no repository Python
-environment is required. After both runs validate, follow `docs/release-acceptance.md` to bind the
-pilot evidence to this exact transferred kit without exposing company-run details.
+environment is required. After both one-sheet runs and both recovery records validate, follow
+`docs/release-acceptance.md` to bind the pilot evidence to this exact transferred kit without
+exposing company-run details.
 
 ## Evidence boundary
 

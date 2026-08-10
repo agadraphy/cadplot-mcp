@@ -10,13 +10,16 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
+from pypdf.generic import NameObject, NumberObject
 
 from cadplot_mcp.audit import build_receipt_output_digest
 from cadplot_mcp.config import load_config
 from cadplot_mcp.pilot import (
     VISUAL_CHECKS,
     assemble_pilot_evidence,
+    build_batch_recovery_evidence,
     build_pilot_run_evidence,
+    validate_batch_recovery_evidence,
     validate_bundle_build_evidence,
     validate_pilot_evidence,
 )
@@ -99,11 +102,76 @@ def _run(
     }
 
 
+def _recovery(
+    release: str,
+    digit: str,
+    *,
+    build_commit: str = "1" * 40,
+    plugin_sha256: str | None = None,
+) -> dict:
+    product, adapter, series, suffixes = {
+        "2016": (
+            "AutoCAD 2016 (ACADVER R20.1; raw 20.1s (LMS Tech))",
+            "autocad-2016-net45",
+            "R20.1",
+            ("a" * 12, "b" * 12),
+        ),
+        "2025": (
+            "AutoCAD 2025 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "autocad-2025-net8",
+            "R25.0",
+            ("c" * 12, "d" * 12),
+        ),
+    }[release]
+    jobs = []
+    for index, suffix in enumerate(suffixes, start=1):
+        manifest = f"{index if release == '2016' else index + 2}" * 64
+        source = ("a" if index == 1 else "b") * 64
+        staged = ("c" if index == 1 else "d") * 64
+        jobs.append(
+            {
+                "job_id": f"job-20260810T09000000000{index}Z-{suffix}",
+                "plan_id": "sha256:" + (digit if index == 1 else str(int(digit) + 1)) * 64,
+                "manifest_sha256": manifest,
+                "receipt_manifest_sha256": manifest,
+                "receipt_state": "succeeded",
+                "receipt_output_count": 1,
+                "receipt_outputs_sha256": ("e" if index == 1 else "f") * 64,
+                "receipt_output_binding_verified": True,
+                "source_sha256_before": source,
+                "source_sha256_after": source,
+                "staged_sha256_before": staged,
+                "staged_sha256_after": staged,
+                "outputs_complete": True,
+                "publish_verified": True,
+            }
+        )
+    return {
+        "autocad_release": release,
+        "product": product,
+        "adapter": adapter,
+        "build_commit": build_commit,
+        "plugin_sha256": plugin_sha256 or (("6" if release == "2016" else "7") * 64),
+        "runtime_series": series,
+        "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
+        "licensed": True,
+        "authorized_test_assets": True,
+        "restart_verified": True,
+        "report_page_id": "sha256:" + digit * 64,
+        "workspace_report_complete": True,
+        "workspace_job_count": 2,
+        "job_count": 2,
+        "jobs": jobs,
+        "approved_by": "Authorized CAD manager",
+        "completed_utc": "2026-08-10T10:00:00+03:00",
+    }
+
+
 def _evidence() -> dict:
     run_2016 = _run("2016", "3")
     run_2025 = _run("2025", "4")
     return {
-        "schema_version": 6,
+        "schema_version": 7,
         "repository_commit": "1" * 40,
         "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
@@ -113,6 +181,7 @@ def _evidence() -> dict:
             "2025": run_2025["plugin_sha256"],
         },
         "runs": [run_2016, run_2025],
+        "batch_recovery": [_recovery("2016", "5"), _recovery("2025", "7")],
     }
 
 
@@ -237,6 +306,93 @@ paper_profiles:
     return manifest_path, load_config(config_path), reference_pdf
 
 
+def _completed_batch(tmp_path: Path) -> tuple[list[Path], object]:
+    project = tmp_path / "project"
+    workspace = tmp_path / "work"
+    project.mkdir()
+    workspace.mkdir()
+    manifests: list[Path] = []
+    for index, suffix in enumerate(("a" * 12, "b" * 12), start=1):
+        job_id = f"job-20260810T09000000000{index}Z-{suffix}"
+        job_root = workspace / job_id
+        source_root = job_root / "source"
+        output_root = job_root / "output"
+        source_root.mkdir(parents=True)
+        output_root.mkdir()
+        source = project / f"pilot-{index}.dwg"
+        staged = source_root / source.name
+        source.write_bytes(f"authorized batch source {index}".encode())
+        staged.write_bytes(source.read_bytes())
+        source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        pdf = output_root / f"0001-pilot-{index}.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=595.276, height=841.89)
+        with pdf.open("wb") as stream:
+            writer.write(stream)
+        manifest = {
+            "schema_version": 1,
+            "job_id": job_id,
+            "state": "staged",
+            "created_utc": f"2026-08-10T09:00:0{index}+00:00",
+            "plan_id": "sha256:" + str(index) * 64,
+            "source_drawing": str(source),
+            "source_fingerprint": {"sha256": source_digest},
+            "staged_drawing": str(staged),
+            "output_directory": str(output_root),
+            "template_assets": [],
+            "outputs": [
+                {
+                    "sheet_index": 1,
+                    "frame_handle": f"A{index}",
+                    "pdf": str(pdf),
+                    "page_setup": "OFFICE_A4",
+                    "template_layout": None,
+                    "template_asset_id": None,
+                    "plot_geometry": {
+                        "rotation_degrees": 0,
+                        "paper_width_mm": 210.0,
+                        "paper_height_mm": 297.0,
+                    },
+                }
+            ],
+        }
+        manifest_path = job_root / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        output_evidence = {
+            "sheet_index": 1,
+            "file": pdf.name,
+            "size_bytes": pdf.stat().st_size,
+            "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
+        }
+        receipt = {
+            "schema_version": 2,
+            "plan_id": manifest["plan_id"],
+            "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            "state": "succeeded",
+            "output_count": 1,
+            "outputs_sha256": build_receipt_output_digest([output_evidence]),
+            "completed_utc": f"2026-08-10T09:10:0{index}+00:00",
+        }
+        (job_root / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+        manifests.append(manifest_path)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+version: 1
+allowed_roots: [project]
+workspace_root: work
+paper_profiles:
+  - id: office_a4
+    labels: [A4]
+    page_setup: OFFICE_A4
+    plotter: DWG To PDF.pc3
+    plot_style: monochrome.ctb
+""".strip(),
+        encoding="utf-8",
+    )
+    return manifests, load_config(config_path)
+
+
 def _status(release: str) -> dict:
     product, adapter = {
         "2016": (
@@ -338,6 +494,80 @@ def test_pilot_evidence_requires_and_accepts_both_version_runs() -> None:
 
     assert result["valid"] is True
     assert result["accepted_releases"] == ["2016", "2025"]
+    assert result["batch_recovery_releases"] == ["2016", "2025"]
+
+
+def test_build_batch_recovery_cross_checks_exact_isolated_workspace(
+    tmp_path: Path,
+) -> None:
+    manifests, config = _completed_batch(tmp_path)
+
+    recovery = build_batch_recovery_evidence(
+        manifests,
+        config,
+        autocad_release="2016",
+        plugin_status=_status("2016"),
+        approved_by="Authorized CAD manager",
+        licensed=True,
+        authorized_test_assets=True,
+        restart_verified=True,
+        completed_utc="2026-08-10T12:00:00+03:00",
+    )
+
+    assert recovery["job_count"] == 2
+    assert recovery["workspace_job_count"] == 2
+    assert recovery["workspace_report_complete"] is True
+    assert recovery["restart_verified"] is True
+    assert all(job["publish_verified"] for job in recovery["jobs"])
+    assert all(job["receipt_output_binding_verified"] for job in recovery["jobs"])
+    assert str(tmp_path) not in json.dumps(recovery)
+    assert validate_batch_recovery_evidence(recovery) == recovery
+
+
+def test_build_batch_recovery_rejects_extra_workspace_job(tmp_path: Path) -> None:
+    manifests, config = _completed_batch(tmp_path)
+    extra = Path(config.workspace_root) / "job-20260810T090000000003Z-cccccccccccc"
+    extra.mkdir()
+
+    with pytest.raises(ValueError, match="exactly the approved batch"):
+        build_batch_recovery_evidence(
+            manifests,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_assets=True,
+            restart_verified=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (lambda value: value.__setitem__("restart_verified", False), "restart_verified"),
+        (
+            lambda value: value["jobs"][0].__setitem__("source_sha256_after", "9" * 64),
+            "source DWG changed",
+        ),
+        (
+            lambda value: value["jobs"][1].__setitem__(
+                "job_id", value["jobs"][0]["job_id"]
+            ),
+            "distinct",
+        ),
+        (
+            lambda value: value["jobs"][0].__setitem__("publish_verified", False),
+            "publish_verified",
+        ),
+    ],
+)
+def test_batch_recovery_validator_rejects_incomplete_proof(mutate, message: str) -> None:
+    recovery = _recovery("2016", "5")
+    mutate(recovery)
+
+    with pytest.raises(ValueError, match=message):
+        validate_batch_recovery_evidence(recovery)
 
 
 def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path) -> None:
@@ -434,6 +664,53 @@ def test_build_pilot_run_binds_reference_geometry_and_rejects_wrong_orientation(
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=landscape,
+        )
+
+
+def test_build_pilot_run_applies_reference_pdf_page_rotation(tmp_path: Path) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    writer = PdfWriter()
+    writer.add_blank_page(width=841.89, height=595.276).rotate(90)
+    with reference_pdf.open("wb") as stream:
+        writer.write(stream)
+
+    run = build_pilot_run_evidence(
+        manifest,
+        config,
+        autocad_release="2016",
+        plugin_status=_status("2016"),
+        approved_by="Authorized CAD manager",
+        licensed=True,
+        authorized_test_asset=True,
+        restart_receipt_verified=True,
+        visual_checks={name: True for name in VISUAL_CHECKS},
+        reference_pdf=reference_pdf,
+    )
+
+    assert run["visual_reference"]["page_width_mm"] == pytest.approx(210.0, abs=0.01)
+    assert run["visual_reference"]["page_height_mm"] == pytest.approx(297.0, abs=0.01)
+
+
+def test_build_pilot_run_rejects_invalid_reference_pdf_rotation(tmp_path: Path) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=595.276, height=841.89)
+    page[NameObject("/Rotate")] = NumberObject(45)
+    with reference_pdf.open("wb") as stream:
+        writer.write(stream)
+
+    with pytest.raises(ValueError, match="multiple of 90"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
         )
 
 
@@ -565,6 +842,8 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
     evidence = assemble_pilot_evidence(
         _run("2016", "3"),
         _run("2025", "4"),
+        _recovery("2016", "5"),
+        _recovery("2025", "7"),
         repository_commit="1" * 40,
         bundle_sha256="2" * 64,
         bundle_build_manifest_sha256="5" * 64,
@@ -580,6 +859,8 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
         assemble_pilot_evidence(
             _run("2025", "4"),
             _run("2016", "3"),
+            _recovery("2016", "5"),
+            _recovery("2025", "7"),
             repository_commit="1" * 40,
             bundle_sha256="2" * 64,
             bundle_build_manifest_sha256="5" * 64,
@@ -632,6 +913,42 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
             lambda value: value["runs"][1].__setitem__("queue_authentication", "unsigned"),
             "queue authentication mismatch",
         ),
+        (
+            lambda value: value["batch_recovery"].__setitem__(
+                1, deepcopy(value["batch_recovery"][0])
+            ),
+            "distinct AutoCAD 2016 and 2025 batch recovery",
+        ),
+        (
+            lambda value: value["batch_recovery"][1].__setitem__(
+                "restart_verified", False
+            ),
+            "restart_verified",
+        ),
+        (
+            lambda value: value["batch_recovery"][0].__setitem__(
+                "plugin_sha256", "9" * 64
+            ),
+            "recovery plug-in binary mismatch",
+        ),
+        (
+            lambda value: value["batch_recovery"][0]["jobs"][0].__setitem__(
+                "plan_id", value["runs"][0]["plan_id"]
+            ),
+            "distinct from the one-sheet pilot",
+        ),
+        (
+            lambda value: value["batch_recovery"][1].__setitem__(
+                "completed_utc", value["runs"][1]["completed_utc"]
+            ),
+            "completed after the one-sheet pilot",
+        ),
+        (
+            lambda value: value["batch_recovery"][0].__setitem__(
+                "product", "AutoCAD 2016 (ACADVER R20.1; raw changed)"
+            ),
+            "runtime identity mismatch",
+        ),
     ],
 )
 def test_pilot_evidence_rejects_incomplete_or_contradictory_proof(mutate, message: str) -> None:
@@ -661,6 +978,8 @@ def test_pilot_evidence_cli_returns_machine_readable_success(tmp_path: Path) -> 
 def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> None:
     run_2016 = tmp_path / "run-2016.json"
     run_2025 = tmp_path / "run-2025.json"
+    recovery_2016 = tmp_path / "recovery-2016.json"
+    recovery_2025 = tmp_path / "recovery-2025.json"
     bundle, build_manifest, adapter_sha256 = _bundle_release_fixture(tmp_path)
     output = tmp_path / "pilot-evidence.json"
     run_2016.write_text(
@@ -671,6 +990,14 @@ def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> 
         json.dumps(_run("2025", "4", plugin_sha256=adapter_sha256["2025"])),
         encoding="utf-8",
     )
+    recovery_2016.write_text(
+        json.dumps(_recovery("2016", "5", plugin_sha256=adapter_sha256["2016"])),
+        encoding="utf-8",
+    )
+    recovery_2025.write_text(
+        json.dumps(_recovery("2025", "7", plugin_sha256=adapter_sha256["2025"])),
+        encoding="utf-8",
+    )
     script = Path(__file__).resolve().parents[1] / "scripts" / "assemble-pilot-evidence.py"
     command = [
         sys.executable,
@@ -679,6 +1006,10 @@ def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> 
         str(run_2016),
         "--run-2025",
         str(run_2025),
+        "--recovery-2016",
+        str(recovery_2016),
+        "--recovery-2025",
+        str(recovery_2025),
         "--bundle",
         str(bundle),
         "--bundle-build-manifest",
@@ -762,3 +1093,56 @@ def test_collect_cli_exposes_reference_and_separate_visual_attestations() -> Non
     ):
         assert flag in result.stdout
     assert "--accept-visual-checks" not in result.stdout
+
+
+def test_collect_recovery_cli_requires_explicit_restart_and_asset_attestations() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "collect-batch-recovery.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    for flag in (
+        "--release",
+        "--approved-by",
+        "--licensed",
+        "--authorized-test-assets",
+        "--restart-verified",
+        "--output",
+    ):
+        assert flag in result.stdout
+
+
+def test_collect_recovery_cli_fails_closed_without_configuration(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "collect-batch-recovery.py"
+    environment = os.environ.copy()
+    environment.pop("CADPLOT_CONFIG", None)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            str(tmp_path / "one" / "manifest.json"),
+            str(tmp_path / "two" / "manifest.json"),
+            "--release",
+            "2016",
+            "--approved-by",
+            "Authorized CAD manager",
+            "--output",
+            str(tmp_path / "recovery.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 1
+    assert json.loads(result.stdout) == {
+        "collected": False,
+        "error": "CADPLOT_CONFIG is not set.",
+    }

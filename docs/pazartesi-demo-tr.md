@@ -109,6 +109,13 @@ taşınmaz.
    `publish_verified=true` ise geçer.
 10. PDF'yi referansla yan yana açıp yön, crop, gerçek ölçek, lineweight, CTB/STB, font ve title
     block kontrolünü sorumluya yaptırın.
+11. Tek-pafta kabulünden sonra yalnız o sürüme ait temiz bir workspace'te 2–20 işlik küçük batch'i
+    tamamlayın, terminal receiptleri gördükten sonra AutoCAD'i yeniden başlatın ve tüm manifestleri
+    `cadplot-collect-recovery --restart-verified` ile tek no-overwrite kayda bağlayın. Collector
+    workspace'te fazladan iş, eksik receipt/PDF bağı veya değişmiş kaynak/staged hash bulursa durur.
+12. 2016 ve 2025 için hem tek-pafta run hem recovery JSON'u üretildikten sonra schema-v7
+    `cadplot-assemble-pilot` çalıştırın. Dört kayıt da aynı verified bundle commit/binary kimliğine
+    bağlı değilse `licensed_live_pilot_ready` üretilemez.
 
 AutoCAD beklenmedik biçimde kapanırsa yeniden açıldığında `queueRecoveredOnStartup`,
 `queueInterruptedOnStartup`, `queueCancelledOnStartup` ve `queueAuthentication` alanlarını okuyun. Yalnız aynı

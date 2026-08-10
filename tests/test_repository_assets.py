@@ -59,7 +59,7 @@ def test_completion_audit_preserves_local_and_live_evidence_boundaries() -> None
         "public_release_ready=false",
         "R20.1",
         "R25.0",
-        "schema-v6 two-version pilot record",
+        "schema-v7 two-version pilot/recovery document",
     ):
         assert required in audit
 
@@ -488,6 +488,7 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         'environment["PYTHONNOUSERSITE"] = "1"',
         '"source_tree_imported": False',
         '"cadplot-collect-pilot"',
+        '"cadplot-collect-recovery"',
         '"cadplot-assemble-pilot"',
         '"cadplot-validate-pilot"',
         '"cadplot-tunnel-preflight"',
@@ -664,7 +665,7 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
         "running plug-in binary mismatch",
-        '"schema_version": 6',
+        '"schema_version": 7',
         '"queue_authentication"',
         '"queueAuthentication"',
         '"template_assets"',
@@ -673,11 +674,16 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         '"receipt_outputs_sha256"',
         '"receipt_output_binding_verified"',
         '"visual_reference"',
+        '"batch_recovery"',
+        "build_batch_recovery_evidence",
+        "exactly the approved batch",
         "source_sha256_after",
         "staged_sha256_after",
     ):
         assert required in pilot
     assert "--bundle-build-manifest" in assembler
+    assert "--recovery-2016" in assembler
+    assert "--recovery-2025" in assembler
     assert "--repository-commit" not in assembler
     assert "--reference-pdf" in assembler
     for visual_flag in (
@@ -1173,6 +1179,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "synthetic_batch_rehearsal = $batch",
         r'Join-Path $kitRoot "scripts\verify-release-kit.ps1"',
         "collect-pilot-run.py",
+        "collect-batch-recovery.py",
         "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py",
         "release-acceptance.py",
@@ -1213,6 +1220,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         '"scripts/verify-release-kit.ps1"',
         '"scripts/new-local-pilot.ps1"',
         '"scripts/collect-pilot-run.py"',
+        '"scripts/collect-batch-recovery.py"',
         '"scripts/assemble-pilot-evidence.py"',
         '"scripts/validate-pilot-evidence.py"',
         '"scripts/release-acceptance.py"',
@@ -1239,6 +1247,7 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "mandatory hashes" in guide
     assert "no source checkout is required" in guide
     assert "cadplot-collect-pilot.cmd\" --help" in guide
+    assert "cadplot-collect-recovery.cmd\" --help" in guide
     assert "cadplot-assemble-pilot.cmd\" --help" in guide
     assert "cadplot-validate-pilot.cmd\" --help" in guide
     assert "cadplot-acceptance.cmd\" --help" in guide

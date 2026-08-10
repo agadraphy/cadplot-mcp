@@ -210,7 +210,12 @@ Canlı eklenti status'u gömülü build commit'ini ve çalışan adapter DLL SHA
 assembler commit'i operatörden kabul etmek yerine doğrulanmış `bundle-build.json` içinden türetir,
 ZIP'in tüm girdilerini yeniden hash'ler ve iki sürümün çalışan binary değerlerini ilgili bundle
 adapter'ıyla eşleştirmeden kabul üretmez.
-İki pilot geçtikten sonra kurulu `cadplot-acceptance` komutu pilot kanıtını exact release kit/ZIP,
+Tek-pafta kayıtlarına ek olarak her sürümde izole 2–20 işlik küçük batch çalıştırılır, AutoCAD
+yeniden başlatılır ve `cadplot-collect-recovery` ile tüm manifest/receipt/PDF bağları ile değişmeyen
+kaynak/staged hashleri yol sızdırmadan tekrar doğrulanır. Pilot şeması v7 iki sürümün recovery
+kaydını da exact bundle kimliğine bağlamadan nihai kabul vermez.
+İki tek-pafta pilotu ve iki recovery kaydı geçtikten sonra kurulu `cadplot-acceptance` komutu pilot
+kanıtını exact release kit/ZIP,
 wheel, bundle, build manifest, commit ve sürüme bağlar. Şirket içi koşu ayrıntılarını içermeyen rapor,
 şirket yayın izni ile maintainer release onayı ayrı ayrı verilene kadar
 `public_release_ready=false` tutar; bkz. [release kabulü](docs/release-acceptance.md).
@@ -333,7 +338,7 @@ lisans envanterini ve dış ZIP'in her girdisini arşivi açmadan doğrular. Kur
 [doğrulanmış release-kit rehberine](docs/release-kit-install.md) bakın. Kit içinde
 `licensed_live_pilot_ready=false`, `public_release_ready=false` ve `live_publish_proven=false` kalır;
 bu durum yalnız ayrı saklanan lisanslı 2016/2025 pilot kanıtıyla değişebilir.
-Pilot şeması v4, harici template kullanılmışsa yol bilgisini dışarı vermeden profil/layout/page setup
+Pilot şeması v7, harici template kullanılmışsa yol bilgisini dışarı vermeden profil/layout/page setup
 kimliğini ve onaylı, pilot-sonrası şirket kaynağı, staged-kopya SHA-256 değerlerini birbirine bağlar.
 Her run ayrıca yetkili tek sayfalık referans PDF ile üretilen PDF'yi yol sızdırmadan
 SHA-256/boyut/sayfa geometrisiyle bağlar; izinli kök dışındaki veya yön/boyutu üretilen PDF'ye uymayan

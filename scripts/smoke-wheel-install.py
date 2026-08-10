@@ -188,6 +188,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         pilot_commands = (
             "cadplot-mcp-http",
             "cadplot-collect-pilot",
+            "cadplot-collect-recovery",
             "cadplot-assemble-pilot",
             "cadplot-validate-pilot",
             "cadplot-tunnel-preflight",

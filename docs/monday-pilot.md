@@ -9,7 +9,7 @@ enables one explicitly approved sheet and proves the real in-memory layout/viewp
 - Managed API folder containing `AcMgd.dll`, `AcDbMgd.dll`, and `AcCoreMgd.dll` for that release.
 - One anonymized/non-production DWG copy.
 - The expected one-page PDF for that DWG, kept under an approved `allowed_roots` input boundary so
-  schema-v6 pilot collection can bind its path-redacted hash, page geometry, and authenticated
+  schema-v7 pilot collection can bind its path-redacted hash, page geometry, and authenticated
   durable-queue scheme.
 - Names only for the required PC3/PMP, CTB/STB, page setup, paper, and title-block resources.
 - Exact case-sensitive canonical media name reported by AutoCAD for every custom PC3 paper.
@@ -152,6 +152,10 @@ collector/assembler/validator chain to return `valid=true`.
 4. Require completed jobs to remain `complete`; require every other item to expose an explicit
    safe next action. Never requeue `manual_review` or `failed` jobs in place.
 5. Retain each `report_page_id` in the pilot evidence.
+6. After restart, run `cadplot-collect-recovery` on every manifest in the isolated 2–20 job
+   workspace. Require its `job_count` to equal `workspace_job_count`, with every job
+   `publish_verified=true` and receipt-output-bound. Repeat this gate separately on 2016 and 2025;
+   schema-v7 assembly rejects a missing release record.
 
 ## Pilot pass condition
 

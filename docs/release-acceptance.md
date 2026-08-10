@@ -1,7 +1,8 @@
 # Release acceptance
 
-After both licensed AutoCAD runs pass, bind their local pilot evidence to the exact transferred
-release kit. First run the kit's embedded verifier, then create a new sanitized acceptance report:
+After both licensed AutoCAD one-sheet runs and both per-release small-batch recovery records pass,
+bind their schema-v7 pilot evidence to the exact transferred release kit. First run the kit's
+embedded verifier, then create a new sanitized acceptance report:
 
 ```powershell
 $releaseRoot = "C:\CadPlotTransfer\cadplot-release-kit-0.1.0-abcdef0"
@@ -17,7 +18,9 @@ $commands = "C:\Users\operator\AppData\Local\CadPlotMcp\python\0.1.0-abcdef0\bin
 
 The finalizer independently re-hashes the exact release directory and ZIP entries, wheel, bundle,
 bundle-build manifest, and pilot evidence. It revalidates the matching `R20.1`/`R25.0` SDK identities,
-both licensed runs, running adapter hashes, exact commit, and package version. The output contains no
+both licensed one-sheet runs, both exact-workspace post-restart recovery records, running adapter
+hashes, exact commit, and package version. The sanitized schema-v2 report explicitly retains only
+the accepted recovery releases and per-release job counts; it contains no
 approver name, drawing path, drawing/PDF hash, job identity, or company asset. The finalizer also
 rejects CAD/plot/PDF assets and Autodesk managed API DLLs in the public kit or its source archive,
 even if a modified manifest attempts to re-hash them. It records `licensed_live_pilot_ready=true`

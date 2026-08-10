@@ -16,7 +16,7 @@ readiness.
 | Publish bounded batches including 300 jobs | paged inventory, max-20 staging/queue/status calls, bounded durable queue and restart operations report | deterministic 300-drawing synthetic rehearsal and 15 durable-queue scenarios | Orchestration verified without AutoCAD; one-sheet then small live batch gates precede an authorized 300-job run |
 | Prevent overwrite and ambiguous replay | no-overwrite staging/outputs/receipts, authenticated pending/started/cancel markers, rollback-on-promotion failure | Python/.NET tamper tests, net45 DPAPI runtime probe, restart/cancellation tests | Implemented and locally verified; live PlotEngine interruption behavior still needs both licensed pilots |
 | Prove PDFs belong to the successful run | schema-v2 manifest-and-output-bound receipt and structural/physical PDF audit | fixed Python/.NET digest vector, valid-PDF replacement tamper test, restart recovery test | Implemented and locally verified; live receipts/PDFs are external evidence |
-| Produce restartable validation reports | receipt reader, per-job PDF audit, paginated operations report, schema-v6 pilot and sanitized final acceptance | unit/contract/CLI tests and no-overwrite evidence validators | Implemented; completed two-version pilot record is intentionally absent until licensed runs pass |
+| Produce restartable validation reports | receipt reader, per-job PDF audit, paginated operations report, schema-v7 pilot with per-release batch recovery, and sanitized final acceptance | unit/contract/CLI tests, exact-workspace recovery collector, and no-overwrite evidence validators | Implemented; completed two-version pilot/recovery record is intentionally absent until both licensed one-sheet and recovery runs pass |
 | Install and remove a release safely | isolated clean matching-SDK bundle builder, full-release-bound transactional install/verifiers/uninstallers | stale outputs excluded by construction; installer rechecks sibling ZIP/manifest/commit/matching-SDK evidence; protocol-only install is rejected without test consent | Installer path verified synthetically; real matching-SDK bundle and company-machine install remain external |
 | Connect an MCP-capable model safely | closed 20-tool STDIO surface, loopback-only HTTP, tunnel preflight and 13-case tool-selection evaluation | real installed-wheel STDIO/HTTP smokes, header/size guards, canonical evaluation tests | Local target verified; Secure MCP Tunnel provisioning, app scan, workspace permissions and live evaluation are administrator gates |
 | Ship as auditable open source | MIT license, Turkish/English docs, changelog, ADRs, source audit, locked dependencies, CycloneDX SBOM | clean source/release audits, dependency/license audit, deterministic wheel/source/SBOM verification | Repository is publication-ready as source material; creating/pushing a public remote and release approvals are explicit maintainer actions |
@@ -49,8 +49,8 @@ exact report with `scripts/build-demo-kit.ps1`, then run both embedded verifiers
 3. Run separate one-sheet 2016 and 2025 pilots with authorized DWG/resource copies. Require exact
    COM/pipe/adapter identity, unchanged source/staged DWG hashes, schema-v2 output binding,
    `publish_verified=true`, restart recovery, and all seven visual checks.
-4. Validate the schema-v6 two-version pilot record, then run a small restart/recovery batch before
-   authorizing a large batch.
+4. Run a separate small restart/recovery batch on each release and collect both records; validate
+   the schema-v7 two-version pilot/recovery document before authorizing a large batch.
 5. Complete the administrator-controlled tunnel/app scan and the 13-case live model evaluation if
    ChatGPT web is part of the deployment.
 6. Finalize sanitized release acceptance. Publication becomes ready only after both company and

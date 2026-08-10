@@ -212,6 +212,7 @@ print(json.dumps({
         "cadplot-mcp-http.cmd" = '-m cadplot_mcp.http_server'
         "cadplot-doctor.cmd" = '-m cadplot_mcp.doctor'
         "cadplot-collect-pilot.cmd" = '-c "from cadplot_mcp.pilot_cli import collect_main; raise SystemExit(collect_main())"'
+        "cadplot-collect-recovery.cmd" = '-c "from cadplot_mcp.pilot_cli import collect_recovery_main; raise SystemExit(collect_recovery_main())"'
         "cadplot-assemble-pilot.cmd" = '-c "from cadplot_mcp.pilot_cli import assemble_main; raise SystemExit(assemble_main())"'
         "cadplot-validate-pilot.cmd" = '-c "from cadplot_mcp.pilot_cli import validate_main; raise SystemExit(validate_main())"'
         "cadplot-acceptance.cmd" = '-m cadplot_mcp.acceptance_cli'

@@ -106,7 +106,7 @@ Use this checklist for every alpha release.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.
-- [ ] Each schema-v6 licensed pilot run contains the exact authenticated queue scheme and a
+- [ ] Each schema-v7 licensed pilot run contains the exact authenticated queue scheme and a
       path-redacted `template_assets` list; every used
       asset's approved, post-pilot source, and staged-copy SHA-256 values are identical, or the list
       is explicitly empty when that run used no external template.
@@ -115,6 +115,9 @@ Use this checklist for every alpha release.
       revalidates against the published PDF, their orientation/size relationship revalidates, and
       all seven visual checks were separately attested by the named reviewer.
 - [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.
+- [ ] `cadplot-collect-recovery` produced distinct 2–20 job, exact-workspace post-restart records
+      for both AutoCAD 2016 and 2025; every retained job is receipt-output-bound,
+      `publish_verified=true`, and source/staged-hash unchanged.
 - [ ] Dependency lock data has been reviewed for intended versions.
 
 ## Alpha release criteria
@@ -139,9 +142,11 @@ Use this checklist for every alpha release.
       acceptance record.
 - [ ] `cadplot-collect-pilot` produced each run from the live plug-in and immutable job evidence;
       live `buildCommit`/`pluginSha256` matched the corresponding adapter entry, and
-      `cadplot-assemble-pilot` bound both runs to the exact verified bundle/build manifest.
-- [ ] `cadplot-acceptance finalize` bound the full transferred release kit and two-version pilot
-      evidence into a new sanitized report; `validate` replays the same hashes successfully.
+      `cadplot-assemble-pilot` bound both runs plus both `cadplot-collect-recovery` records to the
+      exact verified bundle/build manifest.
+- [ ] `cadplot-acceptance finalize` bound the full transferred release kit and schema-v7
+      two-version one-sheet/recovery evidence into a new sanitized schema-v2 report; `validate`
+      replays the same hashes successfully.
 - [ ] `public_release_ready=true` appears only when both company-publication and maintainer-release
       approvals were explicitly supplied; the full company pilot evidence remains outside Git.
 - [ ] The demo operator reviewed `docs/pazartesi-demo-tr.md` and can state the title-block and

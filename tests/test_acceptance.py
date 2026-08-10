@@ -93,6 +93,65 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
     }
 
 
+def _recovery(release: str, digit: str, plugin_sha256: str) -> dict:
+    product, adapter, series, suffixes = {
+        "2016": (
+            "AutoCAD 2016 (ACADVER R20.1; raw 20.1s (LMS Tech))",
+            "autocad-2016-net45",
+            "R20.1",
+            ("a" * 12, "b" * 12),
+        ),
+        "2025": (
+            "AutoCAD 2025 (ACADVER R25.0; raw 25.0s (LMS Tech))",
+            "autocad-2025-net8",
+            "R25.0",
+            ("c" * 12, "d" * 12),
+        ),
+    }[release]
+    jobs = []
+    for index, suffix in enumerate(suffixes, start=1):
+        manifest = (str(index) if release == "2016" else str(index + 2)) * 64
+        source = ("a" if index == 1 else "b") * 64
+        staged = ("c" if index == 1 else "d") * 64
+        jobs.append(
+            {
+                "job_id": f"job-20260810T09000000000{index}Z-{suffix}",
+                "plan_id": "sha256:" + (digit if index == 1 else str(int(digit) + 1)) * 64,
+                "manifest_sha256": manifest,
+                "receipt_manifest_sha256": manifest,
+                "receipt_state": "succeeded",
+                "receipt_output_count": 1,
+                "receipt_outputs_sha256": ("e" if index == 1 else "f") * 64,
+                "receipt_output_binding_verified": True,
+                "source_sha256_before": source,
+                "source_sha256_after": source,
+                "staged_sha256_before": staged,
+                "staged_sha256_after": staged,
+                "outputs_complete": True,
+                "publish_verified": True,
+            }
+        )
+    return {
+        "autocad_release": release,
+        "product": product,
+        "adapter": adapter,
+        "build_commit": "1" * 40,
+        "plugin_sha256": plugin_sha256,
+        "runtime_series": series,
+        "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
+        "licensed": True,
+        "authorized_test_assets": True,
+        "restart_verified": True,
+        "report_page_id": "sha256:" + digit * 64,
+        "workspace_report_complete": True,
+        "workspace_job_count": 2,
+        "job_count": 2,
+        "jobs": jobs,
+        "approved_by": "Private CAD approver",
+        "completed_utc": "2026-08-10T10:00:00+03:00",
+    }
+
+
 def _fixture(tmp_path: Path, *, prohibited_asset: bool = False) -> tuple[Path, Path]:
     release_root = tmp_path / "release"
     kit_root = release_root / "CadPlotMcp.release"
@@ -248,6 +307,8 @@ def _fixture(tmp_path: Path, *, prohibited_asset: bool = False) -> tuple[Path, P
     pilot = assemble_pilot_evidence(
         _run("2016", "3", adapter_hashes["2016"]),
         _run("2025", "4", adapter_hashes["2025"]),
+        _recovery("2016", "5", adapter_hashes["2016"]),
+        _recovery("2025", "7", adapter_hashes["2025"]),
         repository_commit="1" * 40,
         package_version="0.1.0",
         bundle_sha256=_sha256(bundle_archive),
@@ -274,6 +335,9 @@ def test_acceptance_binds_release_and_pilots_without_private_run_data(tmp_path: 
     assert report["live_publish_proven"] is True
     assert report["public_release_ready"] is False
     assert report["accepted_releases"] == ["2016", "2025"]
+    assert report["schema_version"] == 2
+    assert report["batch_recovery_releases"] == ["2016", "2025"]
+    assert report["batch_recovery_job_counts"] == {"2016": 2, "2025": 2}
     serialized = json.dumps(report)
     assert "Private CAD approver" not in serialized
     assert "runs" not in report
@@ -300,6 +364,13 @@ def test_acceptance_requires_both_publication_approvals(tmp_path: Path) -> None:
             inconsistent, release_root_value=release_root, pilot_evidence_value=pilot
         )
 
+    invalid_recovery = deepcopy(report)
+    invalid_recovery["batch_recovery_job_counts"]["2016"] = 1
+    with pytest.raises(ValueError, match="batch_recovery_job_counts"):
+        validate_release_acceptance(
+            invalid_recovery, release_root_value=release_root, pilot_evidence_value=pilot
+        )
+
 
 def test_acceptance_rejects_pilot_or_release_tamper(tmp_path: Path) -> None:
     release_root, pilot = _fixture(tmp_path)
@@ -308,6 +379,21 @@ def test_acceptance_rejects_pilot_or_release_tamper(tmp_path: Path) -> None:
     pilot.write_text(json.dumps(pilot_raw), encoding="utf-8")
 
     with pytest.raises(ValueError, match="running plug-in commit mismatch"):
+        build_release_acceptance(
+            release_root,
+            pilot,
+            company_publication_approved=False,
+            maintainer_release_approved=False,
+        )
+
+
+def test_acceptance_cannot_skip_per_release_batch_recovery(tmp_path: Path) -> None:
+    release_root, pilot = _fixture(tmp_path)
+    pilot_raw = json.loads(pilot.read_text(encoding="utf-8"))
+    pilot_raw.pop("batch_recovery")
+    pilot.write_text(json.dumps(pilot_raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="documented top-level fields"):
         build_release_acceptance(
             release_root,
             pilot,

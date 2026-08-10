@@ -6,9 +6,17 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Pilot evidence schema v7 now makes the bounded post-restart batch gate non-optional. The new
+  `cadplot-collect-recovery` command accepts only an exact isolated 2–20 job workspace, replays each
+  manifest, successful receipt, output binding, and source/staged hash, and binds separate 2016 and
+  2025 recovery records to the verified running adapters before final acceptance can claim live
+  readiness. Sanitized release acceptance schema v2 retains the accepted recovery releases and job
+  counts without exposing company paths, job identities, or file hashes.
 - Physical page orientation is now exact across planning, AutoCAD page-setup validation, and PDF
   audit. Ordered width/height and effective PDF `/Rotate` are checked, the 300-drawing rehearsal
   proves a portrait-for-landscape mismatch is rejected, and delivery verifiers bind that evidence.
+  Licensed visual-reference collection applies the same effective `/Rotate` rule and rejects
+  non-quarter-turn reference pages.
 - Standalone bundle installation is now bound to the full verified release root: the exact sibling
   ZIP, `bundle-build.json`, commit identity, and matching-SDK evidence are rechecked before any
   copy. Protocol-only fixtures fail normal installation and require explicit test-only consent.
@@ -32,7 +40,8 @@ All notable changes to this project are documented in this file.
   byte length, and SHA-256. The .NET restart path and independent Python audit recompute the same
   canonical digest; missing, replaced, redirected, or changed PDFs fail closed even when the
   replacement remains a structurally valid one-page PDF. Licensed pilot evidence advances to
-  schema v6 and records the independently verified binding.
+  schema v6 and records the independently verified binding. Schema v7 supersedes it by additionally
+  requiring per-release batch recovery evidence.
 
 - One-command, no-overwrite portable demo delivery packaging with an exact kit directory, matching
   ZIP, and outer manifest. Its embedded verifier checks safe ZIP paths, exact entry membership,
@@ -142,16 +151,17 @@ All notable changes to this project are documented in this file.
 - Lock-bound, network-backed Python and .NET dependency vulnerability evidence, including a complete
   transitive Python license inventory. CI and release kits fail closed on known vulnerabilities,
   missing license declarations, incomplete project coverage, or a changed `uv.lock`.
-- Release-aware compile probing that targets AutoCAD 2016 `R20.1` with `net45`, AutoCAD 2025+
-  `R25.x` with `net8.0-windows`, supported intervening releases with `net48`, and rejects unknown
-  API series without launching AutoCAD.
+- Release-aware compile probing that targets AutoCAD 2016 `R20.1` with `net45`, exact AutoCAD 2025
+  `R25.0` with `net8.0-windows`, supported intervening releases with `net48`, and rejects unknown
+  or unsupported later API series without launching AutoCAD.
 - Runtime `ACADVER` normalization and adapter/release gating that keeps publishing disabled when a
   2016 or 2025 plug-in is loaded into an unsupported AutoCAD runtime.
 - Self-verifying local demo kits with exact-tree/hash and tamper checks, plus redacted compile-only
   API evidence that does not expose the build workstation's local API directory.
 - Self-verifying transfer kits that carry their exact verifier, portable pilot-workspace setup,
-  licensed-run evidence tools, and installed `cadplot-collect-pilot`, `cadplot-assemble-pilot`, and
-  `cadplot-validate-pilot` commands without requiring a separate source checkout.
+  licensed-run evidence tools, and installed `cadplot-collect-pilot`, `cadplot-collect-recovery`,
+  `cadplot-assemble-pilot`, and `cadplot-validate-pilot` commands without requiring a separate
+  source checkout.
 - Live plug-in build-commit and adapter-binary SHA-256 identity, plus schema-v2 pilot evidence that
   binds both licensed runs to the exact matching-SDK bundle manifest and inner adapter hashes.
 - A 300-drawing synthetic batch rehearsal covering immutable planning pages, bounded staging and

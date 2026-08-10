@@ -274,6 +274,7 @@ $fixedFiles = @(
     "scripts/uninstall-release-kit.ps1",
     "scripts/check-autocad-api-series.ps1",
     "scripts/new-local-pilot.ps1", "scripts/collect-pilot-run.py",
+    "scripts/collect-batch-recovery.py",
     "scripts/assemble-pilot-evidence.py", "scripts/validate-pilot-evidence.py",
     "scripts/release-acceptance.py",
     "docs/monday-pilot.md", "docs/pazartesi-demo-tr.md", "docs/release-checklist.md",

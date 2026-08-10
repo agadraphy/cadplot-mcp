@@ -88,6 +88,7 @@ if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
 }
 $expectedCommands = @(
     "cadplot-acceptance.cmd", "cadplot-assemble-pilot.cmd", "cadplot-collect-pilot.cmd",
+    "cadplot-collect-recovery.cmd",
     "cadplot-chatgpt-eval.cmd", "cadplot-doctor.cmd", "cadplot-mcp-http.cmd", "cadplot-mcp.cmd",
     "cadplot-tunnel-preflight.cmd", "cadplot-validate-pilot.cmd"
 )

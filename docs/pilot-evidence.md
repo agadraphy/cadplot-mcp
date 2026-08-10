@@ -45,8 +45,29 @@ visual checks are deliberately separate flags. There is no blanket visual-accept
 
 Retain the pending-cancellation exercise from `monday-pilot.md` as a separate local operator
 transcript: exact cancellation must report `Cancelled` after restart and a running job must return
-`job_not_pending`. Schema-v6 publish evidence deliberately remains bound to the successful one-sheet
-job; a cancellation transcript is operational evidence, not proof that a PDF was published.
+`job_not_pending`. A cancellation transcript is operational evidence, not proof that a PDF was
+published.
+
+After the one-sheet visual pilot, run a clean, isolated batch of 2–20 authorized jobs on that same
+AutoCAD release. Wait for terminal receipts, restart AutoCAD, recheck the live plug-in identity, and
+collect the entire workspace as one bounded recovery record:
+
+```powershell
+cadplot-collect-recovery `
+  C:\CadPlotPilot\recovery-2016\pilot-work\job-...-1\manifest.json `
+  C:\CadPlotPilot\recovery-2016\pilot-work\job-...-2\manifest.json `
+  --release 2016 `
+  --approved-by "Authorized CAD manager" `
+  --output C:\CadPlotPilot\recovery-2016.json `
+  --licensed `
+  --authorized-test-assets `
+  --restart-verified
+```
+
+Use a dedicated workspace containing exactly that approved batch. The collector refuses fewer than
+2 or more than 20 manifests, extra workspace jobs, incomplete operations-report paging, missing or
+changed source/staged DWGs, nonterminal receipts, unbound outputs, and a mismatched live adapter.
+It retains no file paths. Repeat separately for AutoCAD 2025.
 
 First verify the matching-SDK release root, then assemble both distinct run files with its exact
 bundle archive and `bundle-build.json`:
@@ -56,6 +77,8 @@ bundle archive and `bundle-build.json`:
 cadplot-assemble-pilot `
   --run-2016 C:\CadPlotPilot\run-2016.json `
   --run-2025 C:\CadPlotPilot\run-2025.json `
+  --recovery-2016 C:\CadPlotPilot\recovery-2016.json `
+  --recovery-2025 C:\CadPlotPilot\recovery-2025.json `
   --bundle C:\CadPlotPilot\bundle-release\CadPlotMcp.bundle.zip `
   --bundle-build-manifest C:\CadPlotPilot\bundle-release\bundle-build.json `
   --output C:\CadPlotPilot\pilot-evidence.json
@@ -71,8 +94,9 @@ input, and requires each live `pluginSha256` to equal the corresponding adapter 
 manifest. It revalidates both runs, requires distinct 2016/2025 evidence, and refuses to overwrite
 its output.
 
-The schema-v6 top level contains the full `repository_commit`, `package_version`, bundle and build
-manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`. Each run records:
+The schema-v7 top level contains the full `repository_commit`, `package_version`, bundle and build
+manifest SHA-256 values, exact 2016/2025 adapter hashes, exactly two one-sheet `runs`, and exactly
+two `batch_recovery` records. Each one-sheet run records:
 
 - `autocad_release`, live `product` including normalized and raw ACADVER, exact `adapter`, normalized
   `runtime_series`, embedded `build_commit`, and running `plugin_sha256` identity;
@@ -90,10 +114,18 @@ manifest SHA-256 values, exact 2016/2025 adapter hashes, and exactly two `runs`.
 - a path-redacted `visual_reference` record containing the authorized one-page office reference
   PDF's SHA-256, byte length, page count, physical width/height, and bounded comparison tolerance.
   Collection requires that file to be under an allowed root; both collection and later schema
-  validation require its orientation/page size to match the `published_pdf` evidence;
+  validation require its effective orientation/page size, including PDF `/Rotate`, to match the
+  `published_pdf` evidence;
 - seven explicit visual checks: orientation, crop, viewport scale, lineweights, plot style, fonts,
   and title block;
 - the authorized approver and a timezone-qualified completion timestamp.
+
+Each path-redacted batch-recovery record binds the same live release/adapter/commit/binary and queue
+authentication identity, an exact complete operations-report page ID, an explicit post-restart
+attestation, and 2–20 ordered jobs. Every job retains its job/plan/manifest identity, successful
+schema-v2 receipt count and output-set digest, independently verified receipt/output binding, and
+unchanged source/staged hashes. The assembler requires recovery evidence for both 2016 and 2025 and
+matches each running binary to the same verified bundle as its one-sheet run.
 
 The validator rejects missing/extra fields, duplicate releases, incorrect adapter/runtime-series
 pairs, incorrect ACADVER product identity,
@@ -104,12 +136,11 @@ rechecked after AutoCAD restart. A valid report
 proves the recorded gates only; the actual evidence files and licensed workstation remain
 authoritative.
 
-Schema-v5 final pilot JSON and older run JSON files are intentionally not upgraded in place.
-Re-collect both runs with the schema-v6 wheel so the exact receipt output binding, visual reference,
-queue authentication,
-and external-template
-use or non-use are derived from authorized local files and the immutable job manifest instead of
-being supplied manually.
+Schema-v6 final pilot JSON and older records are intentionally not upgraded in place. Re-collect
+both one-sheet runs and both recovery batches with the schema-v7 wheel so receipt/output binding,
+visual reference, queue authentication, external-template use, and restart recovery are derived
+from authoritative local evidence instead of being supplied manually.
 
-After both runs validate, use the [release acceptance](release-acceptance.md) gate to bind this local
-evidence to the exact transferred release kit and produce a sanitized no-overwrite readiness report.
+After both one-sheet runs and both recovery records validate, use the
+[release acceptance](release-acceptance.md) gate to bind this local evidence to the exact transferred
+release kit and produce a sanitized no-overwrite readiness report.

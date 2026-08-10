@@ -57,6 +57,8 @@ REPORT_FIELDS = {
     "bundle_build_manifest_sha256",
     "pilot_evidence_sha256",
     "accepted_releases",
+    "batch_recovery_releases",
+    "batch_recovery_job_counts",
     "licensed_live_pilot_ready",
     "live_publish_proven",
     "company_publication_approved",
@@ -118,7 +120,7 @@ def build_release_acceptance(
     """Bind a verified release kit to distinct licensed 2016/2025 pilot evidence."""
     evidence = _collect_acceptance_inputs(release_root_value, pilot_evidence_value)
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "completed_utc": completed_utc or datetime.now(UTC).isoformat(),
         **evidence,
         "licensed_live_pilot_ready": True,
@@ -147,7 +149,7 @@ def validate_release_acceptance(
     """Recompute artifact identities and validate a sanitized acceptance report."""
     if not isinstance(raw, dict) or set(raw) != REPORT_FIELDS:
         raise ValueError("Release acceptance must contain exactly the documented fields.")
-    if raw["schema_version"] != 1:
+    if raw["schema_version"] != 2:
         raise ValueError("Unsupported release-acceptance schema.")
     _require_timestamp(raw["completed_utc"])
     if not isinstance(raw["exact_commit"], str) or not COMMIT.fullmatch(
@@ -169,6 +171,20 @@ def validate_release_acceptance(
         _require_digest(raw[field], field)
     if raw["accepted_releases"] != ["2016", "2025"]:
         raise ValueError("accepted_releases must be exactly 2016 and 2025.")
+    if raw["batch_recovery_releases"] != ["2016", "2025"]:
+        raise ValueError("batch_recovery_releases must be exactly 2016 and 2025.")
+    recovery_counts = raw["batch_recovery_job_counts"]
+    if (
+        not isinstance(recovery_counts, dict)
+        or set(recovery_counts) != {"2016", "2025"}
+        or any(
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 2 <= value <= 20
+            for value in recovery_counts.values()
+        )
+    ):
+        raise ValueError("batch_recovery_job_counts are invalid.")
     for field in ("licensed_live_pilot_ready", "live_publish_proven"):
         if raw[field] is not True:
             raise ValueError(f"Release acceptance requires {field}=true.")
@@ -300,6 +316,11 @@ def _collect_acceptance_inputs(
         "bundle_build_manifest_sha256": bundle["bundle_build_manifest_sha256"],
         "pilot_evidence_sha256": _sha256(pilot_path),
         "accepted_releases": pilot["accepted_releases"],
+        "batch_recovery_releases": pilot["batch_recovery_releases"],
+        "batch_recovery_job_counts": {
+            item["autocad_release"]: item["job_count"]
+            for item in pilot_raw["batch_recovery"]
+        },
     }
 
 
