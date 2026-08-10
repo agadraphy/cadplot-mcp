@@ -51,6 +51,7 @@ try {
     $doctorEvidence = [ordered]@{
         schema_version = 1
         mode = "full"
+        expected_publish_enabled = $false
         ready = $true
         config = $config
         workspace_root = $workspace
@@ -247,14 +248,173 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         throw "Wrong live adapter identity was not blocked."
     }
 
+    $doctorEvidence.expected_publish_enabled = $true
+    $doctorEvidence.plugin.status.readOnly = $true
+    $doctorEvidence.plugin.status.publishEnabled = $true
+    $doctorEvidence.plugin.status.queueAuthentication = (
+        "windows-dpapi-current-user+hmac-sha256-v1"
+    )
+    $doctorEvidence.plugin.status.adapter = "autocad-2025-net8"
+    $doctorEvidence.plugin.status.runtimeSeries = "R25.0"
+    $doctorEvidence.plugin.status.pluginSha256 = $adapterHash
+    [System.IO.File]::WriteAllText(
+        $doctorJson,
+        ($doctorEvidence | ConvertTo-Json -Depth 8),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $env:CADPLOT_ENABLE_PUBLISH = "1"
+    $publishSessionOutput = Join-Path $pilot "publish-session-2025.json"
+    $publishSession = & $preflight `
+        -ReleaseRoot $release `
+        -ReceiptPath $receipt `
+        -AutoCADRelease 2025 `
+        -SessionMode Publish `
+        -ReadOnlyPreflightPath $output `
+        -OutputPath $publishSessionOutput `
+        -PassThru
+    if (
+        $publishSession.Passed -ne $true -or
+        $publishSession.SessionMode -cne "Publish" -or
+        $publishSession.ReadOnly -ne $false -or
+        $publishSession.PublishEnabled -ne $true -or
+        $publishSession.LivePublishProven -ne $false
+    ) {
+        throw "AutoCAD 2025 licensed publish-session verification did not pass."
+    }
+    $publishRecord = Get-Content `
+        -LiteralPath $publishSessionOutput `
+        -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (
+        $publishRecord.licensed_publish_session_ready -ne $true -or
+        $publishRecord.read_only_preflight_verified -ne $true -or
+        $publishRecord.status_command_read_only -ne $true -or
+        $publishRecord.queue_authentication_active -ne $true -or
+        $publishRecord.live_publish_proven -ne $false -or
+        $publishRecord.licensed_live_pilot_ready -ne $false
+    ) {
+        throw "AutoCAD 2025 publish-session evidence fields are invalid."
+    }
+
+    $doctorEvidence.autocad.progid = "AutoCAD.Application.20.1"
+    $doctorEvidence.autocad.version = "20.1s (LMS Tech)"
+    $doctorEvidence.plugin.status.runtimeSeries = "R20.1"
+    $doctorEvidence.plugin.status.adapter = "autocad-2016-net45"
+    $doctorEvidence.plugin.status.pluginSha256 = $adapter2016Hash
+    [System.IO.File]::WriteAllText(
+        $doctorJson,
+        ($doctorEvidence | ConvertTo-Json -Depth 8),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $env:CADPLOT_AUTOCAD_PROGID = "AutoCAD.Application.20.1"
+    $env:CADPLOT_PIPE_NAME = "cadplot-mcp-2016"
+    $publishSession2016Output = Join-Path $pilot "publish-session-2016.json"
+    $publishSession2016 = & $preflight `
+        -ReleaseRoot $release `
+        -ReceiptPath $receipt `
+        -AutoCADRelease 2016 `
+        -SessionMode Publish `
+        -ReadOnlyPreflightPath $output2016 `
+        -OutputPath $publishSession2016Output `
+        -PassThru
+    if (
+        $publishSession2016.Passed -ne $true -or
+        $publishSession2016.RuntimeSeries -cne "R20.1" -or
+        $publishSession2016.PublishEnabled -ne $true -or
+        $publishSession2016.LivePublishProven -ne $false
+    ) {
+        throw "AutoCAD 2016 licensed publish-session verification did not pass."
+    }
+
+    $missingPreflightOutput = Join-Path $pilot "publish-without-preflight.json"
+    $missingPreflightBlocked = $false
+    try {
+        & $preflight `
+            -ReleaseRoot $release `
+            -ReceiptPath $receipt `
+            -AutoCADRelease 2016 `
+            -SessionMode Publish `
+            -OutputPath $missingPreflightOutput | Out-Null
+    }
+    catch {
+        $missingPreflightBlocked = $_.Exception.Message -like "*prior read-only preflight is required*"
+    }
+    if (-not $missingPreflightBlocked -or (Test-Path -LiteralPath $missingPreflightOutput)) {
+        throw "Publish session without prior read-only evidence was not blocked."
+    }
+
+    $preflightBytes = [System.IO.File]::ReadAllBytes($output2016)
+    $tamperedPreflight = [System.Text.Encoding]::UTF8.GetString(
+        $preflightBytes
+    ) | ConvertFrom-Json
+    $tamperedPreflight.plugin_sha256 = "0" * 64
+    [System.IO.File]::WriteAllText(
+        $output2016,
+        ($tamperedPreflight | ConvertTo-Json -Depth 8),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $tamperedPreflightOutput = Join-Path $pilot "tampered-preflight-session.json"
+    $tamperedPreflightBlocked = $false
+    try {
+        & $preflight `
+            -ReleaseRoot $release `
+            -ReceiptPath $receipt `
+            -AutoCADRelease 2016 `
+            -SessionMode Publish `
+            -ReadOnlyPreflightPath $output2016 `
+            -OutputPath $tamperedPreflightOutput | Out-Null
+    }
+    catch {
+        $tamperedPreflightBlocked = $_.Exception.Message -like "*not bound to this verified installation*"
+    }
+    [System.IO.File]::WriteAllBytes($output2016, $preflightBytes)
+    if (-not $tamperedPreflightBlocked -or (Test-Path -LiteralPath $tamperedPreflightOutput)) {
+        throw "Tampered prior read-only preflight was not blocked."
+    }
+
+    $doctorEvidence.autocad.progid = "AutoCAD.Application.25.0"
+    $doctorEvidence.autocad.version = "25.0s (LMS Tech)"
+    $doctorEvidence.plugin.status.runtimeSeries = "R25.0"
+    $doctorEvidence.plugin.status.adapter = "autocad-2025-net8"
+    $doctorEvidence.plugin.status.pluginSha256 = $adapterHash
+    $doctorEvidence.plugin.status.queueAuthentication = "unsigned"
+    [System.IO.File]::WriteAllText(
+        $doctorJson,
+        ($doctorEvidence | ConvertTo-Json -Depth 8),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $env:CADPLOT_AUTOCAD_PROGID = "AutoCAD.Application.25.0"
+    $env:CADPLOT_PIPE_NAME = "cadplot-mcp-2025"
+    $badAuthenticationOutput = Join-Path $pilot "bad-queue-authentication.json"
+    $badAuthenticationBlocked = $false
+    try {
+        & $preflight `
+            -ReleaseRoot $release `
+            -ReceiptPath $receipt `
+            -AutoCADRelease 2025 `
+            -SessionMode Publish `
+            -ReadOnlyPreflightPath $output `
+            -OutputPath $badAuthenticationOutput | Out-Null
+    }
+    catch {
+        $badAuthenticationBlocked = $_.Exception.Message -like "*queue-authentication evidence is inconsistent*"
+    }
+    if (-not $badAuthenticationBlocked -or (Test-Path -LiteralPath $badAuthenticationOutput)) {
+        throw "Unauthenticated publish session was not blocked."
+    }
+
     [pscustomobject]@{
         passed = $true
         positive_preflight = $true
         autocad_2016_preflight = $true
         autocad_2025_preflight = $true
+        autocad_2016_publish_session = $true
+        autocad_2025_publish_session = $true
         no_overwrite = $overwriteBlocked
         publish_enabled_blocked = $publishBlocked
         wrong_adapter_blocked = $identityBlocked
+        publish_without_preflight_blocked = $missingPreflightBlocked
+        tampered_read_only_preflight_blocked = $tamperedPreflightBlocked
+        unauthenticated_publish_session_blocked = $badAuthenticationBlocked
         autocad_launched = $false
         live_publish_proven = $false
     } | ConvertTo-Json

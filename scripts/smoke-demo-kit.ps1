@@ -221,9 +221,14 @@ try {
             positive_preflight = $true
             autocad_2016_preflight = $true
             autocad_2025_preflight = $true
+            autocad_2016_publish_session = $true
+            autocad_2025_publish_session = $true
             no_overwrite = $true
             publish_enabled_blocked = $true
             wrong_adapter_blocked = $true
+            publish_without_preflight_blocked = $true
+            tampered_read_only_preflight_blocked = $true
+            unauthenticated_publish_session_blocked = $true
             autocad_launched = $false
             live_publish_proven = $false
         }

@@ -58,6 +58,11 @@ on `R20.1`; the 2025 adapter enables it only on `R25.0`. Raw values such as
 `20.1s (LMS Tech)` are normalized before the fail-closed adapter check.
 The pipe name must match `[A-Za-z0-9._-]{1,128}` in both processes. Distinct matching names are
 required when multiple AutoCAD bridges are intentionally active on one workstation.
+Before the first queue call, bind the publish-enabled restart to the prior read-only workstation
+record with `test-licensed-workstation.ps1 -SessionMode Publish`. It requires
+`cadplot-doctor --expect-publish-enabled`, exact receipt/config/runtime/adapter/commit/DLL identity,
+and `windows-dpapi-current-user+hmac-sha256-v1`; success is session readiness only and leaves
+`live_publish_proven=false` until a receipt-bound PDF passes audit.
 
 ## Evidence boundaries
 

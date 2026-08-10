@@ -94,6 +94,9 @@ Use this checklist for every alpha release.
 - [ ] With publish unset, `test-licensed-workstation.ps1` passed separately for 2016 and 2025 using
       exact versioned ProgIDs/pipes and matched live COM/runtime/adapter/commit/DLL hashes to the
       verified install; both no-overwrite records retained false live-publish/pilot-readiness claims.
+- [ ] After each explicitly approved publish-enabled restart, the same verifier passed with
+      `-SessionMode Publish` and the exact prior read-only record; doctor required authenticated
+      queue state and identical receipt/config/runtime/binary identity before any job was queued.
 - [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
       mandatory hashes, staged without overwrite, atomically renamed, and
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.
@@ -142,7 +145,8 @@ Use this checklist for every alpha release.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.
-- [ ] Each schema-v7 licensed pilot run contains the exact authenticated queue scheme and a
+- [ ] Each schema-v8 licensed pilot run contains the bound read-only/publish workstation records,
+      their exact evidence-file SHA-256 values, the exact authenticated queue scheme, and a
       path-redacted `template_assets` list; every used
       asset's approved, post-pilot source, and staged-copy SHA-256 values are identical, or the list
       is explicitly empty when that run used no external template.
@@ -181,7 +185,7 @@ Use this checklist for every alpha release.
       live `buildCommit`/`pluginSha256` matched the corresponding adapter entry, and
       `cadplot-assemble-pilot` bound both runs plus both `cadplot-collect-recovery` records to the
       exact verified bundle/build manifest.
-- [ ] `cadplot-acceptance finalize` bound the full transferred release kit and schema-v7
+- [ ] `cadplot-acceptance finalize` bound the full transferred release kit and schema-v8
       two-version one-sheet/recovery evidence into a new sanitized schema-v2 report; `validate`
       replays the same hashes successfully.
 - [ ] `public_release_ready=true` appears only when both company-publication and maintainer-release

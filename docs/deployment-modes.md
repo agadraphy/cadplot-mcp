@@ -39,6 +39,10 @@ the returned ActiveX application version and rejects ambiguous or foreign ProgID
 selected process identity from `validate_environment` and `get_autocad_plugin_status` before
 inspecting or queueing work. In full doctor mode an exact ProgID and the plug-in's `runtimeSeries`
 must agree; `inspection_identity_matched=false` blocks readiness.
+The installed `test-licensed-workstation.ps1` command first records this identity with publishing
+off. After an approved restart it can be run with `-SessionMode Publish` and that prior record;
+`cadplot-doctor --expect-publish-enabled` then requires the same release/binary identity plus the
+authenticated queue before any job is accepted. Neither check opens or queues a drawing.
 The plug-in reserves its single current-user pipe instance before initialization returns; a second
 AutoCAD process configured with the same name fails visibly instead of becoming an ambiguous hidden
 listener. The same server instance stays reserved across sequential MCP connections.

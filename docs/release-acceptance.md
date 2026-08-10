@@ -1,7 +1,7 @@
 # Release acceptance
 
 After both licensed AutoCAD one-sheet runs and both per-release small-batch recovery records pass,
-bind their schema-v7 pilot evidence to the exact transferred release kit. First run the kit's
+bind their schema-v8 pilot evidence to the exact transferred release kit. First run the kit's
 embedded verifier, then create a new sanitized acceptance report:
 
 ```powershell

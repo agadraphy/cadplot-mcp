@@ -28,7 +28,7 @@ All notable changes to this project are documented in this file.
   into memory.
 - The final licensed-pilot assembler now snapshots all four bounded intermediate JSON inputs
   (2016/2025 one-sheet runs and recovery records) with identical two-pass bytes, parses those exact
-  bytes, and rechecks every input after bundle validation and schema-v7 assembly. Redirected or
+  bytes, and rechecks every input after bundle validation and schema-v8 assembly. Redirected or
   replaced intermediates fail closed before the no-overwrite final evidence is written; standalone
   pilot-evidence validation applies the same parse/validate/final-recheck contract.
 - Release acceptance now parses and hashes its outer/inner manifests, pilot evidence, and retained
@@ -41,6 +41,15 @@ All notable changes to this project are documented in this file.
   COM ProgID and pipe, matches the live runtime/adapter/build commit/plugin DLL hash to the verified
   installation, rejects any publish-enabled environment, and emits local pre-pilot evidence while
   keeping live-publish and licensed-pilot readiness false.
+- Extended `cadplot-doctor` and the licensed-workstation verifier with an explicit authenticated
+  publish-session mode. It requires the prior read-only record, exact `CADPLOT_ENABLE_PUBLISH=1`,
+  the same receipt/config/runtime/adapter/commit/DLL identity, and the Windows DPAPI/HMAC queue
+  scheme; it never queues a job and keeps all live PDF and pilot-readiness claims false.
+- Licensed pilot schema v8 now requires each one-sheet run to embed the exact path-redacted
+  read-only and publish-session workstation records plus their source-file SHA-256 values. The
+  collector binds the second record to the first, rechecks both input files after collection, and
+  rejects release, runtime, adapter, commit, binary, config, package, authentication, or timestamp
+  drift before the final two-version evidence can validate.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,

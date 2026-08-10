@@ -26,7 +26,103 @@ from cadplot_mcp.pilot import (
     validate_batch_recovery_evidence,
     validate_bundle_build_evidence,
     validate_pilot_evidence,
+    validate_workstation_gate_evidence,
 )
+
+
+def _workstation_gates(
+    release: str,
+    *,
+    build_commit: str = "1" * 40,
+    plugin_sha256: str | None = None,
+    config_sha256: str = "4" * 64,
+) -> dict:
+    adapter, series, progid, version, pipe, digit = {
+        "2016": (
+            "autocad-2016-net45",
+            "R20.1",
+            "AutoCAD.Application.20.1",
+            "20.1s (LMS Tech)",
+            "cadplot-mcp-2016",
+            "6",
+        ),
+        "2025": (
+            "autocad-2025-net8",
+            "R25.0",
+            "AutoCAD.Application.25.0",
+            "25.0s (LMS Tech)",
+            "cadplot-mcp-2025",
+            "7",
+        ),
+    }[release]
+    plugin = plugin_sha256 or digit * 64
+    read_only_sha256 = ("2" if release == "2016" else "3") * 64
+    common = {
+        "schema_version": 1,
+        "exact_commit": build_commit,
+        "package_version": "0.1.0",
+        "autocad_release": release,
+        "autocad_progid": progid,
+        "autocad_version": version,
+        "runtime_series": series,
+        "adapter": adapter,
+        "pipe_name": pipe,
+        "plugin_sha256": plugin,
+        "install_receipt_sha256": "5" * 64,
+        "config_sha256": config_sha256,
+        "config_changed_since_install": True,
+        "inspection_identity_matched": True,
+        "workspace_configured": True,
+        "status_command_read_only": True,
+        "autocad_launched": False,
+        "live_publish_proven": False,
+        "licensed_live_pilot_ready": False,
+        "company_assets_copied": False,
+    }
+    return {
+        "read_only": {
+            "evidence_sha256": read_only_sha256,
+            "record": {
+                **common,
+                "checked_utc": "2026-08-08T07:00:00+03:00",
+                "session_mode": "readonly",
+                "read_only": True,
+                "publish_enabled": False,
+                "queue_authentication_active": False,
+                "licensed_workstation_preflight_ready": True,
+                "licensed_publish_session_ready": False,
+                "next_gate": "Restart with publish opt-in and verify the bound publish session",
+            },
+        },
+        "publish": {
+            "evidence_sha256": ("a" if release == "2016" else "b") * 64,
+            "record": {
+                **common,
+                "checked_utc": "2026-08-08T07:10:00+03:00",
+                "session_mode": "publish",
+                "read_only": False,
+                "publish_enabled": True,
+                "queue_authentication_active": True,
+                "licensed_workstation_preflight_ready": False,
+                "licensed_publish_session_ready": True,
+                "read_only_preflight_verified": True,
+                "read_only_preflight_sha256": read_only_sha256,
+                "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
+                "next_gate": "Authorized one-sheet staged-copy queue and visual acceptance",
+            },
+        },
+    }
+
+
+def _set_run_plugin_identity(run: dict, plugin_sha256: str) -> None:
+    run["plugin_sha256"] = plugin_sha256
+    run["workstation_gates"]["read_only"]["record"]["plugin_sha256"] = plugin_sha256
+    run["workstation_gates"]["publish"]["record"]["plugin_sha256"] = plugin_sha256
+
+
+def _set_gate_package_version(run: dict, package_version: str) -> None:
+    run["workstation_gates"]["read_only"]["record"]["package_version"] = package_version
+    run["workstation_gates"]["publish"]["record"]["package_version"] = package_version
 
 
 def _add_marked_page(
@@ -63,6 +159,7 @@ def _run(
         ),
     }
     product, adapter = expected[release]
+    plugin = plugin_sha256 or (("6" if release == "2016" else "7") * 64)
     manifest = digit * 64
     source = ("a" if release == "2016" else "b") * 64
     staged = ("c" if release == "2016" else "d") * 64
@@ -80,9 +177,12 @@ def _run(
         "product": product,
         "adapter": adapter,
         "build_commit": build_commit,
-        "plugin_sha256": plugin_sha256 or (("6" if release == "2016" else "7") * 64),
+        "plugin_sha256": plugin,
         "runtime_series": "R20.1" if release == "2016" else "R25.0",
         "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
+        "workstation_gates": _workstation_gates(
+            release, build_commit=build_commit, plugin_sha256=plugin
+        ),
         "licensed": True,
         "authorized_test_asset": True,
         "plan_id": "sha256:" + digit * 64,
@@ -191,7 +291,7 @@ def _evidence() -> dict:
     run_2016 = _run("2016", "3")
     run_2025 = _run("2025", "4")
     return {
-        "schema_version": 7,
+        "schema_version": 8,
         "repository_commit": "1" * 40,
         "package_version": "0.1.0",
         "bundle_sha256": "2" * 64,
@@ -447,6 +547,100 @@ def _status(release: str) -> dict:
     }
 
 
+def _gates_for_config(release: str, config) -> dict:
+    return _workstation_gates(
+        release,
+        config_sha256=hashlib.sha256(config.source.read_bytes()).hexdigest(),
+    )
+
+
+def _write_workstation_gate_files(
+    tmp_path: Path, release: str, config
+) -> tuple[Path, Path]:
+    gates = _gates_for_config(release, config)
+    read_only_path = tmp_path / f"workstation-preflight-{release}.json"
+    publish_path = tmp_path / f"publish-session-{release}.json"
+    read_only_path.write_text(
+        json.dumps(gates["read_only"]["record"], sort_keys=True), encoding="utf-8"
+    )
+    gates["publish"]["record"]["read_only_preflight_sha256"] = hashlib.sha256(
+        read_only_path.read_bytes()
+    ).hexdigest()
+    publish_path.write_text(
+        json.dumps(gates["publish"]["record"], sort_keys=True), encoding="utf-8"
+    )
+    return read_only_path, publish_path
+
+
+def test_workstation_gate_validator_accepts_bound_two_stage_evidence() -> None:
+    gates = _workstation_gates("2016")
+
+    result = validate_workstation_gate_evidence(
+        gates,
+        autocad_release="2016",
+        plugin_status=_status("2016"),
+        current_config_sha256="4" * 64,
+    )
+
+    assert result is gates
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda value: value["publish"]["record"].__setitem__(
+                "read_only_preflight_sha256", "9" * 64
+            ),
+            "not bound to the read-only preflight",
+        ),
+        (
+            lambda value: value["publish"]["record"].__setitem__(
+                "queue_authentication", "unsigned"
+            ),
+            "queue authentication mismatch",
+        ),
+        (
+            lambda value: value["publish"]["record"].__setitem__(
+                "autocad_version", "25.0s (wrong release)"
+            ),
+            "AutoCAD version mismatch",
+        ),
+        (
+            lambda value: value["publish"]["record"].__setitem__(
+                "checked_utc", "2026-08-08T06:59:00+03:00"
+            ),
+            "must be newer",
+        ),
+        (
+            lambda value: value["read_only"]["record"].pop("status_command_read_only"),
+            "fields are incomplete",
+        ),
+    ],
+)
+def test_workstation_gate_validator_rejects_tampering(mutate, message: str) -> None:
+    gates = _workstation_gates("2016")
+    mutate(gates)
+
+    with pytest.raises(ValueError, match=message):
+        validate_workstation_gate_evidence(
+            gates,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            current_config_sha256="4" * 64,
+        )
+
+
+def test_workstation_gate_validator_rejects_current_config_mismatch() -> None:
+    with pytest.raises(ValueError, match="current pilot config"):
+        validate_workstation_gate_evidence(
+            _workstation_gates("2025"),
+            autocad_release="2025",
+            plugin_status=_status("2025"),
+            current_config_sha256="9" * 64,
+        )
+
+
 def _bundle_release_fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
     bundle = tmp_path / "CadPlotMcp.bundle.zip"
     build_manifest = tmp_path / "bundle-build.json"
@@ -642,6 +836,7 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
         restart_receipt_verified=True,
         visual_checks={name: True for name in VISUAL_CHECKS},
         reference_pdf=reference_pdf,
+        workstation_gates=_gates_for_config("2016", config),
         completed_utc="2026-08-08T11:15:00+03:00",
     )
 
@@ -698,6 +893,7 @@ def test_build_pilot_run_rejects_manifest_changed_after_output_audit(
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -716,6 +912,7 @@ def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -
             restart_receipt_verified=True,
             visual_checks={name: False for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -736,6 +933,7 @@ def test_build_pilot_run_rejects_unsigned_queue_status(tmp_path: Path) -> None:
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -761,6 +959,7 @@ def test_build_pilot_run_binds_reference_geometry_and_rejects_wrong_orientation(
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=landscape,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -782,6 +981,7 @@ def test_build_pilot_run_applies_reference_pdf_page_rotation(tmp_path: Path) -> 
         restart_receipt_verified=True,
         visual_checks={name: True for name in VISUAL_CHECKS},
         reference_pdf=reference_pdf,
+        workstation_gates=_gates_for_config("2016", config),
     )
 
     assert run["visual_reference"]["page_width_mm"] == pytest.approx(210.0, abs=0.01)
@@ -808,6 +1008,7 @@ def test_build_pilot_run_rejects_invalid_reference_pdf_rotation(tmp_path: Path) 
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -832,6 +1033,7 @@ def test_build_pilot_run_rejects_blank_visual_reference(tmp_path: Path) -> None:
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=blank_reference,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -857,6 +1059,7 @@ def test_build_pilot_run_rejects_reference_decoded_content_limit(
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -887,6 +1090,7 @@ def test_build_pilot_run_rejects_reference_changed_while_snapshotting(
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -910,6 +1114,7 @@ def test_build_pilot_run_rejects_reference_outside_allowed_roots(tmp_path: Path)
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=outside,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -930,6 +1135,7 @@ def test_build_pilot_run_detects_source_change_after_staging(tmp_path: Path) -> 
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -947,6 +1153,7 @@ def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -
         restart_receipt_verified=True,
         visual_checks={name: True for name in VISUAL_CHECKS},
         reference_pdf=reference_pdf,
+        workstation_gates=_gates_for_config("2016", config),
     )
 
     asset = run["template_assets"][0]
@@ -977,6 +1184,7 @@ def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
     raw = json.loads(manifest.read_text(encoding="utf-8"))
@@ -993,6 +1201,7 @@ def test_build_pilot_run_binds_external_template_without_paths(tmp_path: Path) -
             restart_receipt_verified=True,
             visual_checks={name: True for name in VISUAL_CHECKS},
             reference_pdf=reference_pdf,
+            workstation_gates=_gates_for_config("2016", config),
         )
 
 
@@ -1082,8 +1291,18 @@ def test_assemble_pilot_evidence_revalidates_distinct_runs() -> None:
             "restart_receipt_verified",
         ),
         (
-            lambda value: value["runs"][0].__setitem__("plugin_sha256", "9" * 64),
+            lambda value: _set_run_plugin_identity(value["runs"][0], "9" * 64),
             "running plug-in binary mismatch",
+        ),
+        (
+            lambda value: _set_gate_package_version(value["runs"][0], "0.2.0"),
+            "workstation package version mismatch",
+        ),
+        (
+            lambda value: value["runs"][0].__setitem__(
+                "completed_utc", "2026-08-08T07:05:00+03:00"
+            ),
+            "publish-session gate must precede pilot completion",
         ),
         (
             lambda value: value["runs"][1].__setitem__("queue_authentication", "unsigned"),
@@ -1430,6 +1649,10 @@ def test_collect_cli_fails_closed_without_explicit_configuration(tmp_path: Path)
             "Authorized CAD manager",
             "--reference-pdf",
             str(tmp_path / "reference.pdf"),
+            "--workstation-preflight",
+            str(tmp_path / "workstation-preflight.json"),
+            "--publish-session",
+            str(tmp_path / "publish-session.json"),
             "--output",
             str(tmp_path / "run.json"),
         ],
@@ -1445,6 +1668,101 @@ def test_collect_cli_fails_closed_without_explicit_configuration(tmp_path: Path)
     assert not (tmp_path / "run.json").exists()
 
 
+def test_collect_cli_hashes_and_retains_exact_workstation_gate_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    read_only, publish = _write_workstation_gate_files(tmp_path, "2016", config)
+    output = tmp_path / "run.json"
+    monkeypatch.setenv("CADPLOT_CONFIG", str(config.source))
+    monkeypatch.setattr(pilot_cli_module, "get_plugin_status", lambda **_: _status("2016"))
+    arguments = [
+        "cadplot-collect-pilot",
+        str(manifest),
+        "--release",
+        "2016",
+        "--approved-by",
+        "Authorized CAD manager",
+        "--reference-pdf",
+        str(reference_pdf),
+        "--workstation-preflight",
+        str(read_only),
+        "--publish-session",
+        str(publish),
+        "--output",
+        str(output),
+        "--licensed",
+        "--authorized-test-asset",
+        "--restart-receipt-verified",
+    ]
+    for check in sorted(VISUAL_CHECKS):
+        arguments.append(f"--accept-{check.replace('_', '-')}")
+    monkeypatch.setattr(sys, "argv", arguments)
+
+    assert pilot_cli_module.collect_main() == 0
+    response = json.loads(capsys.readouterr().out)
+    run = json.loads(output.read_text(encoding="utf-8"))
+    assert response["workstation_preflight_sha256"] == hashlib.sha256(
+        read_only.read_bytes()
+    ).hexdigest()
+    assert response["publish_session_sha256"] == hashlib.sha256(
+        publish.read_bytes()
+    ).hexdigest()
+    assert run["workstation_gates"]["read_only"]["record"]["session_mode"] == "readonly"
+    assert run["workstation_gates"]["publish"]["record"]["session_mode"] == "publish"
+
+
+def test_collect_cli_rejects_workstation_gate_changed_during_collection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    read_only, publish = _write_workstation_gate_files(tmp_path, "2016", config)
+    output = tmp_path / "run.json"
+    original_build = pilot_cli_module.build_pilot_run_evidence
+
+    def mutate_gate_after_build(*args, **kwargs):
+        run = original_build(*args, **kwargs)
+        original_stat = read_only.stat()
+        content = read_only.read_bytes()
+        read_only.write_bytes(bytes([content[0] ^ 1]) + content[1:])
+        os.utime(read_only, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+        return run
+
+    monkeypatch.setenv("CADPLOT_CONFIG", str(config.source))
+    monkeypatch.setattr(pilot_cli_module, "get_plugin_status", lambda **_: _status("2016"))
+    monkeypatch.setattr(pilot_cli_module, "build_pilot_run_evidence", mutate_gate_after_build)
+    arguments = [
+        "cadplot-collect-pilot",
+        str(manifest),
+        "--release",
+        "2016",
+        "--approved-by",
+        "Authorized CAD manager",
+        "--reference-pdf",
+        str(reference_pdf),
+        "--workstation-preflight",
+        str(read_only),
+        "--publish-session",
+        str(publish),
+        "--output",
+        str(output),
+        "--licensed",
+        "--authorized-test-asset",
+        "--restart-receipt-verified",
+    ]
+    for check in sorted(VISUAL_CHECKS):
+        arguments.append(f"--accept-{check.replace('_', '-')}")
+    monkeypatch.setattr(sys, "argv", arguments)
+
+    assert pilot_cli_module.collect_main() == 1
+    assert "changed during pilot assembly" in capsys.readouterr().out
+    assert not output.exists()
+
+
 def test_collect_cli_exposes_reference_and_separate_visual_attestations() -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "collect-pilot-run.py"
 
@@ -1458,6 +1776,8 @@ def test_collect_cli_exposes_reference_and_separate_visual_attestations() -> Non
     assert result.returncode == 0
     for flag in (
         "--reference-pdf",
+        "--workstation-preflight",
+        "--publish-session",
         "--accept-orientation",
         "--accept-crop",
         "--accept-viewport-scale",

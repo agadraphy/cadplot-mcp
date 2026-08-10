@@ -59,7 +59,7 @@ def test_completion_audit_preserves_local_and_live_evidence_boundaries() -> None
         "public_release_ready=false",
         "R20.1",
         "R25.0",
-        "schema-v7 two-version pilot/recovery document",
+        "schema-v8 two-version pilot/recovery document",
     ):
         assert required in audit
 
@@ -443,7 +443,10 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "licensed-workstation preflight smoke evidence",
         "autocad_2016_preflight -ne $true",
         "autocad_2025_preflight -ne $true",
+        "autocad_2016_publish_session -ne $true",
+        "autocad_2025_publish_session -ne $true",
         "wrong_adapter_blocked -ne $true",
+        "unauthenticated_publish_session_blocked -ne $true",
         "queue_deferred_results -ne 285",
         "orientation_mismatch_rejected -ne $true",
         "marking_content_verified -ne 300",
@@ -678,7 +681,7 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
         "Bundle archive entry hash mismatch",
         "running plug-in commit mismatch",
         "running plug-in binary mismatch",
-        '"schema_version": 7',
+        '"schema_version": 8',
         '"queue_authentication"',
         '"queueAuthentication"',
         '"template_assets"',
@@ -699,6 +702,8 @@ def test_live_plugin_and_pilot_evidence_bind_running_binary_to_bundle() -> None:
     assert "--recovery-2025" in assembler
     assert "--repository-commit" not in assembler
     assert "--reference-pdf" in assembler
+    assert "--workstation-preflight" in assembler
+    assert "--publish-session" in assembler
     for visual_flag in (
         "--accept-orientation",
         "--accept-crop",
@@ -1273,6 +1278,8 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "cadplot-tunnel-preflight.cmd\" --help" in guide
     assert "new-local-pilot.ps1" in guide
     assert "test-licensed-workstation.ps1" in guide
+    assert "-SessionMode Publish" in guide
+    assert "licensed-publish-session-2025.json" in guide
     assert "cadplot-mcp-2016" in guide
     assert "cadplot-mcp-2025" in guide
     assert "publisher authenticity" in guide
@@ -1280,6 +1287,38 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "CADPLOT_ENABLE_PUBLISH" in guide
     assert "company DWG, PC3, PMP, CTB/STB, DWT" in guide
     assert "does not mean AutoCAD was launched" in guide
+
+
+def test_licensed_workstation_gate_binds_publish_session_to_read_only_evidence() -> None:
+    gate = (REPOSITORY_ROOT / "scripts" / "test-licensed-workstation.ps1").read_text(
+        encoding="utf-8"
+    )
+    smoke = (REPOSITORY_ROOT / "scripts" / "smoke-licensed-preflight.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        'ValidateSet("ReadOnly", "Publish")',
+        "--expect-publish-enabled",
+        "Prior read-only preflight",
+        "read_only_preflight_sha256",
+        "status_command_read_only",
+        "licensed_publish_session_ready",
+        "windows-dpapi-current-user+hmac-sha256-v1",
+        "live_publish_proven = $false",
+        "licensed_live_pilot_ready = $false",
+        "FileMode]::CreateNew",
+    ):
+        assert required in gate
+    for required in (
+        "autocad_2016_publish_session = $true",
+        "autocad_2025_publish_session = $true",
+        "publish_without_preflight_blocked",
+        "tampered_read_only_preflight_blocked",
+        "unauthenticated_publish_session_blocked",
+    ):
+        assert required in smoke
+    assert "Start-Process" not in gate
 
 
 def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> None:

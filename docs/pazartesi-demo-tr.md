@@ -104,7 +104,9 @@ taşınmaz.
 6. `validate_staged_job` ile aynı manifesti AutoCAD eklentisine bağımsız doğrulatın.
 7. Sorumlu gerçek yazma pilotuna izin verirse AutoCAD'i kapatın,
    `CADPLOT_ENABLE_PUBLISH=1` ayarlayıp yeniden açın. Önceden açık AutoCAD oturumunda çevre
-   değişkeni etkili sayılmaz.
+   değişkeni etkili sayılmaz. Kuyruğa almadan önce aynı scripti `-SessionMode Publish` ve önceki
+   salt-okunur preflight dosyasıyla çalıştırın; exact queue authentication ve aynı release binary
+   kimliği doğrulanmalı, `live_publish_proven=false` kalmalıdır.
 8. Yalnız bir paftayı, staging sonucundaki tam `plan_id + manifest_sha256` ile sıraya alın.
 9. Canlı durum `Succeeded` olduktan sonra `read_publish_receipt` ve
    `audit_publish_outputs` çalıştırın. Kaynak için `source_unchanged=true`; schema-v2 receipt için
@@ -116,7 +118,7 @@ taşınmaz.
     tamamlayın, terminal receiptleri gördükten sonra AutoCAD'i yeniden başlatın ve tüm manifestleri
     `cadplot-collect-recovery --restart-verified` ile tek no-overwrite kayda bağlayın. Collector
     workspace'te fazladan iş, eksik receipt/PDF bağı veya değişmiş kaynak/staged hash bulursa durur.
-12. 2016 ve 2025 için hem tek-pafta run hem recovery JSON'u üretildikten sonra schema-v7
+12. 2016 ve 2025 için hem tek-pafta run hem recovery JSON'u üretildikten sonra schema-v8
     `cadplot-assemble-pilot` çalıştırın. Dört kayıt da aynı verified bundle commit/binary kimliğine
     bağlı değilse `licensed_live_pilot_ready` üretilemez.
 

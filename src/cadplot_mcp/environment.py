@@ -15,6 +15,7 @@ PROGID_RUNTIME_SERIES = {
     "AutoCAD.Application.24.3": "R24.3",
     "AutoCAD.Application.25.0": "R25.0",
 }
+QUEUE_AUTHENTICATION_SCHEME = "windows-dpapi-current-user+hmac-sha256-v1"
 
 
 def diagnose_environment(
@@ -22,16 +23,22 @@ def diagnose_environment(
     *,
     mode: DoctorMode = "full",
     timeout_ms: int = 2_000,
+    expect_publish_enabled: bool = False,
 ) -> dict[str, Any]:
     """Diagnose config and optional AutoCAD connections without writing or launching."""
     if mode not in {"config", "inspection", "full"}:
         raise ValueError("Doctor mode must be config, inspection, or full.")
     if not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool) or timeout_ms < 1:
         raise ValueError("timeout_ms must be a positive integer.")
+    if not isinstance(expect_publish_enabled, bool):
+        raise ValueError("expect_publish_enabled must be a boolean.")
+    if expect_publish_enabled and mode != "full":
+        raise ValueError("Publish-enabled diagnosis requires mode=full.")
 
     report: dict[str, Any] = {
         "schema_version": 1,
         "mode": mode,
+        "expected_publish_enabled": expect_publish_enabled,
         "ready": False,
         "config": None,
         "allowed_roots": [],
@@ -145,9 +152,35 @@ def diagnose_environment(
                     f"AutoCAD plug-in status was rejected: {status.get('error', 'unknown_error')}"
                 )
             else:
-                for field in ("readOnly", "workspaceConfigured", "runtimeSupported"):
+                for field in ("workspaceConfigured", "runtimeSupported"):
                     if status.get(field) is not True:
                         report["errors"].append(f"AutoCAD plug-in requires {field}=true.")
+                if status.get("readOnly") is not True:
+                    report["errors"].append(
+                        "AutoCAD plug-in requires readOnly=true for the status command."
+                    )
+                if expect_publish_enabled:
+                    if status.get("publishEnabled") is not True:
+                        report["errors"].append(
+                            "AutoCAD plug-in requires publishEnabled=true for a publish session."
+                        )
+                    if status.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME:
+                        report["errors"].append(
+                            "AutoCAD plug-in publish queue authentication is missing or invalid."
+                        )
+                else:
+                    if status.get("publishEnabled") is not False:
+                        report["errors"].append(
+                            "AutoCAD plug-in requires publishEnabled=false for a read-only session."
+                        )
+                    if status.get("queueAuthentication") not in (None, ""):
+                        report["errors"].append(
+                            "AutoCAD plug-in exposed queue authentication in a read-only session."
+                        )
+                if status.get("publishInitializationError") not in (None, ""):
+                    report["errors"].append(
+                        "AutoCAD plug-in reported a publish queue initialization error."
+                    )
                 selected_progid = report["autocad"].get("progid")
                 expected_series = PROGID_RUNTIME_SERIES.get(selected_progid)
                 identity_matched = (

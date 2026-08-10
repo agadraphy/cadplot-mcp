@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -57,6 +58,16 @@ def collect_main() -> int:
         help="Authorized one-page office reference PDF under an allowed root.",
     )
     parser.add_argument(
+        "--workstation-preflight",
+        required=True,
+        help="Exact no-overwrite read-only workstation preflight JSON for this release.",
+    )
+    parser.add_argument(
+        "--publish-session",
+        required=True,
+        help="Exact no-overwrite publish-session JSON bound to the read-only preflight.",
+    )
+    parser.add_argument(
         "--output", required=True, help="New local JSON file; existing files refuse."
     )
     parser.add_argument("--timeout-ms", type=int, default=2_000)
@@ -82,6 +93,26 @@ def collect_main() -> int:
     }
     try:
         config = load_config(config_path)
+        workstation_preflight = _load_run(
+            args.workstation_preflight,
+            label=f"AutoCAD {args.release} workstation preflight",
+        )
+        publish_session = _load_run(
+            args.publish_session,
+            label=f"AutoCAD {args.release} publish session",
+        )
+        workstation_gates = {
+            "read_only": {
+                "evidence_sha256": hashlib.sha256(
+                    workstation_preflight.content
+                ).hexdigest(),
+                "record": workstation_preflight.value,
+            },
+            "publish": {
+                "evidence_sha256": hashlib.sha256(publish_session.content).hexdigest(),
+                "record": publish_session.value,
+            },
+        }
         status = get_plugin_status(timeout_ms=args.timeout_ms)
         run = build_pilot_run_evidence(
             args.manifest,
@@ -94,7 +125,10 @@ def collect_main() -> int:
             restart_receipt_verified=args.restart_receipt_verified,
             visual_checks=visual_checks,
             reference_pdf=args.reference_pdf,
+            workstation_gates=workstation_gates,
         )
+        workstation_preflight.require_unchanged()
+        publish_session.require_unchanged()
         _write_new_json(output, run)
     except (OSError, PluginConnectionError, ValueError) as exc:
         return _fail("collected", str(exc))
@@ -106,6 +140,12 @@ def collect_main() -> int:
                 "build_commit": run["build_commit"],
                 "plugin_sha256": run["plugin_sha256"],
                 "runtime_series": run["runtime_series"],
+                "workstation_preflight_sha256": run["workstation_gates"]["read_only"][
+                    "evidence_sha256"
+                ],
+                "publish_session_sha256": run["workstation_gates"]["publish"][
+                    "evidence_sha256"
+                ],
                 "plan_id": run["plan_id"],
                 "published_pdf_sha256": run["published_pdf"]["sha256"],
                 "reference_pdf_sha256": run["visual_reference"]["sha256"],

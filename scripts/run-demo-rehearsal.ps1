@@ -104,9 +104,14 @@ try {
         $preflightSummary.licensed_workstation_preflight_smoke.passed -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.autocad_2016_preflight -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.autocad_2025_preflight -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.autocad_2016_publish_session -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.autocad_2025_publish_session -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.no_overwrite -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.publish_enabled_blocked -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.wrong_adapter_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.publish_without_preflight_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.tampered_read_only_preflight_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.unauthenticated_publish_session_blocked -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.autocad_launched -ne $false -or
         $preflightSummary.licensed_workstation_preflight_smoke.live_publish_proven -ne $false -or
         $preflightSummary.wheel_install_smoke.passed -ne $true -or

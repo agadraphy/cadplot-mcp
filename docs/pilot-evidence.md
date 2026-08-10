@@ -20,6 +20,8 @@ cadplot-collect-pilot C:\CadPlotPilot\2016-job\manifest.json `
   --release 2016 `
   --approved-by "Authorized CAD manager" `
   --reference-pdf C:\CadPlotPilot\pilot-input\approved\reference-2016.pdf `
+  --workstation-preflight C:\CadPlotPilot\licensed-preflight-2016.json `
+  --publish-session C:\CadPlotPilot\licensed-publish-session-2016.json `
   --output C:\CadPlotPilot\run-2016.json `
   --licensed `
   --authorized-test-asset `
@@ -42,6 +44,11 @@ adapter's embedded `buildCommit`, on-disk `pluginSha256`, and exact
 overwrite an existing evidence file. These declaration flags are human attestations; do not pass
 them before the corresponding checks are actually complete. The seven
 visual checks are deliberately separate flags. There is no blanket visual-acceptance switch.
+The two workstation arguments are mandatory no-overwrite records produced by
+`test-licensed-workstation.ps1`: first the publish-disabled `ReadOnly` gate, then the authenticated
+`Publish` gate bound to the first record. The collector hashes their exact bounded JSON bytes,
+validates their release/config/install/runtime/binary identity against the live session, and
+rechecks both files before writing the run.
 
 Retain the pending-cancellation exercise from `monday-pilot.md` as a separate local operator
 transcript: exact cancellation must report `Cancelled` after restart and a running job must return
@@ -102,16 +109,21 @@ This detects same-size/mtime-restored mutation without loading the archive into 
 
 The four assembler inputs (`run-2016`, `run-2025`, `recovery-2016`, and `recovery-2025`) use the same
 bounded stable-byte rule. Each must be a direct plain JSON file no larger than 256 KiB. The assembler
-parses only the returned exact bytes, completes bundle and schema-v7 validation, then re-reads and
+parses only the returned exact bytes, completes bundle and schema-v8 validation, then re-reads and
 compares every input before writing the final no-overwrite evidence. Standalone final-evidence
 validation likewise rechecks its input after semantic validation.
 
-The schema-v7 top level contains the full `repository_commit`, `package_version`, bundle and build
+The schema-v8 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, exactly two one-sheet `runs`, and exactly
 two `batch_recovery` records. Each one-sheet run records:
 
 - `autocad_release`, live `product` including normalized and raw ACADVER, exact `adapter`, normalized
   `runtime_series`, embedded `build_commit`, and running `plugin_sha256` identity;
+- `workstation_gates`, containing the exact path-redacted read-only and authenticated
+  publish-session records plus their evidence-file SHA-256 values. The publish record must bind the
+  read-only digest, retain the same release/ProgID/version/runtime/adapter/pipe/commit/package/
+  install-receipt/config/binary identity, use the DPAPI/HMAC queue scheme, and predate pilot
+  completion. Both records keep live-PDF and licensed-pilot claims false;
 - explicit `licensed=true` and `authorized_test_asset=true` declarations;
 - approved `plan_id`, manifest digest, matching receipt manifest digest, receipt output count, and
   the canonical receipt output-set SHA-256;
@@ -158,8 +170,9 @@ rechecked after AutoCAD restart. A valid report
 proves the recorded gates only; the actual evidence files and licensed workstation remain
 authoritative.
 
-Schema-v6 final pilot JSON and older records are intentionally not upgraded in place. Re-collect
-both one-sheet runs and both recovery batches with the schema-v7 wheel so receipt/output binding,
+Schema-v7 final pilot JSON and older records are intentionally not upgraded in place. Re-collect
+both one-sheet runs and both recovery batches with the schema-v8 wheel so workstation-session,
+receipt/output binding,
 visual reference, queue authentication, external-template use, and restart recovery are derived
 from authoritative local evidence instead of being supplied manually.
 

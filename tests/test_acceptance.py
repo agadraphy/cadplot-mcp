@@ -32,6 +32,82 @@ def _mutate_same_size_and_restore_mtime(path: Path) -> None:
     os.utime(path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
 
 
+def _workstation_gates(release: str, plugin_sha256: str) -> dict:
+    adapter, series, progid, version, pipe, digest = {
+        "2016": (
+            "autocad-2016-net45",
+            "R20.1",
+            "AutoCAD.Application.20.1",
+            "20.1s (LMS Tech)",
+            "cadplot-mcp-2016",
+            "2" * 64,
+        ),
+        "2025": (
+            "autocad-2025-net8",
+            "R25.0",
+            "AutoCAD.Application.25.0",
+            "25.0s (LMS Tech)",
+            "cadplot-mcp-2025",
+            "3" * 64,
+        ),
+    }[release]
+    common = {
+        "schema_version": 1,
+        "exact_commit": "1" * 40,
+        "package_version": "0.1.0",
+        "autocad_release": release,
+        "autocad_progid": progid,
+        "autocad_version": version,
+        "runtime_series": series,
+        "adapter": adapter,
+        "pipe_name": pipe,
+        "plugin_sha256": plugin_sha256,
+        "install_receipt_sha256": "5" * 64,
+        "config_sha256": "4" * 64,
+        "config_changed_since_install": True,
+        "inspection_identity_matched": True,
+        "workspace_configured": True,
+        "status_command_read_only": True,
+        "autocad_launched": False,
+        "live_publish_proven": False,
+        "licensed_live_pilot_ready": False,
+        "company_assets_copied": False,
+    }
+    return {
+        "read_only": {
+            "evidence_sha256": digest,
+            "record": {
+                **common,
+                "checked_utc": "2026-08-08T07:00:00+03:00",
+                "session_mode": "readonly",
+                "read_only": True,
+                "publish_enabled": False,
+                "queue_authentication_active": False,
+                "licensed_workstation_preflight_ready": True,
+                "licensed_publish_session_ready": False,
+                "next_gate": "Restart with publish opt-in and verify the bound publish session",
+            },
+        },
+        "publish": {
+            "evidence_sha256": ("a" if release == "2016" else "b") * 64,
+            "record": {
+                **common,
+                "checked_utc": "2026-08-08T07:10:00+03:00",
+                "session_mode": "publish",
+                "read_only": False,
+                "publish_enabled": True,
+                "queue_authentication_active": True,
+                "licensed_workstation_preflight_ready": False,
+                "licensed_publish_session_ready": True,
+                "read_only_preflight_verified": True,
+                "read_only_preflight_sha256": digest,
+                "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
+                "next_gate": "Authorized one-sheet staged-copy queue and visual acceptance",
+            },
+        },
+    }
+
+
 def _run(release: str, digit: str, plugin_sha256: str) -> dict:
     product, adapter, series = {
         "2016": (
@@ -64,6 +140,7 @@ def _run(release: str, digit: str, plugin_sha256: str) -> dict:
         "plugin_sha256": plugin_sha256,
         "runtime_series": series,
         "queue_authentication": "windows-dpapi-current-user+hmac-sha256-v1",
+        "workstation_gates": _workstation_gates(release, plugin_sha256),
         "licensed": True,
         "authorized_test_asset": True,
         "plan_id": "sha256:" + digit * 64,

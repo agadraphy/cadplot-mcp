@@ -131,6 +131,120 @@ def test_full_doctor_cross_checks_com_and_plugin(
     assert report["plugin"]["inspection_identity_matched"] is True
 
 
+def test_full_doctor_accepts_explicit_authenticated_publish_session(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _config(tmp_path)
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.AutoCADComInspector.status",
+        lambda _self: {
+            "available": True,
+            "reason": None,
+            "progid": "AutoCAD.Application.25.0",
+            "version": "25.0s (LMS Tech)",
+        },
+    )
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.get_plugin_status",
+        lambda **_kwargs: {
+            "ok": True,
+            "readOnly": True,
+            "workspaceConfigured": True,
+            "publishEnabled": True,
+            "runtimeSupported": True,
+            "runtimeSeries": "R25.0",
+            "adapter": "autocad-2025-net8",
+            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
+        },
+    )
+
+    report = diagnose_environment(config, mode="full", expect_publish_enabled=True)
+
+    assert report["ready"] is True
+    assert report["expected_publish_enabled"] is True
+    assert report["plugin"]["status"]["readOnly"] is True
+    assert report["plugin"]["status"]["publishEnabled"] is True
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("readOnly", False, "readOnly=true for the status command"),
+        ("publishEnabled", False, "publishEnabled=true"),
+        ("queueAuthentication", "unsigned", "authentication is missing or invalid"),
+        ("publishInitializationError", "key_failure", "initialization error"),
+    ],
+)
+def test_full_doctor_rejects_inconsistent_publish_session(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    config = _config(tmp_path)
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.AutoCADComInspector.status",
+        lambda _self: {
+            "available": True,
+            "reason": None,
+            "progid": "AutoCAD.Application.25.0",
+            "version": "25.0s (LMS Tech)",
+        },
+    )
+    status: dict[str, object] = {
+        "ok": True,
+        "readOnly": True,
+        "workspaceConfigured": True,
+        "publishEnabled": True,
+        "runtimeSupported": True,
+        "runtimeSeries": "R25.0",
+        "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
+    }
+    status[field] = value
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.get_plugin_status", lambda **_kwargs: status
+    )
+
+    report = diagnose_environment(config, mode="full", expect_publish_enabled=True)
+
+    assert report["ready"] is False
+    assert any(message in error for error in report["errors"])
+
+
+def test_full_doctor_rejects_publish_enabled_session_when_read_only_is_expected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _config(tmp_path)
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.AutoCADComInspector.status",
+        lambda _self: {"available": True, "reason": None},
+    )
+    monkeypatch.setattr(
+        "cadplot_mcp.environment.get_plugin_status",
+        lambda **_kwargs: {
+            "ok": True,
+            "readOnly": True,
+            "workspaceConfigured": True,
+            "publishEnabled": True,
+            "runtimeSupported": True,
+            "queueAuthentication": "windows-dpapi-current-user+hmac-sha256-v1",
+        },
+    )
+
+    report = diagnose_environment(config, mode="full")
+
+    assert report["ready"] is False
+    assert any("publishEnabled=false" in error for error in report["errors"])
+
+
+def test_publish_enabled_doctor_requires_full_mode(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+
+    with pytest.raises(ValueError, match="requires mode=full"):
+        diagnose_environment(config, mode="config", expect_publish_enabled=True)
+
+
 def test_full_doctor_rejects_com_and_plugin_release_mismatch(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -178,6 +292,7 @@ def test_full_doctor_fails_when_plugin_workspace_is_not_configured(
             "ok": True,
             "readOnly": True,
             "workspaceConfigured": False,
+            "publishEnabled": False,
             "runtimeSupported": True,
         },
     )
@@ -231,3 +346,29 @@ def test_doctor_cli_returns_machine_readable_config_result(tmp_path: Path) -> No
     assert result.returncode == 0
     assert report["ready"] is True
     assert report["mode"] == "config"
+
+
+def test_doctor_cli_rejects_publish_expectation_without_full_mode(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "cadplot_mcp.doctor",
+            "--config",
+            str(config),
+            "--mode",
+            "config",
+            "--expect-publish-enabled",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    report = json.loads(result.stdout)
+    assert result.returncode == 1
+    assert report["ready"] is False
+    assert report["expected_publish_enabled"] is True
+    assert report["errors"] == ["Publish-enabled diagnosis requires mode=full."]

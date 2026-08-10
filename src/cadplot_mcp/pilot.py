@@ -45,6 +45,7 @@ RUN_FIELDS = {
     "plugin_sha256",
     "runtime_series",
     "queue_authentication",
+    "workstation_gates",
     "licensed",
     "authorized_test_asset",
     "plan_id",
@@ -129,8 +130,56 @@ TEMPLATE_ASSET_FIELDS = {
     "staged_sha256_after",
 }
 EXPECTED = {
-    "2016": {"adapter": "autocad-2016-net45", "acadver": "R20.1"},
-    "2025": {"adapter": "autocad-2025-net8", "acadver": "R25.0"},
+    "2016": {
+        "adapter": "autocad-2016-net45",
+        "acadver": "R20.1",
+        "progid": "AutoCAD.Application.20.1",
+        "version_prefix": "20.1",
+        "pipe": "cadplot-mcp-2016",
+    },
+    "2025": {
+        "adapter": "autocad-2025-net8",
+        "acadver": "R25.0",
+        "progid": "AutoCAD.Application.25.0",
+        "version_prefix": "25.0",
+        "pipe": "cadplot-mcp-2025",
+    },
+}
+WORKSTATION_GATE_COMMON_FIELDS = {
+    "schema_version",
+    "checked_utc",
+    "exact_commit",
+    "package_version",
+    "session_mode",
+    "autocad_release",
+    "autocad_progid",
+    "autocad_version",
+    "runtime_series",
+    "adapter",
+    "pipe_name",
+    "plugin_sha256",
+    "install_receipt_sha256",
+    "config_sha256",
+    "config_changed_since_install",
+    "inspection_identity_matched",
+    "workspace_configured",
+    "status_command_read_only",
+    "read_only",
+    "publish_enabled",
+    "queue_authentication_active",
+    "licensed_workstation_preflight_ready",
+    "licensed_publish_session_ready",
+    "autocad_launched",
+    "live_publish_proven",
+    "licensed_live_pilot_ready",
+    "company_assets_copied",
+    "next_gate",
+}
+WORKSTATION_READ_ONLY_FIELDS = WORKSTATION_GATE_COMMON_FIELDS
+WORKSTATION_PUBLISH_FIELDS = WORKSTATION_GATE_COMMON_FIELDS | {
+    "read_only_preflight_verified",
+    "read_only_preflight_sha256",
+    "queue_authentication",
 }
 BUNDLE_BUILD_FIELDS = {
     "schema_version",
@@ -162,6 +211,160 @@ ADAPTER_PATHS = {
 }
 
 
+def validate_workstation_gate_evidence(
+    raw: Any,
+    *,
+    autocad_release: str,
+    plugin_status: dict[str, Any],
+    current_config_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Validate path-redacted read-only and publish-session workstation gates."""
+    if autocad_release not in EXPECTED:
+        raise ValueError("autocad_release must be 2016 or 2025.")
+    if not isinstance(raw, dict) or set(raw) != {"read_only", "publish"}:
+        raise ValueError("Workstation gates must contain exactly read_only and publish evidence.")
+    wrappers: dict[str, dict[str, Any]] = {}
+    for name in ("read_only", "publish"):
+        wrapper = raw[name]
+        if not isinstance(wrapper, dict) or set(wrapper) != {"evidence_sha256", "record"}:
+            raise ValueError(f"Workstation {name} evidence wrapper is invalid.")
+        _require_digest(wrapper["evidence_sha256"], f"workstation_gates.{name}.sha256")
+        if not isinstance(wrapper["record"], dict):
+            raise ValueError(f"Workstation {name} evidence record is invalid.")
+        wrappers[name] = wrapper
+    if wrappers["read_only"]["evidence_sha256"] == wrappers["publish"]["evidence_sha256"]:
+        raise ValueError("Read-only and publish-session workstation evidence must be distinct.")
+
+    read_only = wrappers["read_only"]["record"]
+    publish = wrappers["publish"]["record"]
+    if set(read_only) != WORKSTATION_READ_ONLY_FIELDS:
+        raise ValueError("Read-only workstation evidence fields are incomplete.")
+    if set(publish) != WORKSTATION_PUBLISH_FIELDS:
+        raise ValueError("Publish-session workstation evidence fields are incomplete.")
+    if publish["read_only_preflight_sha256"] != wrappers["read_only"]["evidence_sha256"]:
+        raise ValueError("Publish-session evidence is not bound to the read-only preflight.")
+
+    expected = EXPECTED[autocad_release]
+    expected_commit = plugin_status.get("buildCommit")
+    expected_plugin_sha256 = plugin_status.get("pluginSha256")
+    expected_product = plugin_status.get("product")
+    for name, record in (("read-only", read_only), ("publish-session", publish)):
+        if record["schema_version"] != 1:
+            raise ValueError(f"Workstation {name} evidence schema is unsupported.")
+        if record["autocad_release"] != autocad_release:
+            raise ValueError(f"Workstation {name} AutoCAD release mismatch.")
+        if record["autocad_progid"] != expected["progid"]:
+            raise ValueError(f"Workstation {name} AutoCAD ProgID mismatch.")
+        if record["runtime_series"] != expected["acadver"]:
+            raise ValueError(f"Workstation {name} runtime series mismatch.")
+        if record["adapter"] != expected["adapter"]:
+            raise ValueError(f"Workstation {name} adapter mismatch.")
+        if record["pipe_name"] != expected["pipe"]:
+            raise ValueError(f"Workstation {name} pipe identity mismatch.")
+        if (
+            not isinstance(record["autocad_version"], str)
+            or not record["autocad_version"].startswith(expected["version_prefix"])
+        ):
+            raise ValueError(f"Workstation {name} AutoCAD version mismatch.")
+        if record["exact_commit"] != expected_commit:
+            raise ValueError(f"Workstation {name} running commit mismatch.")
+        if record["plugin_sha256"] != expected_plugin_sha256:
+            raise ValueError(f"Workstation {name} plug-in binary mismatch.")
+        for field in ("plugin_sha256", "install_receipt_sha256", "config_sha256"):
+            _require_digest(record[field], f"workstation_gates.{name}.{field}")
+        if not isinstance(record["package_version"], str) or not re.fullmatch(
+            r"[0-9]+(?:\.[0-9]+){2}(?:[A-Za-z0-9.+-]*)?", record["package_version"]
+        ):
+            raise ValueError(f"Workstation {name} package version is invalid.")
+        if not isinstance(record["config_changed_since_install"], bool):
+            raise ValueError(f"Workstation {name} config-change state is invalid.")
+        for field in (
+            "inspection_identity_matched",
+            "workspace_configured",
+            "status_command_read_only",
+        ):
+            if record[field] is not True:
+                raise ValueError(f"Workstation {name} requires {field}=true.")
+        for field in (
+            "autocad_launched",
+            "live_publish_proven",
+            "licensed_live_pilot_ready",
+            "company_assets_copied",
+        ):
+            if record[field] is not False:
+                raise ValueError(f"Workstation {name} requires {field}=false.")
+        try:
+            timestamp = datetime.fromisoformat(record["checked_utc"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Workstation {name} checked_utc is invalid.") from exc
+        if timestamp.tzinfo is None:
+            raise ValueError(f"Workstation {name} checked_utc needs a timezone.")
+
+    if expected_product is not None and (
+        not isinstance(expected_product, str)
+        or f"AutoCAD {autocad_release}" not in expected_product
+        or f"ACADVER {expected['acadver']}" not in expected_product
+    ):
+        raise ValueError("Live AutoCAD product identity is invalid for workstation gates.")
+    for field in (
+        "exact_commit",
+        "package_version",
+        "autocad_release",
+        "autocad_progid",
+        "autocad_version",
+        "runtime_series",
+        "adapter",
+        "pipe_name",
+        "plugin_sha256",
+        "install_receipt_sha256",
+        "config_sha256",
+    ):
+        if read_only[field] != publish[field]:
+            raise ValueError(f"Workstation gate identity changed between sessions: {field}.")
+    if current_config_sha256 is not None:
+        _require_digest(current_config_sha256, "current_config_sha256")
+        if read_only["config_sha256"] != current_config_sha256:
+            raise ValueError("Workstation gates do not match the current pilot config.")
+    if read_only["session_mode"] != "readonly":
+        raise ValueError("Read-only workstation evidence has the wrong session mode.")
+    if publish["session_mode"] != "publish":
+        raise ValueError("Publish-session workstation evidence has the wrong session mode.")
+    for field, expected_value in {
+        "read_only": True,
+        "publish_enabled": False,
+        "queue_authentication_active": False,
+        "licensed_workstation_preflight_ready": True,
+        "licensed_publish_session_ready": False,
+    }.items():
+        if read_only[field] is not expected_value:
+            raise ValueError(f"Read-only workstation evidence requires {field}={expected_value}.")
+    for field, expected_value in {
+        "read_only": False,
+        "publish_enabled": True,
+        "queue_authentication_active": True,
+        "read_only_preflight_verified": True,
+        "licensed_workstation_preflight_ready": False,
+        "licensed_publish_session_ready": True,
+    }.items():
+        if publish[field] is not expected_value:
+            raise ValueError(
+                f"Publish-session workstation evidence requires {field}={expected_value}."
+            )
+    if publish["queue_authentication"] != QUEUE_AUTHENTICATION_SCHEME:
+        raise ValueError("Publish-session workstation queue authentication mismatch.")
+    if read_only["next_gate"] != "Restart with publish opt-in and verify the bound publish session":
+        raise ValueError("Read-only workstation next gate is invalid.")
+    if publish["next_gate"] != "Authorized one-sheet staged-copy queue and visual acceptance":
+        raise ValueError("Publish-session workstation next gate is invalid.")
+    if datetime.fromisoformat(publish["checked_utc"]) <= datetime.fromisoformat(
+        read_only["checked_utc"]
+    ):
+        raise ValueError(
+            "Publish-session evidence must be newer than read-only preflight evidence."
+        )
+    return raw
+
+
 def build_pilot_run_evidence(
     manifest_value: str | Path,
     config: CadPlotConfig,
@@ -174,6 +377,7 @@ def build_pilot_run_evidence(
     restart_receipt_verified: bool,
     visual_checks: dict[str, bool],
     reference_pdf: str | Path,
+    workstation_gates: dict[str, Any],
     completed_utc: str | None = None,
 ) -> dict[str, Any]:
     """Build one read-only live-pilot record from cross-checked job evidence."""
@@ -190,6 +394,14 @@ def build_pilot_run_evidence(
             raise ValueError(f"Live AutoCAD status requires {field}=true.")
     if plugin_status.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME:
         raise ValueError("Live AutoCAD status requires authenticated durable queue intent.")
+    validated_gates = validate_workstation_gate_evidence(
+        workstation_gates,
+        autocad_release=autocad_release,
+        plugin_status=plugin_status,
+        current_config_sha256=fingerprint_file(
+            config.source, label="CadPlot pilot config"
+        )["sha256"],
+    )
     report, snapshot = audit_publish_outputs_snapshot(manifest_value, config)
     if report.get("source_unchanged") is not True:
         raise ValueError("Pilot source DWG changed after approval.")
@@ -215,6 +427,7 @@ def build_pilot_run_evidence(
         "plugin_sha256": plugin_status.get("pluginSha256"),
         "runtime_series": plugin_status.get("runtimeSeries"),
         "queue_authentication": plugin_status.get("queueAuthentication"),
+        "workstation_gates": validated_gates,
         "licensed": licensed,
         "authorized_test_asset": authorized_test_asset,
         "plan_id": manifest["plan_id"],
@@ -517,7 +730,7 @@ def assemble_pilot_evidence(
     if validated_recovery_2025["autocad_release"] != "2025":
         raise ValueError("recovery_2025 must contain AutoCAD 2025 evidence.")
     raw = {
-        "schema_version": 7,
+        "schema_version": 8,
         "repository_commit": repository_commit,
         "package_version": package_version,
         "bundle_sha256": bundle_sha256,
@@ -543,7 +756,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
         "batch_recovery",
     }:
         raise ValueError("Pilot evidence must contain exactly the documented top-level fields.")
-    if raw["schema_version"] != 7:
+    if raw["schema_version"] != 8:
         raise ValueError("Unsupported pilot evidence schema.")
     if not isinstance(raw["repository_commit"], str) or not COMMIT.fullmatch(
         raw["repository_commit"]
@@ -575,6 +788,14 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             raise ValueError(f"AutoCAD {release} running plug-in commit mismatch.")
         if run["plugin_sha256"] != adapter_sha256[release]:
             raise ValueError(f"AutoCAD {release} running plug-in binary mismatch.")
+        for gate_name in ("read_only", "publish"):
+            gate_version = run["workstation_gates"][gate_name]["record"][
+                "package_version"
+            ]
+            if gate_version != raw["package_version"]:
+                raise ValueError(
+                    f"AutoCAD {release} workstation package version mismatch."
+                )
     recovery = raw["batch_recovery"]
     if not isinstance(recovery, list) or len(recovery) != 2:
         raise ValueError(
@@ -617,7 +838,7 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
             )
     return {
         "valid": True,
-        "schema_version": 7,
+        "schema_version": 8,
         "repository_commit": raw["repository_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": raw["bundle_sha256"],
@@ -670,6 +891,17 @@ def _validate_run(run: Any) -> dict[str, Any]:
         raise ValueError(f"AutoCAD {release} normalized runtime series mismatch.")
     if run["queue_authentication"] != QUEUE_AUTHENTICATION_SCHEME:
         raise ValueError(f"AutoCAD {release} queue authentication mismatch.")
+    validate_workstation_gate_evidence(
+        run["workstation_gates"],
+        autocad_release=release,
+        plugin_status={
+            "product": run["product"],
+            "adapter": run["adapter"],
+            "buildCommit": run["build_commit"],
+            "pluginSha256": run["plugin_sha256"],
+            "runtimeSeries": run["runtime_series"],
+        },
+    )
     product = run["product"]
     if (
         not isinstance(product, str)
@@ -748,6 +980,13 @@ def _validate_run(run: Any) -> dict[str, Any]:
         raise ValueError(f"AutoCAD {release} completed_utc is invalid.") from exc
     if parsed.tzinfo is None:
         raise ValueError(f"AutoCAD {release} completed_utc must include a timezone.")
+    publish_gate_utc = datetime.fromisoformat(
+        run["workstation_gates"]["publish"]["record"]["checked_utc"]
+    )
+    if publish_gate_utc >= parsed:
+        raise ValueError(
+            f"AutoCAD {release} publish-session gate must precede pilot completion."
+        )
     return run
 
 

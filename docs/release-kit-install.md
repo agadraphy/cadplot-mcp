@@ -219,6 +219,28 @@ adapter DLL hash and embedded commit to the verified installation, and refuses a
 cross-version process. It never launches AutoCAD, opens a DWG, initializes the publish queue, or proves
 a PDF. Preserve each release's record with the private pilot evidence.
 
+After inspection/staging approval, close AutoCAD, set `CADPLOT_ENABLE_PUBLISH=1` in the same exact
+launcher environment, restart that release, and bind the authenticated write-capable session to the
+read-only record before queueing anything:
+
+```powershell
+$env:CADPLOT_ENABLE_PUBLISH = "1"
+# Restart licensed AutoCAD 2025 from this environment, then:
+& "$releaseRoot\CadPlotMcp.release\scripts\test-licensed-workstation.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -ReceiptPath $installed.ReceiptPath `
+  -AutoCADRelease 2025 `
+  -SessionMode Publish `
+  -ReadOnlyPreflightPath (Join-Path $installed.PilotRoot "licensed-preflight-2025.json") `
+  -OutputPath (Join-Path $installed.PilotRoot "licensed-publish-session-2025.json")
+```
+
+The publish-session gate requires the status command's `readOnly=true`, session capability
+`publishEnabled=true`, exact queue authentication, and the same config/receipt/adapter binary evidence.
+It reads the prior preflight as a stable bounded
+snapshot and rechecks it after doctor inspection. It does not open, stage, queue, or plot a DWG;
+`live_publish_proven=false` and `licensed_live_pilot_ready=false` remain mandatory.
+
 ## Evidence boundary
 
 Successful kit verification means the two installers and their source are cryptographically bound

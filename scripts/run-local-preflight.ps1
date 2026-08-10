@@ -249,9 +249,14 @@ try {
         $licensedPreflightEvidence.positive_preflight -ne $true -or
         $licensedPreflightEvidence.autocad_2016_preflight -ne $true -or
         $licensedPreflightEvidence.autocad_2025_preflight -ne $true -or
+        $licensedPreflightEvidence.autocad_2016_publish_session -ne $true -or
+        $licensedPreflightEvidence.autocad_2025_publish_session -ne $true -or
         $licensedPreflightEvidence.no_overwrite -ne $true -or
         $licensedPreflightEvidence.publish_enabled_blocked -ne $true -or
         $licensedPreflightEvidence.wrong_adapter_blocked -ne $true -or
+        $licensedPreflightEvidence.publish_without_preflight_blocked -ne $true -or
+        $licensedPreflightEvidence.tampered_read_only_preflight_blocked -ne $true -or
+        $licensedPreflightEvidence.unauthenticated_publish_session_blocked -ne $true -or
         $licensedPreflightEvidence.autocad_launched -ne $false -or
         $licensedPreflightEvidence.live_publish_proven -ne $false
     ) {
