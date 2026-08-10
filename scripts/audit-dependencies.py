@@ -60,19 +60,7 @@ def main() -> int:
                 ],
                 cwd=repository,
             )
-            dotnet_result = _run_json(
-                [
-                    args.dotnet,
-                    "list",
-                    str(solution),
-                    "package",
-                    "--vulnerable",
-                    "--include-transitive",
-                    "--format",
-                    "json",
-                ],
-                cwd=repository,
-            )
+            dotnet_result = _run_dotnet_audit(args.dotnet, solution=solution, cwd=repository)
 
             python_dependencies = python_result.get("dependencies")
             if not isinstance(python_dependencies, list) or not python_dependencies:
@@ -146,6 +134,26 @@ def _run_json(command: list[str], *, cwd: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"Dependency audit returned a non-object: {command[0]}")
     return value
+
+
+def _run_dotnet_audit(dotnet: str, *, solution: Path, cwd: Path) -> dict[str, Any]:
+    # `dotnet list package` consumes project.assets.json and exits 1 on a clean checkout.
+    # Restore explicitly so the audit has the same behavior on fresh CI runners and
+    # developer machines that happen to retain obj directories.
+    _run([dotnet, "restore", str(solution), "--nologo"], cwd=cwd)
+    return _run_json(
+        [
+            dotnet,
+            "list",
+            str(solution),
+            "package",
+            "--vulnerable",
+            "--include-transitive",
+            "--format",
+            "json",
+        ],
+        cwd=cwd,
+    )
 
 
 def _run_audit(command: list[str], *, cwd: Path) -> dict[str, Any]:
