@@ -109,6 +109,9 @@ Use this checklist for every alpha release.
 - [ ] Output audit rejects a redirected PDF/job path, files above the 128 MiB per-output limit, and
       files changed while their snapshot is read. Geometry, marking evidence, byte size, and SHA-256
       for every valid PDF come from the identical immutable byte snapshot.
+- [ ] Manifest/receipt mutation tests prove that final auditing uses one stable manifest byte
+      snapshot for paths, receipt digest, outputs, and source, rejects in-flight manifest/receipt
+      changes, and re-hashes the manifest before returning evidence.
 - [ ] Decoded page content above 64 MiB or pypdf's stricter decoder/aggregate limits is rejected as
       `pdf_content_limit_exceeded`; complete marking evidence must appear within an 8 MiB scan.
       Tokens inside strings, names, hexadecimal operands, or comments do not satisfy the nonblank

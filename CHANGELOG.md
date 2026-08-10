@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Final output and receipt audits now validate one stable manifest byte snapshot instead of
+  reopening the manifest for receipt binding. Manifest and receipt reads reject device/file
+  identity, size, modification-time, or content-digest changes during validation, and the manifest
+  is rechecked after PDF, receipt, and source auditing before a report can be returned. This prevents
+  evidence from two concurrently replaced manifest versions from being combined into one result.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,

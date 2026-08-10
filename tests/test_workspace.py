@@ -565,6 +565,51 @@ def test_receipt_reader_rejects_redirected_receipt_file(tmp_path: Path) -> None:
         read_publish_receipt(manifest_path, config)
 
 
+def test_manifest_loader_rejects_manifest_changed_while_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    original_read_bytes = Path.read_bytes
+
+    def mutate_manifest_after_read(path: Path) -> bytes:
+        content = original_read_bytes(path)
+        if path == manifest_path:
+            path.write_bytes(content + b"\n")
+        return content
+
+    monkeypatch.setattr(Path, "read_bytes", mutate_manifest_after_read)
+
+    with pytest.raises(ValueError, match="manifest changed while being read"):
+        audit_module.load_staged_manifest(manifest_path, config)
+
+
+def test_receipt_reader_rejects_receipt_changed_while_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    receipt_path = manifest_path.parent / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(_failed_receipt(job, manifest_path, "plot_failed")),
+        encoding="utf-8",
+    )
+    original_read_bytes = Path.read_bytes
+
+    def mutate_receipt_after_read(path: Path) -> bytes:
+        content = original_read_bytes(path)
+        if path == receipt_path:
+            path.write_bytes(content + b"\n")
+        return content
+
+    monkeypatch.setattr(Path, "read_bytes", mutate_receipt_after_read)
+
+    with pytest.raises(ValueError, match="receipt changed while being read"):
+        read_publish_receipt(manifest_path, config)
+
+
 def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path) -> None:
     _, config, plan = _job_inputs(tmp_path)
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
@@ -587,6 +632,40 @@ def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path)
     assert report["receipt_output_binding_verified"] is True
     assert report["execution_verified"] is True
     assert report["publish_verified"] is True
+
+
+def test_output_audit_rejects_manifest_changed_after_pdf_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    pdf_writer = PdfWriter()
+    _add_marked_page(pdf_writer, width=842, height=595)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        pdf_writer.write(stream)
+    receipt = _successful_receipt(job, manifest_path)
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
+    original_audit_pdf = audit_module._audit_pdf
+
+    def mutate_manifest_after_pdf_audit(*args, **kwargs):
+        result = original_audit_pdf(*args, **kwargs)
+        original_stat = manifest_path.stat()
+        manifest_bytes = manifest_path.read_bytes()
+        assert b"\n" in manifest_bytes
+        manifest_path.write_bytes(manifest_bytes.replace(b"\n", b" ", 1))
+        os.utime(
+            manifest_path,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+        return result
+
+    monkeypatch.setattr(audit_module, "_audit_pdf", mutate_manifest_after_pdf_audit)
+
+    with pytest.raises(ValueError, match="manifest changed during output audit"):
+        audit_publish_outputs(manifest_path, config)
 
 
 def test_output_audit_rejects_stale_pdf_after_source_revision(tmp_path: Path) -> None:

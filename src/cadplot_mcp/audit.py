@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import struct
+from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -52,9 +53,20 @@ PDF_MARKING_OPERATORS = frozenset(
 )
 
 
+@dataclass(frozen=True)
+class _ManifestSnapshot:
+    manifest: dict[str, Any]
+    job_root: Path
+    path: Path
+    stat: Any
+    sha256: str
+
+
 def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> dict[str, Any]:
     """Validate one staged job and inspect expected PDFs without writing any files."""
-    manifest, job_root = load_staged_manifest(manifest_value, config)
+    snapshot = _load_staged_manifest_snapshot(manifest_value, config)
+    manifest = snapshot.manifest
+    job_root = snapshot.job_root
     results = [
         _audit_pdf(item, job_root, config.pdf_page_tolerance_mm)
         for item in manifest["outputs"]
@@ -62,7 +74,7 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
     valid = sum(item["status"] == "valid" for item in results)
     missing = sum(item["status"] == "missing" for item in results)
     invalid = len(results) - valid - missing
-    receipt = read_publish_receipt(manifest_value, config)
+    receipt = _read_publish_receipt(snapshot)
     outputs_complete = valid == len(results)
     receipt_output_binding_verified = False
     if (
@@ -91,6 +103,7 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
     )
     source = audit_source_drawing(manifest, config)
     source_unchanged = source["status"] == "unchanged"
+    _require_manifest_snapshot_unchanged(snapshot, "output audit")
     return {
         "schema_version": 1,
         "job_id": manifest["job_id"],
@@ -276,7 +289,15 @@ def read_publish_receipt(
     config: CadPlotConfig,
 ) -> dict[str, Any]:
     """Read and cross-check immutable plug-in execution evidence for a staged job."""
-    manifest, job_root = load_staged_manifest(manifest_value, config)
+    snapshot = _load_staged_manifest_snapshot(manifest_value, config)
+    result = _read_publish_receipt(snapshot)
+    _require_manifest_snapshot_unchanged(snapshot, "receipt audit")
+    return result
+
+
+def _read_publish_receipt(snapshot: _ManifestSnapshot) -> dict[str, Any]:
+    manifest = snapshot.manifest
+    job_root = snapshot.job_root
     receipt_path = job_root / "receipt.json"
     if not receipt_path.exists():
         return {"found": False, "receipt": None}
@@ -285,18 +306,21 @@ def read_publish_receipt(
     resolved = receipt_path.resolve(strict=True)
     if resolved.parent != job_root.resolve(strict=True) or not resolved.is_file():
         raise PathPolicyError("Publish receipt is outside its job boundary.")
-    if resolved.stat().st_size > MAX_RECEIPT_BYTES:
-        raise ValueError("Publish receipt exceeds the 64 KiB safety limit.")
     try:
-        raw = json.loads(resolved.read_text(encoding="utf-8"))
+        receipt_bytes, receipt_stat = _read_stable_bytes(
+            resolved,
+            max_bytes=MAX_RECEIPT_BYTES,
+            size_error="Publish receipt exceeds the 64 KiB safety limit.",
+            change_error="Publish receipt changed while being read.",
+        )
+        raw = json.loads(receipt_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Publish receipt is not valid UTF-8 JSON.") from exc
     if not isinstance(raw, dict) or raw.get("schema_version") != 2:
         raise ValueError("Unsupported publish receipt schema.")
     if raw.get("plan_id") != manifest["plan_id"]:
         raise ValueError("Publish receipt plan identity mismatch.")
-    manifest_digest = _sha256(job_root / "manifest.json")
-    if raw.get("manifest_sha256") != manifest_digest:
+    if raw.get("manifest_sha256") != snapshot.sha256:
         raise ValueError("Publish receipt manifest digest mismatch.")
     state = raw.get("state")
     error = raw.get("error")
@@ -339,6 +363,13 @@ def read_publish_receipt(
         raise ValueError("Publish receipt has an invalid completion timestamp.") from exc
     if parsed.tzinfo is None:
         raise ValueError("Publish receipt completion timestamp must include a timezone.")
+    _require_file_snapshot_unchanged(
+        resolved,
+        receipt_stat,
+        hashlib.sha256(receipt_bytes).hexdigest(),
+        max_bytes=MAX_RECEIPT_BYTES,
+        change_error="Publish receipt changed during receipt audit.",
+    )
     return {"found": True, "receipt": raw}
 
 
@@ -385,6 +416,14 @@ def load_staged_manifest(
     manifest_value: str | Path,
     config: CadPlotConfig,
 ) -> tuple[dict[str, Any], Path]:
+    snapshot = _load_staged_manifest_snapshot(manifest_value, config)
+    return snapshot.manifest, snapshot.job_root
+
+
+def _load_staged_manifest_snapshot(
+    manifest_value: str | Path,
+    config: CadPlotConfig,
+) -> _ManifestSnapshot:
     if config.workspace_root is None:
         raise ValueError("workspace_root must be configured before auditing outputs.")
     workspace_value = require_plain_directory_path(config.workspace_root)
@@ -402,11 +441,14 @@ def load_staged_manifest(
     manifest_path = manifest_candidate.resolve(strict=True)
     if workspace_root not in manifest_path.parents:
         raise PathPolicyError("Job manifest is outside the configured workspace_root.")
-    if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
-        raise ValueError("Job manifest exceeds the 1 MiB safety limit.")
-
     try:
-        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_bytes, manifest_stat = _read_stable_bytes(
+            manifest_path,
+            max_bytes=MAX_MANIFEST_BYTES,
+            size_error="Job manifest exceeds the 1 MiB safety limit.",
+            change_error="Job manifest changed while being read.",
+        )
+        raw = json.loads(manifest_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Job manifest is not valid UTF-8 JSON.") from exc
     if not isinstance(raw, dict) or raw.get("schema_version") != 1:
@@ -550,7 +592,76 @@ def load_staged_manifest(
         seen.add(pdf)
     if used_template_ids != template_ids:
         raise ValueError("Job manifest contains an unused template asset.")
-    return raw, job_root
+    snapshot = _ManifestSnapshot(
+        manifest=raw,
+        job_root=job_root,
+        path=manifest_path,
+        stat=manifest_stat,
+        sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+    )
+    _require_manifest_snapshot_unchanged(snapshot, "manifest validation")
+    return snapshot
+
+
+def _read_stable_bytes(
+    path: Path,
+    *,
+    max_bytes: int,
+    size_error: str,
+    change_error: str,
+) -> tuple[bytes, Any]:
+    before = path.stat()
+    if before.st_size > max_bytes:
+        raise ValueError(size_error)
+    try:
+        content = path.read_bytes()
+        after = path.stat()
+    except OSError as exc:
+        raise ValueError(change_error) from exc
+    if len(content) != before.st_size or _file_snapshot_changed(before, after):
+        raise ValueError(change_error)
+    return content, after
+
+
+def _require_manifest_snapshot_unchanged(
+    snapshot: _ManifestSnapshot,
+    operation: str,
+) -> None:
+    _require_file_snapshot_unchanged(
+        snapshot.path,
+        snapshot.stat,
+        snapshot.sha256,
+        max_bytes=MAX_MANIFEST_BYTES,
+        change_error=f"Job manifest changed during {operation}.",
+    )
+
+
+def _require_file_snapshot_unchanged(
+    path: Path,
+    expected_stat: Any,
+    expected_sha256: str,
+    *,
+    max_bytes: int,
+    change_error: str,
+) -> None:
+    try:
+        current_path = path.resolve(strict=True)
+        redirected = _is_reparse(path) or current_path != path
+        if redirected:
+            raise ValueError(change_error)
+        current_bytes, current_stat = _read_stable_bytes(
+            current_path,
+            max_bytes=max_bytes,
+            size_error=change_error,
+            change_error=change_error,
+        )
+    except (OSError, PathPolicyError) as exc:
+        raise ValueError(change_error) from exc
+    if (
+        _file_snapshot_changed(expected_stat, current_stat)
+        or hashlib.sha256(current_bytes).hexdigest() != expected_sha256
+    ):
+        raise ValueError(change_error)
 
 
 def _is_reparse(path: Path) -> bool:

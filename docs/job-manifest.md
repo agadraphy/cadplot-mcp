@@ -75,7 +75,12 @@ decoded content contains a path-paint, text-show, shading, image, or form-invoca
 report retains decoded content byte and marking-operator counts; this is a strong blank-page guard,
 not a replacement for visual crop/scale/style review. Its report also includes page dimensions,
 byte size, and SHA-256 digest for each valid PDF, then independently
-recomputes the successful receipt's canonical output-set binding. It re-fingerprints the original
+recomputes the successful receipt's canonical output-set binding. The manifest is read into one
+bounded, stable byte snapshot; its parsed fields and SHA-256 drive the PDF paths, receipt binding,
+and source check together. Receipt JSON is also read from a stable snapshot. Device/file identity,
+size, timestamp, or content changes during either read fail closed, and the audit rechecks the exact
+manifest snapshot after all PDF, receipt, and source work before returning a report. Evidence from
+two manifest versions therefore cannot be combined. It re-fingerprints the original
 allowed-root source at the end of the audit;
 `source_unchanged` requires the approved SHA-256, byte length, and modification timestamp to match.
 `outputs_complete` describes only the expected PDFs; `execution_verified` requires a valid

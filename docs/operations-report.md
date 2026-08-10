@@ -45,6 +45,12 @@ neither state exposes a SHA-256 or qualifies for execution/output binding.
 pypdf decoder/aggregate limit, or no complete marking evidence appeared inside the 8 MiB lexical
 scan window. It is invalid output and must never be retried over the old file.
 
+Each job audit parses one bounded manifest byte snapshot and uses that same snapshot's fields and
+SHA-256 for PDF inspection, receipt validation, and source currency. Manifest and receipt files must
+remain plain, stable files while read; the manifest is re-hashed after the complete audit before the
+job result is returned. Concurrent replacement therefore produces `invalid_job` instead of mixing
+paths or identities from one manifest with a receipt bound to another.
+
 Every report rebuild re-fingerprints the original allowed-root DWG. This is a currency check, not a
 claim that CadPlot modified the source: a user or upstream sync may have produced a newer revision.
 Such a job remains auditable, but its old output cannot be called current or queued again in place.
