@@ -103,10 +103,12 @@ two `batch_recovery` records. Each one-sheet run records:
 - explicit `licensed=true` and `authorized_test_asset=true` declarations;
 - approved `plan_id`, manifest digest, matching receipt manifest digest, receipt output count, and
   the canonical receipt output-set SHA-256;
-- source and staged DWG SHA-256 values before and after plotting;
+- source and staged DWG SHA-256 values before and after plotting, each collected through two
+  identical bounded-memory streaming fingerprint passes with stable file identity/metadata;
 - a path-redacted `template_assets` list. For every external DWG/DWT import it binds the profile id,
   layout, page setup, byte length, approved SHA-256, current company-source SHA-256, and current
-  staged-copy SHA-256; an empty list proves that run used no external template asset;
+  staged-copy SHA-256. Current source and staged template hashes use the same two-pass stable
+  fingerprint contract; an empty list proves that run used no external template asset;
 - a path-redacted `published_pdf` record containing its sheet index, basename, SHA-256, byte length,
   page count, and physical width/height; plus successful receipt state,
   `receipt_output_binding_verified=true`, `publish_verified=true`, and proof that the receipt

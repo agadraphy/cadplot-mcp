@@ -123,6 +123,10 @@ Use this checklist for every alpha release.
 - [ ] Source-revision and timestamp-drift tests prove that staged validation, direct queueing,
       restart reporting, and final output audit all fail closed before claiming current output;
       `source_changed` jobs expose no requeue approval and `publish_verified=false`.
+- [ ] Source/staged DWGs and source/staged DWG/DWT templates require two identical streaming
+      fingerprints, reject redirected leaves and same-size/mtime-restored content change, and never
+      load an unbounded drawing into memory. Cancellation markers use bounded stable byte snapshots
+      and are re-hashed after structural validation.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.

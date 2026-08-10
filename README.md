@@ -44,12 +44,14 @@ the loaded adapter does not match the running AutoCAD release.
 - No arbitrary AutoLISP or AutoCAD command execution.
 - No implicit use of `ActiveDocument` as the target.
 - Every DWG path must be inside an allowed root.
-- Every approved plan is bound to the source DWG's SHA-256 fingerprint.
+- Every approved plan is bound to a two-pass stable source DWG SHA-256/size/time/file-identity
+  fingerprint; redirected leaves and in-flight changes fail closed.
 - Drawings opened by the inspector are opened read-only and closed without saving.
 - Existing open drawings are never closed by the server.
 - Existing layouts are never selected as write targets; target-name collisions block the plan.
 - Staging copies a DWG into a new isolated job folder and refuses symlink/junction workspaces.
-- The plug-in re-hashes the staged DWG immediately before execution.
+- Python staging/audit and the plug-in re-hash the staged DWG before execution; Python evidence also
+  requires two identical streaming fingerprint passes without loading large DWGs into memory.
 - Layouts and viewports are execution scaffolding: they are discarded after plotting, keeping the
   staged DWG byte-identical for the final audit.
 - Every sheet plots to an owned temporary PDF; final names appear only after every plot completes

@@ -9,6 +9,7 @@ from pypdf import PdfWriter
 from pypdf.generic import ContentStream, DecodedStreamObject, NameObject, NumberObject
 
 from cadplot_mcp import audit as audit_module
+from cadplot_mcp import fingerprint as fingerprint_module
 from cadplot_mcp import reporting as reporting_module
 from cadplot_mcp import server as mcp_server
 from cadplot_mcp.audit import (
@@ -134,6 +135,45 @@ paper_profiles:
         drawing_fingerprint=fingerprint_drawing(drawing, config.path_policy),
     )
     return drawing, config, plan
+
+
+def test_drawing_fingerprint_rejects_same_metadata_content_change_between_passes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawing, config, _ = _job_inputs(tmp_path)
+    original_hash_pass = fingerprint_module._hash_file_pass
+    calls = 0
+
+    def mutate_after_first_pass(path: Path, label: str):
+        nonlocal calls
+        result = original_hash_pass(path, label)
+        calls += 1
+        if calls == 1:
+            original_stat = drawing.stat()
+            content = drawing.read_bytes()
+            drawing.write_bytes(bytes([content[0] ^ 1]) + content[1:])
+            os.utime(
+                drawing,
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+            )
+        return result
+
+    monkeypatch.setattr(fingerprint_module, "_hash_file_pass", mutate_after_first_pass)
+
+    with pytest.raises(ValueError, match="Drawing changed while being fingerprinted"):
+        fingerprint_drawing(drawing, config.path_policy)
+
+
+def test_drawing_fingerprint_rejects_redirected_leaf(tmp_path: Path) -> None:
+    drawing, config, _ = _job_inputs(tmp_path)
+    redirected = drawing.with_name("redirected.dwg")
+    try:
+        redirected.symlink_to(drawing)
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+
+    with pytest.raises(ValueError, match="symlink or reparse point"):
+        fingerprint_drawing(redirected, config.path_policy)
 
 
 def test_stage_publish_job_copies_source_and_writes_manifest(tmp_path: Path) -> None:
@@ -957,6 +997,66 @@ def test_operations_report_rejects_manifest_changed_after_output_audit(
 
     assert report["items"][0]["status"] == "invalid_job"
     assert "manifest changed during operations report" in report["items"][0]["error"]
+
+
+def test_operations_report_rejects_cancel_marker_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    marker = Path(job["manifest"]).parent / ".cadplot-queue-cancelled.json"
+    marker.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plan_id": plan["plan_id"],
+                "manifest_sha256": job["manifest_sha256"],
+                "cancelled_utc": "2026-08-09T20:00:00Z",
+                "authentication_version": 1,
+                "authentication_tag": b64encode(b"x" * 32).decode("ascii"),
+            }
+        ),
+        encoding="utf-8",
+    )
+    original_read_bytes = Path.read_bytes
+    mutated = False
+
+    def mutate_marker_after_first_read(path: Path) -> bytes:
+        nonlocal mutated
+        content = original_read_bytes(path)
+        if path == marker and not mutated:
+            mutated = True
+            original_stat = marker.stat()
+            replacement = content.replace(b'eHh4', b'fHh4', 1)
+            assert len(replacement) == len(content) and replacement != content
+            marker.write_bytes(replacement)
+            os.utime(
+                marker,
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+            )
+        return content
+
+    monkeypatch.setattr(Path, "read_bytes", mutate_marker_after_first_read)
+
+    report = build_publish_operations_report(config)
+
+    assert report["items"][0]["status"] == "invalid_job"
+    assert "marker changed during validation" in report["items"][0]["error"]
+
+
+def test_operations_report_rejects_broken_cancel_marker_symlink(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    marker = Path(job["manifest"]).parent / ".cadplot-queue-cancelled.json"
+    try:
+        marker.symlink_to(marker.with_name("missing-cancel-marker.json"))
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+
+    report = build_publish_operations_report(config)
+
+    assert report["items"][0]["status"] == "invalid_job"
+    assert "marker must be a plain file" in report["items"][0]["error"]
 
 
 def test_operations_report_blocks_queue_approval_for_changed_source(tmp_path: Path) -> None:

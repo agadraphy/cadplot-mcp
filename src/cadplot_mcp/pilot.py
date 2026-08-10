@@ -19,6 +19,7 @@ from cadplot_mcp.audit import (
     pdf_page_marking_evidence,
 )
 from cadplot_mcp.config import CadPlotConfig
+from cadplot_mcp.fingerprint import fingerprint_file
 from cadplot_mcp.reporting import JOB_ID_PATTERN, build_publish_operations_report
 from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT
 
@@ -201,6 +202,8 @@ def build_pilot_run_evidence(
     source = config.path_policy.require_allowed(manifest["source_drawing"], suffix=".dwg")
     staged = Path(manifest["staged_drawing"]).resolve(strict=True)
     source_before = manifest["source_fingerprint"]["sha256"]
+    source_after = fingerprint_file(source, label="Pilot source DWG")
+    staged_after = fingerprint_file(staged, label="Pilot staged DWG")
     receipt = report["execution_receipt"]["receipt"]
     completed = completed_utc or datetime.now(UTC).isoformat()
     output = report["outputs"][0]
@@ -222,9 +225,9 @@ def build_pilot_run_evidence(
         "receipt_outputs_sha256": receipt["outputs_sha256"],
         "receipt_output_binding_verified": report["receipt_output_binding_verified"],
         "source_sha256_before": source_before,
-        "source_sha256_after": _sha256(source),
+        "source_sha256_after": source_after["sha256"],
         "staged_sha256_before": source_before,
-        "staged_sha256_after": _sha256(staged),
+        "staged_sha256_after": staged_after["sha256"],
         "template_assets": _collect_template_asset_evidence(manifest, config),
         "published_pdf": _collect_published_pdf(output),
         "visual_reference": _collect_visual_reference(
@@ -324,6 +327,8 @@ def build_batch_recovery_evidence(
             manifest["source_drawing"], suffix=".dwg"
         )
         staged = Path(manifest["staged_drawing"]).resolve(strict=True)
+        source_after = fingerprint_file(source, label="Recovery source DWG")
+        staged_after = fingerprint_file(staged, label="Recovery staged DWG")
         jobs.append(
             {
                 "job_id": job_id,
@@ -337,9 +342,9 @@ def build_batch_recovery_evidence(
                     "receipt_output_binding_verified"
                 ],
                 "source_sha256_before": source_before,
-                "source_sha256_after": _sha256(source),
+                "source_sha256_after": source_after["sha256"],
                 "staged_sha256_before": source_before,
-                "staged_sha256_after": _sha256(staged),
+                "staged_sha256_after": staged_after["sha256"],
                 "outputs_complete": report["outputs_complete"],
                 "publish_verified": report["publish_verified"],
             }
@@ -936,13 +941,25 @@ def _collect_template_asset_evidence(
                 f"Pilot template asset {asset['id']!r} does not match the active office profile."
             )
         staged = Path(asset["staged_template"]).resolve(strict=True)
-        source_hash = _sha256(source)
-        staged_hash = _sha256(staged)
-        if source.stat().st_size != asset["size_bytes"] or source_hash != asset["sha256"]:
+        source_fingerprint = fingerprint_file(
+            source, label=f"Pilot template {asset['id']!r} source"
+        )
+        staged_fingerprint = fingerprint_file(
+            staged, label=f"Pilot template {asset['id']!r} staged copy"
+        )
+        source_hash = source_fingerprint["sha256"]
+        staged_hash = staged_fingerprint["sha256"]
+        if (
+            source_fingerprint["size_bytes"] != asset["size_bytes"]
+            or source_hash != asset["sha256"]
+        ):
             raise ValueError(
                 f"Pilot template asset {asset['id']!r} source changed after approval."
             )
-        if staged.stat().st_size != asset["size_bytes"] or staged_hash != asset["sha256"]:
+        if (
+            staged_fingerprint["size_bytes"] != asset["size_bytes"]
+            or staged_hash != asset["sha256"]
+        ):
             raise ValueError(
                 f"Pilot template asset {asset['id']!r} staged copy changed after approval."
             )

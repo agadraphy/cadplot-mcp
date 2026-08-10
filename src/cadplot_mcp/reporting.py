@@ -11,7 +11,7 @@ from typing import Any
 
 from cadplot_mcp.audit import audit_publish_outputs_snapshot
 from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.security import require_plain_directory_path
+from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT, require_plain_directory_path
 
 # Accept the earlier second-precision IDs while new jobs use sortable microsecond precision.
 JOB_ID_PATTERN = re.compile(r"job-\d{8}T(?:\d{6}|\d{12})Z-[0-9a-f]{12}")
@@ -189,15 +189,17 @@ def _has_structural_cancelled_marker(
     manifest_sha256: str,
 ) -> bool:
     marker = job_root / CANCELLED_MARKER
-    if not marker.exists():
+    try:
+        marker.lstat()
+    except FileNotFoundError:
         return False
-    stat = marker.lstat()
-    attributes = getattr(stat, "st_file_attributes", 0)
-    if marker.is_symlink() or attributes & 0x400:
-        raise ValueError("Cancelled queue marker must be a plain file.")
-    if not 2 <= stat.st_size <= MAX_QUEUE_MARKER_BYTES:
-        raise ValueError("Cancelled queue marker size is invalid.")
-    raw = json.loads(marker.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError("Cancelled queue marker could not be inspected.") from exc
+    marker_bytes, marker_stat = _read_stable_cancelled_marker(marker)
+    try:
+        raw = json.loads(marker_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Cancelled queue marker must be valid UTF-8 JSON.") from exc
     expected_keys = {
         "schema_version",
         "plan_id",
@@ -228,4 +230,39 @@ def _has_structural_cancelled_marker(
         raise ValueError("Cancelled queue marker authentication tag is invalid.") from exc
     if len(tag) != 32:
         raise ValueError("Cancelled queue marker authentication tag is invalid.")
+    current_bytes, current_stat = _read_stable_cancelled_marker(marker)
+    if (
+        _file_snapshot_changed(marker_stat, current_stat)
+        or hashlib.sha256(marker_bytes).digest()
+        != hashlib.sha256(current_bytes).digest()
+    ):
+        raise ValueError("Cancelled queue marker changed during validation.")
     return True
+
+
+def _read_stable_cancelled_marker(marker: Path) -> tuple[bytes, Any]:
+    try:
+        before = marker.lstat()
+        attributes = getattr(before, "st_file_attributes", 0)
+        if (
+            marker.is_symlink()
+            or attributes & FILE_ATTRIBUTE_REPARSE_POINT
+            or not marker.is_file()
+        ):
+            raise ValueError("Cancelled queue marker must be a plain file.")
+        if not 2 <= before.st_size <= MAX_QUEUE_MARKER_BYTES:
+            raise ValueError("Cancelled queue marker size is invalid.")
+        marker_bytes = marker.read_bytes()
+        after = marker.lstat()
+    except OSError as exc:
+        raise ValueError("Cancelled queue marker changed while being read.") from exc
+    if len(marker_bytes) != before.st_size or _file_snapshot_changed(before, after):
+        raise ValueError("Cancelled queue marker changed while being read.")
+    return marker_bytes, after
+
+
+def _file_snapshot_changed(before: Any, after: Any) -> bool:
+    return any(
+        getattr(before, field, None) != getattr(after, field, None)
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    )

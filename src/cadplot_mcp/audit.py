@@ -15,7 +15,7 @@ from pypdf import PdfReader
 from pypdf.errors import LimitReachedError, PdfReadError
 
 from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.fingerprint import fingerprint_drawing
+from cadplot_mcp.fingerprint import fingerprint_drawing, fingerprint_file
 from cadplot_mcp.security import (
     FILE_ATTRIBUTE_REPARSE_POINT,
     PathPolicyError,
@@ -27,7 +27,6 @@ MAX_RECEIPT_BYTES = 64 * 1024
 MAX_OUTPUT_PDF_BYTES = 128 * 1024 * 1024
 MAX_DECODED_PAGE_CONTENT_BYTES = 64 * 1024 * 1024
 MAX_MARKING_SCAN_BYTES = 8 * 1024 * 1024
-HASH_CHUNK_BYTES = 1024 * 1024
 RECEIPT_OUTPUT_DOMAIN = b"cadplot-receipt-outputs-v1\0"
 PDF_WHITESPACE = frozenset({0, 9, 10, 12, 13, 32})
 PDF_DELIMITERS = frozenset(b"()<>[]{}/%")
@@ -511,7 +510,11 @@ def _load_staged_manifest_snapshot(
         or source_fingerprint["modified_ns"] < 0
     ):
         raise ValueError("Job manifest contains an invalid source fingerprint.")
-    if _sha256(staged_drawing) != source_fingerprint["sha256"]:
+    staged_fingerprint = fingerprint_file(staged_drawing, label="Staged drawing")
+    if (
+        staged_fingerprint["sha256"] != source_fingerprint["sha256"]
+        or staged_fingerprint["size_bytes"] != source_fingerprint["size_bytes"]
+    ):
         raise ValueError("Staged drawing no longer matches the approved source fingerprint.")
 
     template_assets = raw.get("template_assets", [])
@@ -567,9 +570,13 @@ def _load_staged_manifest_snapshot(
                 or re.fullmatch(r"[0-9a-f]{64}", asset["sha256"]) is None
             ):
                 raise ValueError("Job manifest template asset has an invalid fingerprint.")
-            if staged_template.stat().st_size != asset["size_bytes"] or _sha256(
-                staged_template
-            ) != asset.get("sha256"):
+            staged_template_fingerprint = fingerprint_file(
+                staged_template, label=f"Staged template {asset_id!r}"
+            )
+            if (
+                staged_template_fingerprint["size_bytes"] != asset["size_bytes"]
+                or staged_template_fingerprint["sha256"] != asset.get("sha256")
+            ):
                 raise ValueError("Staged template no longer matches its approved fingerprint.")
 
     outputs = raw.get("outputs")
@@ -921,11 +928,3 @@ def _file_snapshot_changed(before: Any, after: Any) -> bool:
         getattr(before, field, None) != getattr(after, field, None)
         for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns")
     )
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(HASH_CHUNK_BYTES):
-            digest.update(chunk)
-    return digest.hexdigest()

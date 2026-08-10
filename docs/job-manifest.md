@@ -7,11 +7,16 @@ does not invoke AutoCAD plotting. The caller must pass the exact `plan_id` retur
 Before writing, CadPlot MCP:
 
 1. reopens the drawing read-only for inspection;
-2. hashes the source DWG before and after inspection;
+2. fingerprints the source DWG before and after inspection using two identical bounded-memory
+   streaming passes over SHA-256, byte length, modification time, device, inode, and path identity;
 3. recreates the complete publish plan;
 4. compares the caller's approved plan ID;
 5. rejects any source-content, page-profile, frame, or plan change;
 6. rejects writable workspaces that pass through a symlink or Windows junction.
+
+The same two-pass fingerprint contract is applied to the staged DWG and every authorized source and
+job-local DWG/DWT template. A redirected leaf, in-flight write, replacement, or same-size change with
+a restored modification time fails closed instead of producing mixed hash/metadata evidence.
 
 On success it creates a unique `job-*` directory below `workspace_root` containing:
 

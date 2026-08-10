@@ -15,6 +15,12 @@ All notable changes to this project are documented in this file.
   consume that exact audited snapshot instead of reopening the manifest. Every valid operations row
   carries its snapshot digest; recovery rejects a row whose digest differs from its independent
   re-audit, and pilot collectors recheck the snapshot after gathering all supporting evidence.
+- DWG/DWT fingerprinting now performs two bounded-memory streaming passes and requires identical
+  SHA-256, byte length, modification time, device, inode, and resolved plain-file identity across
+  both. Source drawings, staged copies, office template sources, and staged templates therefore
+  reject in-flight or same-size/mtime-restored replacement instead of combining a hash with later
+  metadata. Restart reporting also reads cancellation markers from stable bounded snapshots and
+  rechecks their content after schema/authentication validation.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,

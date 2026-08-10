@@ -54,6 +54,11 @@ the exact `manifest_sha256` used for its classification. The report consumes the
 manifest object when checking cancellation markers and re-hashes it afterward; it never reparses or
 separately hashes `manifest.json` between those steps.
 
+Cancellation-marker JSON is limited to 64 KiB, must remain a direct plain file, and is read from one
+stable byte snapshot. After schema, identity, timestamp, and authentication-tag shape validation the
+report re-reads and re-hashes it. Replacement or same-size/mtime-restored mutation produces
+`invalid_job`; structural presence still does not authenticate the marker without live plug-in status.
+
 Every report rebuild re-fingerprints the original allowed-root DWG. This is a currency check, not a
 claim that CadPlot modified the source: a user or upstream sync may have produced a newer revision.
 Such a job remains auditable, but its old output cannot be called current or queued again in place.
