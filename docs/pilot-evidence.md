@@ -94,6 +94,12 @@ input, and requires each live `pluginSha256` to equal the corresponding adapter 
 manifest. It revalidates both runs, requires distinct 2016/2025 evidence, and refuses to overwrite
 its output.
 
+The assembler reads `bundle-build.json` through two identical bounded byte snapshots; JSON parsing
+and the retained SHA-256 come from those exact bytes. It fingerprints the bundle ZIP with two
+streaming passes before opening it, validates every entry, then repeats the two-pass fingerprint.
+Both files must remain direct plain files with identical content and metadata throughout validation.
+This detects same-size/mtime-restored mutation without loading the archive into memory.
+
 The schema-v7 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, exactly two one-sheet `runs`, and exactly
 two `batch_recovery` records. Each one-sheet run records:

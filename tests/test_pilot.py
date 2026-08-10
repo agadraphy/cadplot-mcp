@@ -1213,6 +1213,67 @@ def test_bundle_build_evidence_rejects_archive_tamper(tmp_path: Path) -> None:
         validate_bundle_build_evidence(bundle, build_manifest)
 
 
+def test_bundle_build_evidence_rejects_manifest_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle, build_manifest, _ = _bundle_release_fixture(tmp_path)
+    original_validate_api = pilot_module._validate_api_identity
+
+    def mutate_manifest_after_parse(value):
+        original_validate_api(value)
+        original_stat = build_manifest.stat()
+        content = build_manifest.read_bytes()
+        build_manifest.write_bytes(content.replace(b"{", b" ", 1))
+        os.utime(
+            build_manifest,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+
+    monkeypatch.setattr(pilot_module, "_validate_api_identity", mutate_manifest_after_parse)
+
+    with pytest.raises(ValueError, match="manifest changed during validation"):
+        validate_bundle_build_evidence(bundle, build_manifest)
+
+
+def test_bundle_build_evidence_rejects_archive_changed_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle, build_manifest, _ = _bundle_release_fixture(tmp_path)
+    original_fingerprint = pilot_module.fingerprint_file
+    archive_calls = 0
+
+    def mutate_before_final_fingerprint(value, *, label="File"):
+        nonlocal archive_calls
+        if label == "Bundle archive":
+            archive_calls += 1
+            if archive_calls == 2:
+                original_stat = bundle.stat()
+                content = bundle.read_bytes()
+                bundle.write_bytes(bytes([content[0] ^ 1]) + content[1:])
+                os.utime(
+                    bundle,
+                    ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+                )
+        return original_fingerprint(value, label=label)
+
+    monkeypatch.setattr(pilot_module, "fingerprint_file", mutate_before_final_fingerprint)
+
+    with pytest.raises(ValueError, match="archive changed during validation"):
+        validate_bundle_build_evidence(bundle, build_manifest)
+
+
+def test_bundle_build_evidence_rejects_redirected_manifest(tmp_path: Path) -> None:
+    bundle, build_manifest, _ = _bundle_release_fixture(tmp_path)
+    redirected = tmp_path / "redirected-bundle-build.json"
+    try:
+        redirected.symlink_to(build_manifest)
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+
+    with pytest.raises(ValueError, match="symlink or reparse point"):
+        validate_bundle_build_evidence(bundle, redirected)
+
+
 def test_collect_cli_fails_closed_without_explicit_configuration(tmp_path: Path) -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "collect-pilot-run.py"
     environment = os.environ.copy()

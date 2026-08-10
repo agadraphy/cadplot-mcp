@@ -64,6 +64,9 @@ Use this checklist for every alpha release.
 - [ ] `scripts/verify-bundle.ps1` passes on the extracted bundle and its printed hashes are retained.
 - [ ] The matching-SDK build used a clean commit, created a new no-overwrite release root, and
       `verify-bundle-release.ps1` matched `bundle-build.json`, ZIP entries, and all file hashes.
+- [ ] Pilot bundle evidence parsed and hashed the same bounded stable `bundle-build.json` bytes,
+      fingerprinted the ZIP before and after entry inspection, and rejected redirected, in-flight,
+      or same-size/mtime-restored manifest/archive mutation without loading the ZIP into memory.
 - [ ] `build-release-kit.ps1` bound the verified matching-SDK bundle, readiness-bound Python wheel,
       300-drawing rehearsal digest, durable-queue recovery evidence, dependency/license evidence,
       lock data, source archive, install scripts, and runbooks to the same clean commit.

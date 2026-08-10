@@ -19,7 +19,7 @@ from cadplot_mcp.audit import (
     pdf_page_marking_evidence,
 )
 from cadplot_mcp.config import CadPlotConfig
-from cadplot_mcp.fingerprint import fingerprint_file
+from cadplot_mcp.fingerprint import fingerprint_file, read_stable_bytes
 from cadplot_mcp.reporting import JOB_ID_PATTERN, build_publish_operations_report
 from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT
 
@@ -1027,16 +1027,18 @@ def validate_bundle_build_evidence(
     build_manifest_value: str | Path,
 ) -> dict[str, Any]:
     """Cross-check a production bundle archive, build manifest, API IDs, and inner hashes."""
-    bundle_archive = Path(bundle_archive_value).expanduser().resolve(strict=True)
-    build_manifest = Path(build_manifest_value).expanduser().resolve(strict=True)
-    if not bundle_archive.is_file() or bundle_archive.is_symlink():
-        raise ValueError("Bundle archive must be a plain file.")
-    if not build_manifest.is_file() or build_manifest.is_symlink():
-        raise ValueError("Bundle build manifest must be a plain file.")
-    if build_manifest.stat().st_size > 1024 * 1024:
-        raise ValueError("Bundle build manifest exceeds the 1 MiB safety limit.")
+    bundle_supplied = Path(bundle_archive_value).expanduser().absolute()
+    manifest_supplied = Path(build_manifest_value).expanduser().absolute()
+    archive_fingerprint = fingerprint_file(bundle_supplied, label="Bundle archive")
+    manifest_bytes, manifest_fingerprint = read_stable_bytes(
+        manifest_supplied,
+        min_bytes=2,
+        max_bytes=1024 * 1024,
+        label="Bundle build manifest",
+    )
+    bundle_archive = bundle_supplied.resolve(strict=True)
     try:
-        raw = json.loads(build_manifest.read_text(encoding="utf-8"))
+        raw = json.loads(manifest_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Bundle build manifest must be valid UTF-8 JSON.") from exc
     if not isinstance(raw, dict) or set(raw) != BUNDLE_BUILD_FIELDS:
@@ -1077,7 +1079,7 @@ def validate_bundle_build_evidence(
         raise ValueError("Bundle build archive fields are not exact.")
     if bundle["directory"] != "CadPlotMcp.bundle" or bundle["archive"] != bundle_archive.name:
         raise ValueError("Bundle build archive names are invalid.")
-    archive_sha256 = _sha256(bundle_archive)
+    archive_sha256 = archive_fingerprint["sha256"]
     if bundle["archive_sha256"] != archive_sha256:
         raise ValueError("Bundle archive hash does not match its build manifest.")
     files = bundle["files"]
@@ -1116,11 +1118,34 @@ def validate_bundle_build_evidence(
     except zipfile.BadZipFile as exc:
         raise ValueError("Bundle archive is not a valid ZIP file.") from exc
 
+    try:
+        current_archive_fingerprint = fingerprint_file(
+            bundle_supplied, label="Bundle archive"
+        )
+    except ValueError as exc:
+        raise ValueError("Bundle archive changed during validation.") from exc
+    if current_archive_fingerprint != archive_fingerprint:
+        raise ValueError("Bundle archive changed during validation.")
+    try:
+        current_manifest_bytes, current_manifest_fingerprint = read_stable_bytes(
+            manifest_supplied,
+            min_bytes=2,
+            max_bytes=1024 * 1024,
+            label="Bundle build manifest",
+        )
+    except ValueError as exc:
+        raise ValueError("Bundle build manifest changed during validation.") from exc
+    if (
+        current_manifest_bytes != manifest_bytes
+        or current_manifest_fingerprint != manifest_fingerprint
+    ):
+        raise ValueError("Bundle build manifest changed during validation.")
+
     return {
         "repository_commit": raw["exact_commit"],
         "package_version": raw["package_version"],
         "bundle_sha256": archive_sha256,
-        "bundle_build_manifest_sha256": _sha256(build_manifest),
+        "bundle_build_manifest_sha256": manifest_fingerprint["sha256"],
         "adapter_sha256": {
             release: hashes[path] for release, path in ADAPTER_PATHS.items()
         },
@@ -1166,11 +1191,3 @@ def _validate_api_identity(value: Any) -> None:
 def _require_digest(value: Any, field: str) -> None:
     if not isinstance(value, str) or not SHA256.fullmatch(value):
         raise ValueError(f"{field} must be a lowercase SHA-256 digest.")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()

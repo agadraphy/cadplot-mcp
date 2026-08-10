@@ -415,6 +415,9 @@ which omits machine-local API directory paths from its portable manifest.
 Before archiving or installing, `scripts/verify-bundle.ps1` requires the exact six-file bundle,
 checks both module routes and managed assembly identities, rejects extra files/reparse points, and
 prints SHA-256 hashes. The build and install scripts invoke it automatically.
+Licensed pilot assembly additionally binds JSON parsing and SHA-256 to one bounded stable
+`bundle-build.json` snapshot, fingerprints the bundle ZIP before and after inspecting every entry,
+and rejects redirected or in-flight changed evidence.
 
 Installation copies into a uniquely named non-loadable staging directory, verifies every copied
 file hash against the already verified source, and only then atomically renames it to

@@ -49,6 +49,39 @@ def fingerprint_file(value: str | Path, *, label: str = "File") -> dict[str, Any
     }
 
 
+def read_stable_bytes(
+    value: str | Path,
+    *,
+    max_bytes: int,
+    label: str = "File",
+    min_bytes: int = 1,
+) -> tuple[bytes, dict[str, Any]]:
+    """Read one bounded plain file twice and return identical bytes plus their fingerprint."""
+    if not 0 <= min_bytes <= max_bytes:
+        raise ValueError("Stable byte snapshot limits are invalid.")
+    _reject_redirected_leaf(value, label)
+    supplied = Path(value).expanduser().absolute()
+    path = supplied.resolve(strict=True)
+    if not path.is_file():
+        raise ValueError(f"{label} must be a regular file.")
+
+    first = _read_file_pass(path, label, min_bytes=min_bytes, max_bytes=max_bytes)
+    second = _read_file_pass(path, label, min_bytes=min_bytes, max_bytes=max_bytes)
+    try:
+        current = supplied.resolve(strict=True)
+        redirected = _is_reparse(supplied) or current != path
+    except OSError:
+        redirected = True
+    if redirected or first != second:
+        raise ValueError(f"{label} changed while being read.")
+    content, size, modified_ns, _, _ = second
+    return content, {
+        "sha256": hashlib.sha256(content).hexdigest(),
+        "size_bytes": size,
+        "modified_ns": modified_ns,
+    }
+
+
 def _hash_file_pass(path: Path, label: str) -> tuple[str, int, int, int | None, int | None]:
     try:
         before = path.stat()
@@ -67,6 +100,34 @@ def _hash_file_pass(path: Path, label: str) -> tuple[str, int, int, int | None, 
         raise ValueError(f"{label} changed while being fingerprinted.")
     return (
         digest.hexdigest(),
+        after.st_size,
+        after.st_mtime_ns,
+        getattr(after, "st_dev", None),
+        getattr(after, "st_ino", None),
+    )
+
+
+def _read_file_pass(
+    path: Path,
+    label: str,
+    *,
+    min_bytes: int,
+    max_bytes: int,
+) -> tuple[bytes, int, int, int | None, int | None]:
+    try:
+        before = path.stat()
+        if not min_bytes <= before.st_size <= max_bytes:
+            raise ValueError(
+                f"{label} must be between {min_bytes} and {max_bytes} bytes."
+            )
+        content = path.read_bytes()
+        after = path.stat()
+    except OSError as exc:
+        raise ValueError(f"{label} could not be read.") from exc
+    if len(content) != before.st_size or _stat_identity(before) != _stat_identity(after):
+        raise ValueError(f"{label} changed while being read.")
+    return (
+        content,
         after.st_size,
         after.st_mtime_ns,
         getattr(after, "st_dev", None),

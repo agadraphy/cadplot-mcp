@@ -21,6 +21,11 @@ All notable changes to this project are documented in this file.
   reject in-flight or same-size/mtime-restored replacement instead of combining a hash with later
   metadata. Restart reporting also reads cancellation markers from stable bounded snapshots and
   rechecks their content after schema/authentication validation.
+- Licensed bundle evidence now parses and hashes the exact same bounded `bundle-build.json` bytes,
+  then re-reads them after ZIP inspection. The bundle ZIP receives a two-pass streaming fingerprint
+  before entry verification and a second two-pass fingerprint afterward. Manifest/ZIP replacement,
+  same-size/mtime-restored mutation, and redirected inputs fail closed without loading the archive
+  into memory.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,
