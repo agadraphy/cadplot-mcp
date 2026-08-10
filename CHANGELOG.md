@@ -45,6 +45,11 @@ All notable changes to this project are documented in this file.
   publish-session mode. It requires the prior read-only record, exact `CADPLOT_ENABLE_PUBLISH=1`,
   the same receipt/config/runtime/adapter/commit/DLL identity, and the Windows DPAPI/HMAC queue
   scheme; it never queues a job and keeps all live PDF and pilot-readiness claims false.
+- Successful licensed-workstation verification now emits a separate no-overwrite standard
+  `mcpServers` JSON entry bound to the verified installed Python, config, workspace, exact ProgID,
+  and pipe. Read-only output omits the publish flag; publish output includes exact
+  `CADPLOT_ENABLE_PUBLISH=1` only after the authenticated publish-session gate passes. Demo/release
+  manifests retain the config-generation smoke, and their verifiers reject altered evidence.
 - Licensed pilot schema v8 now requires each one-sheet run to embed the exact path-redacted
   read-only and publish-session workstation records plus their source-file SHA-256 values. The
   collector binds the second record to the first, rechecks both input files after collection, and

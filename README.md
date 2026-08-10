@@ -488,11 +488,16 @@ Before enabling writes on either licensed host, run the release kit's
 It requires the version-specific COM ProgID/pipe, a running matching plug-in, unchanged install/config
 evidence, and `CADPLOT_ENABLE_PUBLISH` unset. Its no-overwrite record proves only read-only workstation
 readiness; it deliberately retains `live_publish_proven=false` and `licensed_live_pilot_ready=false`.
+After every successful check it also emits a separate no-overwrite standard `mcpServers` JSON entry
+bound to the verified installed interpreter, config, workspace, ProgID, and pipe. The read-only entry
+omits the publish flag.
 After the approved restart with `CADPLOT_ENABLE_PUBLISH=1`, run the same command with
 `-SessionMode Publish -ReadOnlyPreflightPath <the prior record>` and a new output path. This second
 gate uses `cadplot-doctor --expect-publish-enabled` to require the same install/runtime/binary identity
 plus the DPAPI/HMAC authenticated queue. It does not queue a job or prove a PDF, so live and licensed
-pilot readiness remain false until the one-sheet receipt, PDF audit, and visual review pass.
+pilot readiness remain false until the one-sheet receipt, PDF audit, and visual review pass. Only a
+config emitted by that successful publish-session gate contains exact `CADPLOT_ENABLE_PUBLISH=1` and
+may be merged into an approved local MCP client's configuration.
 
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration

@@ -229,6 +229,26 @@ try {
         live_publish_proven = $false
         evidence_scope = "production-core-net45+net8-with-synthetic-files"
     }
+    $licensedPreflight = [ordered]@{
+        passed = $true
+        positive_preflight = $true
+        autocad_2016_preflight = $true
+        autocad_2025_preflight = $true
+        autocad_2016_publish_session = $true
+        autocad_2025_publish_session = $true
+        no_overwrite = $true
+        mcp_config_created = $true
+        mcp_config_overwrite_blocked = $true
+        mcp_read_only_publish_flag_absent = $true
+        mcp_publish_flag_exact = $true
+        publish_enabled_blocked = $true
+        wrong_adapter_blocked = $true
+        publish_without_preflight_blocked = $true
+        tampered_read_only_preflight_blocked = $true
+        unauthenticated_publish_session_blocked = $true
+        autocad_launched = $false
+        live_publish_proven = $false
+    }
     Write-SmokeJson -Path $dependencyAuditInputPath -Value $dependencyAudit
     $sbomPath = Join-Path $kitRoot "cadplot-mcp.cdx.json"
     Invoke-SmokeNativeQuiet -FilePath "uv" -Arguments @(
@@ -276,6 +296,7 @@ try {
         dependency_audit = $dependencyAudit
         wheel_install_smoke = $wheelSmoke
         durable_queue_recovery = $durableQueue
+        licensed_workstation_preflight_smoke = $licensedPreflight
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300
             planning_pages = 15
@@ -334,6 +355,7 @@ try {
         sbom = $sbomManifestEvidence
         wheel_install_smoke = $wheelSmoke
         durable_queue_recovery = $durableQueue
+        licensed_workstation_preflight_smoke = $licensedPreflight
         matching_sdk_bundle_built = $false
         protocol_only_fixture = $true
         local_demo_ready = $true
@@ -845,6 +867,22 @@ try {
     }
     [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
 
+    $licensedPreflightTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
+    $licensedPreflightTamper.licensed_workstation_preflight_smoke.mcp_config_created = $false
+    Write-SmokeJson -Path $outerPath -Value $licensedPreflightTamper
+    $licensedPreflightTamperBlocked = $false
+    try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
+    catch {
+        if ($_.Exception.Message -notlike "*licensed-workstation session/config smoke evidence*") {
+            throw
+        }
+        $licensedPreflightTamperBlocked = $true
+    }
+    if (-not $licensedPreflightTamperBlocked) {
+        throw "Release-kit verifier accepted altered licensed-workstation session/config evidence."
+    }
+    [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
+
     $archiveBytes = [System.IO.File]::ReadAllBytes($archivePath)
     $archiveBytes[0] = $archiveBytes[0] -bxor 1
     [System.IO.File]::WriteAllBytes($archivePath, $archiveBytes)
@@ -868,6 +906,7 @@ try {
         dependency_license_tamper_blocked = $licenseTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
+        licensed_preflight_tamper_blocked = $licensedPreflightTamperBlocked
         archive_tamper_blocked = $tamperBlocked
         python_install_what_if_safe = $true
         python_install_locked_dependencies = $true

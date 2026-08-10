@@ -94,9 +94,15 @@ Use this checklist for every alpha release.
 - [ ] With publish unset, `test-licensed-workstation.ps1` passed separately for 2016 and 2025 using
       exact versioned ProgIDs/pipes and matched live COM/runtime/adapter/commit/DLL hashes to the
       verified install; both no-overwrite records retained false live-publish/pilot-readiness claims.
+- [ ] Each successful read-only verifier produced a separate no-overwrite `.mcp.json` whose single
+      `mcpServers` entry used the verified installed Python/config/workspace/ProgID/pipe and omitted
+      `CADPLOT_ENABLE_PUBLISH`.
 - [ ] After each explicitly approved publish-enabled restart, the same verifier passed with
       `-SessionMode Publish` and the exact prior read-only record; doctor required authenticated
       queue state and identical receipt/config/runtime/binary identity before any job was queued.
+- [ ] Only each successful publish-session `.mcp.json` was merged into the approved client; it used
+      the matching release identity and exact `CADPLOT_ENABLE_PUBLISH=1`, without replacing unrelated
+      client configuration.
 - [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
       mandatory hashes, staged without overwrite, atomically renamed, and
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.

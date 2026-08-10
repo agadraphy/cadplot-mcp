@@ -295,6 +295,11 @@ değildir.
 
 Yerel MCP istemcisi, Python sunucusunu `stdio` ile aynı Windows bilgisayarda çalıştırabilir ve
 yerel AutoCAD eklentisine named pipe üzerinden ulaşabilir.
+Lisanslı iş istasyonu doğrulaması başarılı olduğunda `test-licensed-workstation.ps1`, doğrulanan
+Python, config, workspace, ProgID ve pipe değerlerine bağlı ayrı bir no-overwrite `mcpServers` JSON
+dosyası da üretir. Salt-okunur dosyada publish bayrağı yoktur; yalnız başarılı ve kimliği doğrulanmış
+`-SessionMode Publish` oturumu tam `CADPLOT_ENABLE_PUBLISH=1` içeren bağlantı girdisi üretebilir. Bu
+tek girdi, diğer istemci ayarları ezilmeden onaylı yerel ChatGPT/Codex yapılandırmasına birleştirilir.
 Repo içindeki doğrulanmış opsiyonel Codex wrapper'ı
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md) klasöründedir; yalnız
 önceden kurulmuş `cadplot-mcp` komutunu başlatır ve şirket dosyalarını paketlemez.

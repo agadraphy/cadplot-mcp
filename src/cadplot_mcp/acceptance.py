@@ -81,6 +81,10 @@ OUTER_MANIFEST_FIELDS = {
     "kit_archive_sha256",
     "dependency_audit_ran",
     "dependency_audit",
+    "sbom",
+    "wheel_install_smoke",
+    "durable_queue_recovery",
+    "licensed_workstation_preflight_smoke",
     "matching_sdk_bundle_built",
     "local_demo_ready",
     "licensed_live_pilot_ready",
@@ -100,6 +104,10 @@ INNER_MANIFEST_FIELDS = {
     "files",
     "dependency_audit_ran",
     "dependency_audit",
+    "sbom",
+    "wheel_install_smoke",
+    "durable_queue_recovery",
+    "licensed_workstation_preflight_smoke",
     "synthetic_batch_rehearsal",
     "matching_sdk_bundle_built",
     "local_demo_ready",
@@ -320,6 +328,17 @@ def _collect_acceptance_inputs(
     wheel_hash = kit_files[wheel_relative][1]["sha256"]
     if wheel.get("sha256") != wheel_hash:
         raise ValueError("Release-kit wheel hash is invalid.")
+    wheel_smoke = manifest["wheel_install_smoke"]
+    if (
+        wheel_smoke.get("version") != manifest["package_version"]
+        or wheel_smoke.get("wheel_sha256") != wheel_hash
+    ):
+        raise ValueError("Release-kit installed-wheel evidence is not artifact-bound.")
+    sbom = manifest["sbom"]
+    sbom_path = _safe_kit_file(kit_root, sbom["file"], label="SBOM")
+    sbom_relative = sbom_path.relative_to(kit_root).as_posix()
+    if kit_files[sbom_relative][1]["sha256"] != sbom["sha256"]:
+        raise ValueError("Release-kit SBOM hash is invalid.")
     source_path = _safe_kit_file(
         kit_root, manifest.get("source_archive"), label="Source archive"
     )
@@ -431,6 +450,120 @@ def _validate_release_manifest_identity(outer: Any, manifest: Any) -> None:
         audit = evidence.get("dependency_audit")
         if not isinstance(audit, dict) or audit.get("passed") is not True:
             raise ValueError("Release-kit dependency audit is invalid.")
+    for field in (
+        "sbom",
+        "wheel_install_smoke",
+        "durable_queue_recovery",
+        "licensed_workstation_preflight_smoke",
+    ):
+        if outer.get(field) != manifest.get(field):
+            raise ValueError(f"Release-kit {field} evidence is inconsistent.")
+    sbom = manifest.get("sbom")
+    if (
+        not isinstance(sbom, dict)
+        or set(sbom)
+        != {
+            "file",
+            "sha256",
+            "spec_version",
+            "component_count",
+            "runtime_dependency_count",
+            "artifact_count",
+        }
+        or sbom.get("file") != "cadplot-mcp.cdx.json"
+        or not isinstance(sbom.get("sha256"), str)
+        or not SHA256.fullmatch(sbom["sha256"])
+        or sbom.get("spec_version") != "1.7"
+        or not isinstance(sbom.get("component_count"), int)
+        or sbom["component_count"] < 1
+        or not isinstance(sbom.get("runtime_dependency_count"), int)
+        or sbom["runtime_dependency_count"] < 1
+        or sbom.get("artifact_count") != 7
+    ):
+        raise ValueError("Release-kit SBOM evidence is invalid.")
+    wheel_smoke = manifest.get("wheel_install_smoke")
+    if not isinstance(wheel_smoke, dict) or any(
+        wheel_smoke.get(field) != expected
+        for field, expected in {
+            "passed": True,
+            "tool_count": 20,
+            "http_transport_tool_count": 20,
+            "http_transport_loopback_only": True,
+            "http_transport_header_guards": True,
+            "tunnel_preflight_redacted": True,
+            "tunnel_preflight_target_probed": True,
+            "chatgpt_eval_plan_prepared": True,
+            "chatgpt_eval_case_count": 13,
+            "sbom_cli_verified": True,
+            "isolated_install": True,
+            "locked_dependencies": True,
+            "dependency_hashes_required": True,
+            "autocad_launched": False,
+            "live_tunnel_proven": False,
+            "live_publish_proven": False,
+        }.items()
+    ):
+        raise ValueError("Release-kit installed local-target evidence is invalid.")
+    for digest_field in ("wheel_sha256", "tunnel_preflight_tool_surface_sha256"):
+        digest = wheel_smoke.get(digest_field)
+        if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+            raise ValueError("Release-kit installed local-target digest evidence is invalid.")
+    durable = manifest.get("durable_queue_recovery")
+    if not isinstance(durable, dict) or any(
+        durable.get(field) != expected
+        for field, expected in {
+            "passed": True,
+            "exact_test_count": 15,
+            "pending_intent_recovered": True,
+            "exact_request_identity_preserved": True,
+            "interrupted_job_not_replayed": True,
+            "terminal_receipt_status_recovered": True,
+            "tampered_intent_blocked": True,
+            "completed_job_requeue_blocked": True,
+            "authentication_scheme": "windows-dpapi-current-user+hmac-sha256-v1",
+            "signed_intent_required": True,
+            "foreign_key_intent_blocked": True,
+            "started_marker_authentication_required": True,
+            "pending_cancellation_durable": True,
+            "cancelled_job_not_replayed": True,
+            "cancelled_marker_authentication_required": True,
+            "running_job_not_cancelled": True,
+            "protected_key_outside_workspace": True,
+            "workspace_key_rejected": True,
+            "corrupt_key_blocked": True,
+            "net45_dpapi_runtime_proven": True,
+            "net45_core_image_runtime": "v4.0.30319",
+            "autocad_launched": False,
+            "live_publish_proven": False,
+            "evidence_scope": "production-core-net45+net8-with-synthetic-files",
+        }.items()
+    ):
+        raise ValueError("Release-kit durable queue recovery evidence is invalid.")
+    licensed = manifest.get("licensed_workstation_preflight_smoke")
+    if not isinstance(licensed, dict) or any(
+        licensed.get(field) != expected
+        for field, expected in {
+            "passed": True,
+            "positive_preflight": True,
+            "autocad_2016_preflight": True,
+            "autocad_2025_preflight": True,
+            "autocad_2016_publish_session": True,
+            "autocad_2025_publish_session": True,
+            "no_overwrite": True,
+            "mcp_config_created": True,
+            "mcp_config_overwrite_blocked": True,
+            "mcp_read_only_publish_flag_absent": True,
+            "mcp_publish_flag_exact": True,
+            "publish_enabled_blocked": True,
+            "wrong_adapter_blocked": True,
+            "publish_without_preflight_blocked": True,
+            "tampered_read_only_preflight_blocked": True,
+            "unauthenticated_publish_session_blocked": True,
+            "autocad_launched": False,
+            "live_publish_proven": False,
+        }.items()
+    ):
+        raise ValueError("Release-kit licensed-workstation session/config evidence is invalid.")
     batch = manifest.get("synthetic_batch_rehearsal")
     if not isinstance(batch, dict) or any(
         batch.get(field) != expected

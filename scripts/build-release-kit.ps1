@@ -223,6 +223,29 @@ try {
     ) {
         throw "Release kit requires valid durable queue recovery evidence."
     }
+    $licensedPreflight = $readiness.licensed_workstation_preflight_smoke
+    if (
+        $licensedPreflight.passed -ne $true -or
+        $licensedPreflight.positive_preflight -ne $true -or
+        $licensedPreflight.autocad_2016_preflight -ne $true -or
+        $licensedPreflight.autocad_2025_preflight -ne $true -or
+        $licensedPreflight.autocad_2016_publish_session -ne $true -or
+        $licensedPreflight.autocad_2025_publish_session -ne $true -or
+        $licensedPreflight.no_overwrite -ne $true -or
+        $licensedPreflight.mcp_config_created -ne $true -or
+        $licensedPreflight.mcp_config_overwrite_blocked -ne $true -or
+        $licensedPreflight.mcp_read_only_publish_flag_absent -ne $true -or
+        $licensedPreflight.mcp_publish_flag_exact -ne $true -or
+        $licensedPreflight.publish_enabled_blocked -ne $true -or
+        $licensedPreflight.wrong_adapter_blocked -ne $true -or
+        $licensedPreflight.publish_without_preflight_blocked -ne $true -or
+        $licensedPreflight.tampered_read_only_preflight_blocked -ne $true -or
+        $licensedPreflight.unauthenticated_publish_session_blocked -ne $true -or
+        $licensedPreflight.autocad_launched -ne $false -or
+        $licensedPreflight.live_publish_proven -ne $false
+    ) {
+        throw "Release kit requires valid licensed-workstation session/config smoke evidence."
+    }
     $wheelSmoke = $readiness.wheel_install_smoke
     if (
         $wheelSmoke.passed -ne $true -or
@@ -395,6 +418,7 @@ try {
         dependency_audit = $readiness.dependency_audit
         wheel_install_smoke = $wheelSmoke
         durable_queue_recovery = $durableQueue
+        licensed_workstation_preflight_smoke = $licensedPreflight
         synthetic_batch_rehearsal = $batch
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
@@ -427,6 +451,7 @@ try {
         sbom = $sbomManifestEvidence
         wheel_install_smoke = $wheelSmoke
         durable_queue_recovery = $durableQueue
+        licensed_workstation_preflight_smoke = $licensedPreflight
         matching_sdk_bundle_built = $true
         local_demo_ready = $true
         licensed_live_pilot_ready = $false

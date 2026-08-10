@@ -445,6 +445,10 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "autocad_2025_preflight -ne $true",
         "autocad_2016_publish_session -ne $true",
         "autocad_2025_publish_session -ne $true",
+        "mcp_config_created -ne $true",
+        "mcp_config_overwrite_blocked -ne $true",
+        "mcp_read_only_publish_flag_absent -ne $true",
+        "mcp_publish_flag_exact -ne $true",
         "wrong_adapter_blocked -ne $true",
         "unauthenticated_publish_session_blocked -ne $true",
         "queue_deferred_results -ne 285",
@@ -1214,6 +1218,9 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "python_license_inventory",
         "valid installed local-target probe evidence",
         "wheel_install_smoke = $wheelSmoke",
+        "licensed_workstation_preflight_smoke = $licensedPreflight",
+        "session/config smoke evidence",
+        "mcp_config_created -ne $true",
         "marking_content_verified -ne 300",
         "blank_pdf_rejected -ne $true",
     ):
@@ -1238,6 +1245,9 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "dependency license inventory is incomplete",
         "installed local-target probe evidence",
         "tunnel_preflight_target_probed -ne $true",
+        "licensed_workstation_preflight_smoke",
+        "session/config smoke evidence",
+        "mcp_config_created -ne $true",
         "marking_content_verified -ne 300",
         "blank_pdf_rejected -ne $true",
         '"scripts/verify-release-kit.ps1"',
@@ -1280,6 +1290,9 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "test-licensed-workstation.ps1" in guide
     assert "-SessionMode Publish" in guide
     assert "licensed-publish-session-2025.json" in guide
+    assert "licensed-publish-session-2025.mcp.json" in guide
+    assert "McpConfigOutputPath" in guide
+    assert '"mcpServers"' in guide
     assert "cadplot-mcp-2016" in guide
     assert "cadplot-mcp-2025" in guide
     assert "publisher authenticity" in guide
@@ -1308,6 +1321,12 @@ def test_licensed_workstation_gate_binds_publish_session_to_read_only_evidence()
         "live_publish_proven = $false",
         "licensed_live_pilot_ready = $false",
         "FileMode]::CreateNew",
+        "McpConfigOutputPath",
+        "mcpServers = $mcpServers",
+        '"CADPLOT_CONFIG"',
+        '"CADPLOT_WORKSPACE_ROOT"',
+        "McpConfigSha256",
+        "McpConfigCreated = $true",
     ):
         assert required in gate
     for required in (
@@ -1316,6 +1335,10 @@ def test_licensed_workstation_gate_binds_publish_session_to_read_only_evidence()
         "publish_without_preflight_blocked",
         "tampered_read_only_preflight_blocked",
         "unauthenticated_publish_session_blocked",
+        "mcp_config_created = $true",
+        "mcp_config_overwrite_blocked = $mcpConfigOverwriteBlocked",
+        "mcp_read_only_publish_flag_absent = $true",
+        "mcp_publish_flag_exact = $true",
     ):
         assert required in smoke
     assert "Start-Process" not in gate
@@ -1334,6 +1357,7 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "archive_tamper_blocked",
         "dependency_license_tamper_blocked",
         "tunnel_target_probe_tamper_blocked",
+        "licensed_preflight_tamper_blocked",
         "AllowProtocolOnlyFixture",
         "autocad_launched = $false",
         "live_publish_proven = $false",
@@ -1398,6 +1422,7 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
         "release_kit_self_verification_passed",
         "release_kit_tunnel_target_probe_tamper_blocked",
+        "release_kit_licensed_preflight_tamper_blocked",
         "copied_hashes_verified = $true",
         "bundle_install_autocad_process_blocked = $installProcessGuardBlocked",
         "existing_install_blocked = $overwriteBlocked",

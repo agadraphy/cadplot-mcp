@@ -217,7 +217,11 @@ For 2016 use `AutoCAD.Application.20.1`, `cadplot-mcp-2016`, release `2016`, and
 The command runs the install verifier both before and after full doctor inspection, compares the live
 adapter DLL hash and embedded commit to the verified installation, and refuses a publish-enabled or
 cross-version process. It never launches AutoCAD, opens a DWG, initializes the publish queue, or proves
-a PDF. Preserve each release's record with the private pilot evidence.
+a PDF. On success it also creates `licensed-preflight-2025.mcp.json` beside the evidence record. This
+no-overwrite file contains one exact standard `"mcpServers"` entry bound to the verified installed
+Python, config, workspace, ProgID, and pipe; the read-only entry deliberately omits
+`CADPLOT_ENABLE_PUBLISH`. For 2016 the default name is `licensed-preflight-2016.mcp.json`. Preserve
+each release's record and generated config with the private pilot evidence.
 
 After inspection/staging approval, close AutoCAD, set `CADPLOT_ENABLE_PUBLISH=1` in the same exact
 launcher environment, restart that release, and bind the authenticated write-capable session to the
@@ -240,6 +244,15 @@ The publish-session gate requires the status command's `readOnly=true`, session 
 It reads the prior preflight as a stable bounded
 snapshot and rechecks it after doctor inspection. It does not open, stage, queue, or plot a DWG;
 `live_publish_proven=false` and `licensed_live_pilot_ready=false` remain mandatory.
+
+Only after that command succeeds, use the generated
+`licensed-publish-session-2025.mcp.json`. Copy or merge its single `"mcpServers"` child into the
+approved ChatGPT/Codex desktop client configuration; do not replace unrelated client entries. The
+publish entry contains exact `CADPLOT_ENABLE_PUBLISH=1` because the authenticated live session was
+verified. Use the read-only `.mcp.json` for inspection-only work. `-McpConfigOutputPath <path>` can
+select another output under the verified pilot root, but neither the evidence file nor the MCP config
+is ever overwritten. Restart the client after importing the selected entry. Never import a publish
+config produced by a failed, interrupted, copied, or different-release verification attempt.
 
 ## Evidence boundary
 

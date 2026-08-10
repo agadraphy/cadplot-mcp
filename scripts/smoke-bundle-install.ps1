@@ -170,6 +170,7 @@ try {
         $releaseKitSmoke.dependency_license_tamper_blocked -ne $true -or
         $releaseKitSmoke.durable_queue_tamper_blocked -ne $true -or
         $releaseKitSmoke.tunnel_target_probe_tamper_blocked -ne $true -or
+        $releaseKitSmoke.licensed_preflight_tamper_blocked -ne $true -or
         $releaseKitSmoke.python_install_what_if_safe -ne $true -or
         $releaseKitSmoke.python_install_locked_dependencies -ne $true -or
         $releaseKitSmoke.python_install_overwrite_blocked -ne $true -or
@@ -384,6 +385,7 @@ try {
         release_kit_dependency_license_tamper_blocked = $releaseKitSmoke.dependency_license_tamper_blocked
         release_kit_durable_queue_tamper_blocked = $releaseKitSmoke.durable_queue_tamper_blocked
         release_kit_tunnel_target_probe_tamper_blocked = $releaseKitSmoke.tunnel_target_probe_tamper_blocked
+        release_kit_licensed_preflight_tamper_blocked = $releaseKitSmoke.licensed_preflight_tamper_blocked
         release_kit_archive_tamper_blocked = $releaseKitSmoke.archive_tamper_blocked
         python_install_what_if_safe = $releaseKitSmoke.python_install_what_if_safe
         python_install_locked_dependencies = $releaseKitSmoke.python_install_locked_dependencies

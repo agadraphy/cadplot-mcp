@@ -18,6 +18,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$OutputPath,
 
+    [string]$McpConfigOutputPath = "",
+
     [ValidateRange(1, 60000)]
     [int]$TimeoutMs = 2000,
 
@@ -186,6 +188,10 @@ else {
 $release = Get-NormalizedPath -Path $ReleaseRoot
 $receipt = [System.IO.Path]::GetFullPath($ReceiptPath)
 $output = [System.IO.Path]::GetFullPath($OutputPath)
+$mcpOutput = if ([string]::IsNullOrWhiteSpace($McpConfigOutputPath)) {
+    [System.IO.Path]::ChangeExtension($output, ".mcp.json")
+}
+else { [System.IO.Path]::GetFullPath($McpConfigOutputPath) }
 $verifier = Join-Path $release "CadPlotMcp.release\scripts\verify-release-install.ps1"
 if (-not (Test-Path -LiteralPath $verifier -PathType Leaf)) {
     throw "Embedded installed-release verifier is missing."
@@ -193,9 +199,13 @@ if (-not (Test-Path -LiteralPath $verifier -PathType Leaf)) {
 if (Test-Path -LiteralPath $output) {
     throw "Output already exists; licensed preflight evidence is never overwritten."
 }
+if (Test-Path -LiteralPath $mcpOutput) {
+    throw "MCP config output already exists; session configuration is never overwritten."
+}
 Assert-NoRedirectedAncestor -Path $release
 Assert-NoRedirectedAncestor -Path $receipt
 Assert-NoRedirectedAncestor -Path (Split-Path -Parent $output)
+Assert-NoRedirectedAncestor -Path (Split-Path -Parent $mcpOutput)
 
 $installed = & $verifier -ReleaseRoot $release -ReceiptPath $receipt -PassThru
 if ($installed.Passed -ne $true -or $installed.InstallationComplete -ne $true) {
@@ -204,14 +214,21 @@ if ($installed.Passed -ne $true -or $installed.InstallationComplete -ne $true) {
 
 $pilotRoot = Get-NormalizedPath -Path ([string]$installed.PilotRoot)
 $outputBoundary = $pilotRoot + '\'
-if (
-    -not $output.StartsWith($outputBoundary, [System.StringComparison]::OrdinalIgnoreCase) -or
-    $output.Equals([string]$installed.Config, [System.StringComparison]::OrdinalIgnoreCase)
-) {
-    throw "Licensed preflight output must be a new file under the verified pilot root."
+foreach ($target in @($output, $mcpOutput)) {
+    if (
+        -not $target.StartsWith($outputBoundary, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $target.Equals([string]$installed.Config, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $target.Equals($receipt, [System.StringComparison]::OrdinalIgnoreCase)
+    ) {
+        throw "Licensed preflight outputs must be new files under the verified pilot root."
+    }
+}
+if ($output.Equals($mcpOutput, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Licensed evidence and MCP config outputs must be distinct."
 }
 $config = Get-NormalizedPath -Path ([string]$installed.Config)
 $workspace = Get-NormalizedPath -Path (Join-Path $pilotRoot "pilot-work")
+$pythonExe = Join-Path ([string]$installed.PythonPath) "venv\Scripts\python.exe"
 Assert-EnvironmentPath -Name "CADPLOT_CONFIG" -Expected $config
 Assert-EnvironmentPath -Name "CADPLOT_WORKSPACE_ROOT" -Expected $workspace
 
@@ -243,7 +260,7 @@ else {
 
 $doctor = Join-Path ([string]$installed.PythonPath) "bin\cadplot-doctor.cmd"
 $adapterPath = Join-Path ([string]$installed.BundlePath) $expected.AdapterRelativePath
-foreach ($path in @($config, $workspace, $doctor, $adapterPath, $receipt)) {
+foreach ($path in @($config, $workspace, $doctor, $pythonExe, $adapterPath, $receipt)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Licensed preflight required path is missing: $path"
     }
@@ -440,8 +457,37 @@ else {
     $evidence["queue_authentication"] = "windows-dpapi-current-user+hmac-sha256-v1"
     $evidence["next_gate"] = "Authorized one-sheet staged-copy queue and visual acceptance"
 }
-Write-NewUtf8Json -Path $output -Value $evidence
+$serverId = "cadplot-$AutoCADRelease-$($SessionMode.ToLowerInvariant())"
+$mcpEnvironment = [ordered]@{
+    CADPLOT_CONFIG = $config
+    CADPLOT_WORKSPACE_ROOT = $workspace
+    CADPLOT_AUTOCAD_PROGID = $expected.ProgId
+    CADPLOT_PIPE_NAME = $expected.PipeName
+}
+if ($SessionMode -eq "Publish") {
+    $mcpEnvironment["CADPLOT_ENABLE_PUBLISH"] = "1"
+}
+$mcpServers = [ordered]@{}
+$mcpServers[$serverId] = [ordered]@{
+    command = $pythonExe
+    args = @("-m", "cadplot_mcp")
+    env = $mcpEnvironment
+}
+$mcpConfiguration = [ordered]@{ mcpServers = $mcpServers }
+$mcpWritten = $false
+try {
+    Write-NewUtf8Json -Path $mcpOutput -Value $mcpConfiguration
+    $mcpWritten = $true
+    Write-NewUtf8Json -Path $output -Value $evidence
+}
+catch {
+    if ($mcpWritten -and (Test-Path -LiteralPath $mcpOutput -PathType Leaf)) {
+        Remove-Item -LiteralPath $mcpOutput -Force
+    }
+    throw
+}
 $outputSha256 = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+$mcpOutputSha256 = (Get-FileHash -LiteralPath $mcpOutput -Algorithm SHA256).Hash.ToLowerInvariant()
 $result = [pscustomobject]@{
     Passed = $true
     AutoCADRelease = $AutoCADRelease
@@ -451,6 +497,10 @@ $result = [pscustomobject]@{
     PluginSha256 = $adapterSha256
     Output = $output
     OutputSha256 = $outputSha256
+    McpConfig = $mcpOutput
+    McpConfigSha256 = $mcpOutputSha256
+    McpServerId = $serverId
+    McpConfigCreated = $true
     ReadOnly = $SessionMode -eq "ReadOnly"
     PublishEnabled = $SessionMode -eq "Publish"
     LivePublishProven = $false

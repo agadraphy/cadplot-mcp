@@ -108,6 +108,83 @@ def _workstation_gates(release: str, plugin_sha256: str) -> dict:
     }
 
 
+def _licensed_preflight_smoke() -> dict:
+    return {
+        "passed": True,
+        "positive_preflight": True,
+        "autocad_2016_preflight": True,
+        "autocad_2025_preflight": True,
+        "autocad_2016_publish_session": True,
+        "autocad_2025_publish_session": True,
+        "no_overwrite": True,
+        "mcp_config_created": True,
+        "mcp_config_overwrite_blocked": True,
+        "mcp_read_only_publish_flag_absent": True,
+        "mcp_publish_flag_exact": True,
+        "publish_enabled_blocked": True,
+        "wrong_adapter_blocked": True,
+        "publish_without_preflight_blocked": True,
+        "tampered_read_only_preflight_blocked": True,
+        "unauthenticated_publish_session_blocked": True,
+        "autocad_launched": False,
+        "live_publish_proven": False,
+    }
+
+
+def _wheel_install_smoke(wheel_sha256: str) -> dict:
+    return {
+        "passed": True,
+        "version": "0.1.0",
+        "wheel_sha256": wheel_sha256,
+        "protocol_version": "2025-11-25",
+        "tool_count": 20,
+        "http_transport_tool_count": 20,
+        "http_transport_loopback_only": True,
+        "http_transport_header_guards": True,
+        "tunnel_preflight_redacted": True,
+        "tunnel_preflight_target_probed": True,
+        "tunnel_preflight_tool_surface_sha256": "a" * 64,
+        "chatgpt_eval_plan_prepared": True,
+        "chatgpt_eval_case_count": 13,
+        "sbom_cli_verified": True,
+        "isolated_install": True,
+        "locked_dependencies": True,
+        "dependency_hashes_required": True,
+        "autocad_launched": False,
+        "live_tunnel_proven": False,
+        "live_publish_proven": False,
+    }
+
+
+def _durable_queue_recovery() -> dict:
+    return {
+        "passed": True,
+        "exact_test_count": 15,
+        "pending_intent_recovered": True,
+        "exact_request_identity_preserved": True,
+        "interrupted_job_not_replayed": True,
+        "terminal_receipt_status_recovered": True,
+        "tampered_intent_blocked": True,
+        "completed_job_requeue_blocked": True,
+        "authentication_scheme": "windows-dpapi-current-user+hmac-sha256-v1",
+        "signed_intent_required": True,
+        "foreign_key_intent_blocked": True,
+        "started_marker_authentication_required": True,
+        "pending_cancellation_durable": True,
+        "cancelled_job_not_replayed": True,
+        "cancelled_marker_authentication_required": True,
+        "running_job_not_cancelled": True,
+        "protected_key_outside_workspace": True,
+        "workspace_key_rejected": True,
+        "corrupt_key_blocked": True,
+        "net45_dpapi_runtime_proven": True,
+        "net45_core_image_runtime": "v4.0.30319",
+        "autocad_launched": False,
+        "live_publish_proven": False,
+        "evidence_scope": "production-core-net45+net8-with-synthetic-files",
+    }
+
+
 def _run(release: str, digit: str, plugin_sha256: str) -> dict:
     product, adapter, series = {
         "2016": (
@@ -307,6 +384,8 @@ def _fixture(tmp_path: Path, *, prohibited_asset: bool = False) -> tuple[Path, P
     bundle_manifest_path.write_text(json.dumps(bundle_manifest), encoding="utf-8")
     wheel = python / "cadplot_mcp-0.1.0-py3-none-any.whl"
     wheel.write_bytes(b"verified wheel fixture")
+    sbom_path = kit_root / "cadplot-mcp.cdx.json"
+    sbom_path.write_text('{"bomFormat":"CycloneDX","specVersion":"1.7"}', encoding="utf-8")
     source = kit_root / "source" / "cadplot-mcp-source-1111111.zip"
     source.parent.mkdir()
     with zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -345,6 +424,17 @@ def _fixture(tmp_path: Path, *, prohibited_asset: bool = False) -> tuple[Path, P
         "live_publish_proven": False,
         "dependency_audit_ran": True,
         "dependency_audit": {"passed": True},
+        "sbom": {
+            "file": "cadplot-mcp.cdx.json",
+            "sha256": _sha256(sbom_path),
+            "spec_version": "1.7",
+            "component_count": 8,
+            "runtime_dependency_count": 1,
+            "artifact_count": 7,
+        },
+        "wheel_install_smoke": _wheel_install_smoke(_sha256(wheel)),
+        "durable_queue_recovery": _durable_queue_recovery(),
+        "licensed_workstation_preflight_smoke": _licensed_preflight_smoke(),
     }
     files = [
         {
@@ -460,6 +550,25 @@ def test_acceptance_requires_both_publication_approvals(tmp_path: Path) -> None:
         validate_release_acceptance(
             invalid_recovery, release_root_value=release_root, pilot_evidence_value=pilot
         )
+
+
+def test_acceptance_rejects_licensed_config_smoke_tamper(tmp_path: Path) -> None:
+    release_root, _ = _fixture(tmp_path)
+    outer = json.loads(
+        (release_root / "release-kit-build.json").read_text(encoding="utf-8")
+    )
+    manifest = json.loads(
+        (release_root / "CadPlotMcp.release" / "release-kit.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    outer["licensed_workstation_preflight_smoke"]["mcp_config_created"] = False
+    manifest["licensed_workstation_preflight_smoke"]["mcp_config_created"] = False
+
+    with pytest.raises(
+        ValueError, match="licensed-workstation session/config evidence is invalid"
+    ):
+        acceptance_module._validate_release_manifest_identity(outer, manifest)
 
 
 def test_acceptance_rejects_pilot_or_release_tamper(tmp_path: Path) -> None:

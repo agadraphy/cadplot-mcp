@@ -252,6 +252,10 @@ try {
         $licensedPreflightEvidence.autocad_2016_publish_session -ne $true -or
         $licensedPreflightEvidence.autocad_2025_publish_session -ne $true -or
         $licensedPreflightEvidence.no_overwrite -ne $true -or
+        $licensedPreflightEvidence.mcp_config_created -ne $true -or
+        $licensedPreflightEvidence.mcp_config_overwrite_blocked -ne $true -or
+        $licensedPreflightEvidence.mcp_read_only_publish_flag_absent -ne $true -or
+        $licensedPreflightEvidence.mcp_publish_flag_exact -ne $true -or
         $licensedPreflightEvidence.publish_enabled_blocked -ne $true -or
         $licensedPreflightEvidence.wrong_adapter_blocked -ne $true -or
         $licensedPreflightEvidence.publish_without_preflight_blocked -ne $true -or

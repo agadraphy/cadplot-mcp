@@ -94,7 +94,9 @@ taşınmaz.
    olmalıdır.
    Ardından verified install receipt ile `scripts/test-licensed-workstation.ps1` çalıştırın. Sürümün
    exact ProgID/pipe/runtime/adapter/commit/hash eşleşmesini tek no-overwrite JSON'a bağlamalı;
-   `live_publish_proven=false` ve `licensed_live_pilot_ready=false` kalmalıdır.
+   `live_publish_proven=false` ve `licensed_live_pilot_ready=false` kalmalıdır. Başarılı komutun
+   yanında ürettiği `.mcp.json` dosyasındaki `mcpServers` girdisini gösterin; salt-okunur girdide
+   `CADPLOT_ENABLE_PUBLISH` bulunmamalıdır.
 3. `inspect_drawing` çalıştırıp bulunan çerçeve, mevcut layout, page setup, plotter, media ve stili
    ekranda karşılaştırın.
 4. `create_publish_plan` çalıştırın. Ölçek, yön, plot window, hedef layout ve blocker listesini
@@ -106,7 +108,9 @@ taşınmaz.
    `CADPLOT_ENABLE_PUBLISH=1` ayarlayıp yeniden açın. Önceden açık AutoCAD oturumunda çevre
    değişkeni etkili sayılmaz. Kuyruğa almadan önce aynı scripti `-SessionMode Publish` ve önceki
    salt-okunur preflight dosyasıyla çalıştırın; exact queue authentication ve aynı release binary
-   kimliği doğrulanmalı, `live_publish_proven=false` kalmalıdır.
+   kimliği doğrulanmalı, `live_publish_proven=false` kalmalıdır. Yalnız komut başarılıysa üretilen
+   publish-session `.mcp.json` girdisini onaylı yerel ChatGPT/Codex ayarına birleştirin; tam
+   `CADPLOT_ENABLE_PUBLISH=1` değerini ve doğru sürüm pipe/ProgID'sini ekranda doğrulayın.
 8. Yalnız bir paftayı, staging sonucundaki tam `plan_id + manifest_sha256` ile sıraya alın.
 9. Canlı durum `Succeeded` olduktan sonra `read_publish_receipt` ve
    `audit_publish_outputs` çalıştırın. Kaynak için `source_unchanged=true`; schema-v2 receipt için

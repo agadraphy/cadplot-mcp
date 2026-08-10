@@ -90,7 +90,9 @@ for the selected `2016` or `2025` process. It requires the install receipt, exac
 pipe, matching COM/runtime/adapter/commit/DLL hash, safe config/workspace, and a new output under the
 pilot root. Retain the no-overwrite JSON. Its required result keeps `publish_enabled=false`,
 `live_publish_proven=false`, and `licensed_live_pilot_ready=false`; it is the gate before inspection,
-not a substitute for the one-sheet pilot.
+not a substitute for the one-sheet pilot. A successful run also emits a no-overwrite `.mcp.json`
+containing the exact local `mcpServers` entry. Confirm its command, config, workspace, ProgID, and pipe
+match the evidence; the read-only entry must have no `CADPLOT_ENABLE_PUBLISH` key.
 
 ## Gate 4: drawing inspection
 
@@ -133,7 +135,10 @@ not a substitute for the one-sheet pilot.
    Before queueing, run `test-licensed-workstation.ps1 -SessionMode Publish` with the exact prior
    read-only preflight and a new output. Require `licensed_publish_session_ready=true`,
    `read_only_preflight_verified=true`, authenticated queue evidence, and false live-publish/pilot
-   claims. The verifier and `cadplot-doctor --expect-publish-enabled` do not queue a drawing.
+    claims. The verifier and `cadplot-doctor --expect-publish-enabled` do not queue a drawing.
+   Only after this succeeds, merge the generated publish-session `.mcp.json` server entry into the
+   approved local client. Require exact `CADPLOT_ENABLE_PUBLISH=1`; never reuse it for the other
+   AutoCAD release or accept an existing/overwritten config.
 3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.
 4. Call `queue_publish_job` with the exact manifest path, approved `plan_id`, and approved
    `manifest_sha256` returned by staging.

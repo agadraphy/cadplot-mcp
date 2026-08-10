@@ -30,13 +30,16 @@ try {
     $adapter2016 = Join-Path $bundle "Contents\Windows\2016\CadPlotMcp.AutoCAD2016.dll"
     $doctorJson = Join-Path $fixtureRoot "doctor.json"
     $doctorCommand = Join-Path $commands "cadplot-doctor.cmd"
+    $pythonExe = Join-Path $python "venv\Scripts\python.exe"
     $output = Join-Path $pilot "licensed-preflight-2025.json"
 
-    $null = New-Item -ItemType Directory -Path $kitScripts,$workspace,$input,$receipts,$commands
+    $null = New-Item -ItemType Directory -Path `
+        $kitScripts,$workspace,$input,$receipts,$commands,(Split-Path -Parent $pythonExe)
     $null = New-Item -ItemType Directory -Path `
         (Split-Path -Parent $adapter),(Split-Path -Parent $adapter2016)
     [System.IO.File]::WriteAllText($config, "version: 1`n", [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($receipt, '{"fixture":true}', [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllBytes($pythonExe, [byte[]]@(77, 90))
     [System.IO.File]::WriteAllBytes($adapter, [System.Text.UTF8Encoding]::new($false).GetBytes("adapter-2025"))
     [System.IO.File]::WriteAllBytes(
         $adapter2016,
@@ -132,6 +135,8 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $positive.ReadOnly -ne $true -or
         $positive.PublishEnabled -ne $false -or
         $positive.LivePublishProven -ne $false -or
+        $positive.McpConfigCreated -ne $true -or
+        $positive.McpServerId -cne "cadplot-2025-readonly" -or
         -not (Test-Path -LiteralPath $output -PathType Leaf)
     ) {
         throw "Licensed workstation positive preflight did not pass."
@@ -147,6 +152,25 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
     ) {
         throw "Licensed workstation evidence fields are invalid."
     }
+    $readOnlyMcp = Get-Content -LiteralPath $positive.McpConfig -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+    $readOnlyServer = $readOnlyMcp.mcpServers.'cadplot-2025-readonly'
+    if (
+        $positive.McpConfigSha256 -cne (
+            Get-FileHash -LiteralPath $positive.McpConfig -Algorithm SHA256
+        ).Hash.ToLowerInvariant() -or
+        $readOnlyServer.command -cne $pythonExe -or
+        @($readOnlyServer.args).Count -ne 2 -or
+        $readOnlyServer.args[0] -cne "-m" -or
+        $readOnlyServer.args[1] -cne "cadplot_mcp" -or
+        $readOnlyServer.env.CADPLOT_CONFIG -cne $config -or
+        $readOnlyServer.env.CADPLOT_WORKSPACE_ROOT -cne $workspace -or
+        $readOnlyServer.env.CADPLOT_AUTOCAD_PROGID -cne "AutoCAD.Application.25.0" -or
+        $readOnlyServer.env.CADPLOT_PIPE_NAME -cne "cadplot-mcp-2025" -or
+        $null -ne $readOnlyServer.env.CADPLOT_ENABLE_PUBLISH
+    ) {
+        throw "AutoCAD 2025 read-only MCP configuration is invalid."
+    }
 
     $overwriteBlocked = $false
     try {
@@ -160,6 +184,28 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $overwriteBlocked = $_.Exception.Message -like "*never overwritten*"
     }
     if (-not $overwriteBlocked) { throw "Licensed preflight overwrite was not blocked." }
+
+    $mcpConflictOutput = Join-Path $pilot "mcp-conflict-evidence.json"
+    $mcpConflictPath = [System.IO.Path]::ChangeExtension($mcpConflictOutput, ".mcp.json")
+    [System.IO.File]::WriteAllText(
+        $mcpConflictPath,
+        '{"fixture":true}',
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $mcpConfigOverwriteBlocked = $false
+    try {
+        & $preflight `
+            -ReleaseRoot $release `
+            -ReceiptPath $receipt `
+            -AutoCADRelease 2025 `
+            -OutputPath $mcpConflictOutput | Out-Null
+    }
+    catch {
+        $mcpConfigOverwriteBlocked = $_.Exception.Message -like "*MCP config output already exists*"
+    }
+    if (-not $mcpConfigOverwriteBlocked -or (Test-Path -LiteralPath $mcpConflictOutput)) {
+        throw "Existing MCP configuration was not preserved without evidence mutation."
+    }
 
     $doctorEvidence.autocad.progid = "AutoCAD.Application.20.1"
     $doctorEvidence.autocad.version = "20.1s (LMS Tech)"
@@ -187,6 +233,8 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $positive2016.Passed -ne $true -or
         $positive2016.RuntimeSeries -cne "R20.1" -or
         $positive2016.PluginSha256 -cne $adapter2016Hash -or
+        $positive2016.McpConfigCreated -ne $true -or
+        $positive2016.McpServerId -cne "cadplot-2016-readonly" -or
         -not (Test-Path -LiteralPath $output2016 -PathType Leaf)
     ) {
         throw "AutoCAD 2016 licensed workstation preflight did not pass."
@@ -294,6 +342,19 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
     ) {
         throw "AutoCAD 2025 publish-session evidence fields are invalid."
     }
+    $publishMcp = Get-Content -LiteralPath $publishSession.McpConfig -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+    $publishServer = $publishMcp.mcpServers.'cadplot-2025-publish'
+    if (
+        $publishSession.McpConfigCreated -ne $true -or
+        $publishSession.McpServerId -cne "cadplot-2025-publish" -or
+        $publishServer.command -cne $pythonExe -or
+        $publishServer.env.CADPLOT_AUTOCAD_PROGID -cne "AutoCAD.Application.25.0" -or
+        $publishServer.env.CADPLOT_PIPE_NAME -cne "cadplot-mcp-2025" -or
+        $publishServer.env.CADPLOT_ENABLE_PUBLISH -cne "1"
+    ) {
+        throw "AutoCAD 2025 publish MCP configuration is invalid."
+    }
 
     $doctorEvidence.autocad.progid = "AutoCAD.Application.20.1"
     $doctorEvidence.autocad.version = "20.1s (LMS Tech)"
@@ -320,6 +381,7 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $publishSession2016.Passed -ne $true -or
         $publishSession2016.RuntimeSeries -cne "R20.1" -or
         $publishSession2016.PublishEnabled -ne $true -or
+        $publishSession2016.McpServerId -cne "cadplot-2016-publish" -or
         $publishSession2016.LivePublishProven -ne $false
     ) {
         throw "AutoCAD 2016 licensed publish-session verification did not pass."
@@ -410,6 +472,10 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         autocad_2016_publish_session = $true
         autocad_2025_publish_session = $true
         no_overwrite = $overwriteBlocked
+        mcp_config_created = $true
+        mcp_config_overwrite_blocked = $mcpConfigOverwriteBlocked
+        mcp_read_only_publish_flag_absent = $true
+        mcp_publish_flag_exact = $true
         publish_enabled_blocked = $publishBlocked
         wrong_adapter_blocked = $identityBlocked
         publish_without_preflight_blocked = $missingPreflightBlocked

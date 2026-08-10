@@ -107,6 +107,10 @@ try {
         $preflightSummary.licensed_workstation_preflight_smoke.autocad_2016_publish_session -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.autocad_2025_publish_session -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.no_overwrite -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.mcp_config_created -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.mcp_config_overwrite_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.mcp_read_only_publish_flag_absent -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.mcp_publish_flag_exact -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.publish_enabled_blocked -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.wrong_adapter_blocked -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.publish_without_preflight_blocked -ne $true -or

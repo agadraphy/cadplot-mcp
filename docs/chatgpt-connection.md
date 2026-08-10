@@ -28,6 +28,13 @@ For a local client, `C -> P` is `stdio` on the workstation. For ChatGPT web, onl
 it becomes a company-authorized Secure MCP Tunnel during development or an authenticated HTTPS
 Streamable HTTP `/mcp` gateway in production. Everything from `P` onward remains workstation-local.
 
+For local desktop connection, use the no-overwrite `.mcp.json` emitted only after
+`test-licensed-workstation.ps1` succeeds. It contains one standard `mcpServers` entry with the exact
+verified installed Python executable, external config, workspace, AutoCAD ProgID, and named pipe.
+Merge that one child into the approved client configuration; do not overwrite unrelated servers.
+Read-only output omits `CADPLOT_ENABLE_PUBLISH`. A publish entry with exact value `1` is emitted only
+after the authenticated `-SessionMode Publish` gate succeeds and still does not prove a PDF was made.
+
 ## Required operation sequence
 
 1. Validate configuration, allowed roots, workspace separation, and the AutoCAD connection.
@@ -52,6 +59,7 @@ Implemented in this repository:
 - loopback-only Streamable HTTP `/mcp` endpoint for an authorized local tunnel;
 - secret-free `cadplot-tunnel-preflight` report and administrator command handoff;
 - optional validated Codex plugin wrapper;
+- verified-session, no-overwrite local `mcpServers` config generation with read-only/publish separation;
 - local Python/AutoCAD named-pipe protocol;
 - approval-bound staging and publishing;
 - immutable receipt and PDF audit evidence.

@@ -224,6 +224,10 @@ try {
             autocad_2016_publish_session = $true
             autocad_2025_publish_session = $true
             no_overwrite = $true
+            mcp_config_created = $true
+            mcp_config_overwrite_blocked = $true
+            mcp_read_only_publish_flag_absent = $true
+            mcp_publish_flag_exact = $true
             publish_enabled_blocked = $true
             wrong_adapter_blocked = $true
             publish_without_preflight_blocked = $true

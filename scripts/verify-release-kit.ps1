@@ -193,6 +193,37 @@ if (
 ) {
     throw "Release-kit durable queue recovery evidence is inconsistent."
 }
+foreach ($evidence in @($outer, $manifest)) {
+    $licensedPreflight = $evidence.licensed_workstation_preflight_smoke
+    if (
+        $licensedPreflight.passed -ne $true -or
+        $licensedPreflight.positive_preflight -ne $true -or
+        $licensedPreflight.autocad_2016_preflight -ne $true -or
+        $licensedPreflight.autocad_2025_preflight -ne $true -or
+        $licensedPreflight.autocad_2016_publish_session -ne $true -or
+        $licensedPreflight.autocad_2025_publish_session -ne $true -or
+        $licensedPreflight.no_overwrite -ne $true -or
+        $licensedPreflight.mcp_config_created -ne $true -or
+        $licensedPreflight.mcp_config_overwrite_blocked -ne $true -or
+        $licensedPreflight.mcp_read_only_publish_flag_absent -ne $true -or
+        $licensedPreflight.mcp_publish_flag_exact -ne $true -or
+        $licensedPreflight.publish_enabled_blocked -ne $true -or
+        $licensedPreflight.wrong_adapter_blocked -ne $true -or
+        $licensedPreflight.publish_without_preflight_blocked -ne $true -or
+        $licensedPreflight.tampered_read_only_preflight_blocked -ne $true -or
+        $licensedPreflight.unauthenticated_publish_session_blocked -ne $true -or
+        $licensedPreflight.autocad_launched -ne $false -or
+        $licensedPreflight.live_publish_proven -ne $false
+    ) {
+        throw "Release kit has no valid licensed-workstation session/config smoke evidence."
+    }
+}
+if (
+    ($outer.licensed_workstation_preflight_smoke | ConvertTo-Json -Compress -Depth 4) -cne
+        ($manifest.licensed_workstation_preflight_smoke | ConvertTo-Json -Compress -Depth 4)
+) {
+    throw "Release-kit licensed-workstation session/config evidence is inconsistent."
+}
 $embeddedLockHash = (
     Get-FileHash -LiteralPath (Join-Path $kitRoot "python\uv.lock") -Algorithm SHA256
 ).Hash.ToLowerInvariant()
