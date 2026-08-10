@@ -37,7 +37,8 @@ Streamable HTTP `/mcp` gateway in production. Everything from `P` onward remains
 5. Validate the staged manifest with the plug-in.
 6. Obtain explicit approval for the exact `plan_id` and `manifest_sha256`; then queue publishing.
 7. Read terminal receipt evidence and audit every expected PDF.
-8. Report completion only when `publish_verified=true`.
+8. Report completion only when the final audit returns both `source_unchanged=true` and
+   `publish_verified=true`.
 
 The MCP server advertises this sequence in its server instructions and marks local write tools with
 write annotations. Client approvals remain mandatory because annotations are descriptive hints,

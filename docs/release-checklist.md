@@ -103,6 +103,9 @@ Use this checklist for every alpha release.
 - [ ] Success, bounded-failure, and post-receipt PDF-tamper tests pass; output completeness is not
       presented as execution proof unless the schema-v2 receipt's canonical output-set SHA-256
       revalidates and `publish_verified=true`.
+- [ ] Source-revision and timestamp-drift tests prove that staged validation, direct queueing,
+      restart reporting, and final output audit all fail closed before claiming current output;
+      `source_changed` jobs expose no requeue approval and `publish_verified=false`.
 - [ ] If an external DWG/DWT layout is used, its authorized local root, reviewed SHA-256, exact
       layout/page-setup names, single floating viewport, job-local copy hash, and manifest reference
       all match; the company asset remains outside Git and release artifacts.

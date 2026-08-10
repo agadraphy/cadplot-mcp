@@ -88,6 +88,9 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
     if cancelled_hold:
         status = "cancelled_hold"
         next_action = "confirm_live_cancelled_or_stage_new_job"
+    elif not report["source_unchanged"]:
+        status = "source_changed"
+        next_action = "review_changed_source_then_plan_and_stage_new_job"
     elif report["publish_verified"]:
         status = "complete"
         next_action = "none"
@@ -119,6 +122,8 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
         "plan_id": manifest["plan_id"],
         "created_utc": manifest.get("created_utc"),
         "source_drawing": manifest.get("source_drawing"),
+        "source_unchanged": report["source_unchanged"],
+        "source": report["source"],
         "outputs_complete": report["outputs_complete"],
         "execution_verified": report["execution_verified"],
         "publish_verified": report["publish_verified"],
@@ -149,6 +154,7 @@ def _report_page(
         name: sum(item["status"] == name for item in items)
         for name in (
             "complete",
+            "source_changed",
             "awaiting_execution",
             "cancelled_hold",
             "failed",

@@ -19,7 +19,9 @@ the recovery claim.
 The report classifies each job:
 
 - `complete`: valid successful receipt whose canonical output-set binding still matches, plus every
-  expected PDF structurally valid;
+  expected PDF structurally valid and an unchanged authorized source DWG;
+- `source_changed`: source SHA-256, byte length, or modification timestamp no longer matches the
+  staged approval; no queue approval is returned and a new plan/staging job is required;
 - `awaiting_execution`: no receipt and no existing outputs; check live plug-in status before using
   the returned exact `queue_approval`;
 - `cancelled_hold`: a structurally valid signed-marker envelope exists, so no requeue approval is
@@ -34,6 +36,10 @@ only after every page has been
 read through `has_more=false` and every item is `complete`. Presence of a PDF alone is never
 execution evidence. To keep MCP responses bounded, at most 20 output issues are included per job;
 use `output_issue_count` and `output_issues_truncated` to detect a longer list.
+
+Every report rebuild re-fingerprints the original allowed-root DWG. This is a currency check, not a
+claim that CadPlot modified the source: a user or upstream sync may have produced a newer revision.
+Such a job remains auditable, but its old output cannot be called current or queued again in place.
 
 For a live large run, use the plug-in's `queueAvailable` value as the feed window and require
 `queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`. The same status also reports

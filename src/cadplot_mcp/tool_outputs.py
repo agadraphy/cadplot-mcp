@@ -112,6 +112,17 @@ class AuditSummaryOutput(_ClosedOutput):
     invalid: int
 
 
+class SourceCurrencyOutput(_ClosedOutput):
+    status: Literal["unchanged", "changed"]
+    expected_sha256: Sha256String
+    current_sha256: Sha256String
+    expected_size_bytes: int
+    current_size_bytes: int
+    expected_modified_ns: int
+    current_modified_ns: int
+    matches: dict[str, bool]
+
+
 class PublishExecutionReceiptOutput(_ClosedOutput):
     schema_version: Literal[2]
     plan_id: PlanIdString
@@ -134,6 +145,8 @@ class AuditPublishOutputsOutput(_ClosedOutput):
     schema_version: Literal[1] | None = None
     job_id: JobIdString | None = None
     plan_id: PlanIdString | None = None
+    source_unchanged: bool | None = None
+    source: SourceCurrencyOutput | None = None
     outputs_complete: bool | None = None
     receipt_output_binding_verified: bool | None = None
     execution_verified: bool | None = None

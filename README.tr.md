@@ -238,7 +238,7 @@ Sunumda doğrudan kullanmak için [Pazartesi demo runbook](docs/pazartesi-demo-t
 11. `read_publish_receipt` ile manifest ve PDF çıktı kümesi hash'lerine bağlı kalıcı başarı kanıtını
     doğrulayın.
 12. Üretilen dosyaları `audit_publish_outputs` ile doğrulayın; ancak PDF'ler geçerliyse,
-    `receipt_output_binding_verified=true` ise ve receipt doğrulanıyorsa dönen
+    `source_unchanged=true`, `receipt_output_binding_verified=true` ise ve receipt doğrulanıyorsa dönen
     `publish_verified=true` sonucunu kabul edin.
 
 300 çizim için `create_batch_publish_plans` aracını varsayılan 20'lik sayfalarla kullanın ve
@@ -267,6 +267,8 @@ Tüm çalışma alanını kaldığınız yerden taramak için `create_publish_op
 noktasıdır. Yalnız `awaiting_execution` işlerinde yeniden sıra onayı döner; önce canlı durum bakılır.
 Yapısal iptal marker'ı `cancelled_hold` olarak requeue onayı olmadan görünür; HMAC doğrulamalı
 `Cancelled` durumu yalnız canlı eklentiden kabul edilir.
+Kaynak DWG staging sonrasında revize edilmişse iş `source_changed` olur ve sıra onayı dönmez; eski
+kopyanın PDF'ini güncel revizyon saymamak için plan, onay ve staging yeniden yapılır.
 
 Yerel preflight hedef ölçeği ayrıca 300 sentetik kaynakla gerçekten prova eder:
 

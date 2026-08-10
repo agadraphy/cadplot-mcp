@@ -185,9 +185,11 @@ uv run python scripts/run-synthetic-demo.py
 - `stage_publish_batch`: stage at most 20 unique, explicit DWG/plan-ID approvals per call while
   isolating per-file reinspection or approval failures.
 - `validate_staged_job`: ask the local plug-in to cross-check the staged manifest against its
-  independently configured trusted workspace; it does not queue or plot the job.
+  independently configured trusted workspace; it first rejects a source DWG changed since staging
+  and does not queue or plot the job.
 - `queue_publish_job`: require the exact staged `plan_id` and `manifest_sha256`, then enqueue the
-  byte-bound copy-only job when the installed plug-in has explicitly enabled publishing.
+  byte-bound copy-only job when the installed plug-in has explicitly enabled publishing. Source
+  SHA-256, byte length, and modification time are rechecked before the pipe call.
 - `cancel_publish_job`: durably cancel only the exact `Pending` plan/manifest identity. The signed
   cancellation survives restart; the tool never interrupts a `Running` AutoCAD plot.
 - `queue_publish_batch`: queue at most 20 unique manifest/plan/hash approvals while isolating each
@@ -203,8 +205,8 @@ uv run python scripts/run-synthetic-demo.py
   cursor, terminal evidence, output issues, safe next actions, and exact requeue approvals.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
   count, expected physical paper dimensions, sizes, SHA-256 hashes, and execution evidence without
-  changing output. `publish_verified=true` requires valid PDFs and a successful receipt whose
-  canonical output-set binding independently revalidates.
+  changing output. `publish_verified=true` requires `source_unchanged=true`, valid PDFs, and a
+  successful receipt whose canonical output-set binding independently revalidates.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration
@@ -301,6 +303,9 @@ For a large run, call `create_publish_operations_report` until `has_more=false`,
 checkpoint. Only items in `awaiting_execution` include a `queue_approval`, and live status must be
 checked before submitting it. A structurally valid cancellation marker is reported as
 `cancelled_hold` without requeue approval; only the live plug-in authenticates it as `Cancelled`.
+If the original DWG changed after staging, the item is `source_changed`, has no requeue approval,
+and must be planned, approved, and staged again so a PDF from the older snapshot is never reported
+as the current revision.
 
 The local preflight also runs an explicit 300-drawing synthetic scale rehearsal:
 

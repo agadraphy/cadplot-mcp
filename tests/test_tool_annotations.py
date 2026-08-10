@@ -8,6 +8,7 @@ def test_server_instructions_enforce_approval_and_verified_completion() -> None:
     assert "inventory_office_resources" in SERVER_INSTRUCTIONS
     assert "exact approved plan_id and manifest_sha256" in SERVER_INSTRUCTIONS
     assert "Source DWGs are immutable" in SERVER_INSTRUCTIONS
+    assert "source_unchanged=true" in SERVER_INSTRUCTIONS
     assert "publish_verified=true" in SERVER_INSTRUCTIONS
 
 
@@ -110,7 +111,13 @@ def test_all_outputs_have_closed_mcp_schemas() -> None:
         "stage_publish_job": {"staged", "plan", "job", "error"},
         "queue_publish_job": {"queued", "plan_id", "plugin", "error"},
         "cancel_publish_job": {"cancelled", "plan_id", "plugin", "error"},
-        "audit_publish_outputs": {"complete", "publish_verified", "outputs", "error"},
+        "audit_publish_outputs": {
+            "complete",
+            "source_unchanged",
+            "publish_verified",
+            "outputs",
+            "error",
+        },
         "read_publish_receipt": {"found", "receipt", "error"},
         "match_paper_profile": {"matched", "label", "profile"},
     }

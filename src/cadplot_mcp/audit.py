@@ -12,6 +12,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from cadplot_mcp.config import CadPlotConfig
+from cadplot_mcp.fingerprint import fingerprint_drawing
 from cadplot_mcp.security import FILE_ATTRIBUTE_REPARSE_POINT, PathPolicyError
 
 MAX_MANIFEST_BYTES = 1024 * 1024
@@ -57,15 +58,19 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
         and receipt["receipt"]["state"] == "succeeded"
         and receipt_output_binding_verified
     )
+    source = audit_source_drawing(manifest, config)
+    source_unchanged = source["status"] == "unchanged"
     return {
         "schema_version": 1,
         "job_id": manifest["job_id"],
         "plan_id": manifest["plan_id"],
         "complete": outputs_complete,
+        "source_unchanged": source_unchanged,
+        "source": source,
         "outputs_complete": outputs_complete,
         "receipt_output_binding_verified": receipt_output_binding_verified,
         "execution_verified": execution_verified,
-        "publish_verified": outputs_complete and execution_verified,
+        "publish_verified": outputs_complete and execution_verified and source_unchanged,
         "summary": {
             "expected": len(results),
             "valid": valid,
@@ -74,6 +79,44 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
         },
         "outputs": results,
         "execution_receipt": receipt,
+    }
+
+
+def audit_source_drawing(
+    manifest: dict[str, Any], config: CadPlotConfig
+) -> dict[str, Any]:
+    """Revalidate that the published snapshot is still the current authorized source."""
+    expected = manifest.get("source_fingerprint")
+    if not isinstance(expected, dict):
+        raise ValueError("Job manifest contains an invalid source fingerprint.")
+    expected_sha256 = expected.get("sha256")
+    if (
+        not isinstance(expected_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+    ):
+        raise ValueError("Job manifest contains an invalid source fingerprint.")
+    source_path = config.path_policy.require_allowed(
+        str(manifest.get("source_drawing", "")), suffix=".dwg"
+    )
+    if not source_path.is_file():
+        raise ValueError("Job manifest source drawing is not a file.")
+    current = fingerprint_drawing(source_path, config.path_policy)
+    expected_size = expected["size_bytes"]
+    expected_modified_ns = expected["modified_ns"]
+    matches = {
+        "sha256": expected_sha256 == current["sha256"],
+        "size_bytes": expected_size == current["size_bytes"],
+        "modified_ns": expected_modified_ns == current["modified_ns"],
+    }
+    return {
+        "status": "unchanged" if all(matches.values()) else "changed",
+        "expected_sha256": expected_sha256,
+        "current_sha256": current["sha256"],
+        "expected_size_bytes": expected_size,
+        "current_size_bytes": current["size_bytes"],
+        "expected_modified_ns": expected_modified_ns,
+        "current_modified_ns": current["modified_ns"],
+        "matches": matches,
     }
 
 
@@ -223,8 +266,16 @@ def load_staged_manifest(
     ):
         raise PathPolicyError("Manifest staged_drawing is outside its job boundary.")
     source_fingerprint = raw.get("source_fingerprint")
-    if not isinstance(source_fingerprint, dict) or not isinstance(
-        source_fingerprint.get("sha256"), str
+    if (
+        not isinstance(source_fingerprint, dict)
+        or not isinstance(source_fingerprint.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", source_fingerprint["sha256"]) is None
+        or not isinstance(source_fingerprint.get("size_bytes"), int)
+        or isinstance(source_fingerprint["size_bytes"], bool)
+        or source_fingerprint["size_bytes"] < 1
+        or not isinstance(source_fingerprint.get("modified_ns"), int)
+        or isinstance(source_fingerprint["modified_ns"], bool)
+        or source_fingerprint["modified_ns"] < 0
     ):
         raise ValueError("Job manifest contains an invalid source fingerprint.")
     if _sha256(staged_drawing) != source_fingerprint["sha256"]:

@@ -131,9 +131,9 @@ them with the pilot evidence.
 6. Call `read_publish_receipt`; require a schema-v2, digest-bound `succeeded` terminal receipt with
    `output_count=1` and a valid `outputs_sha256`. Restart AutoCAD once and confirm the same receipt
    can still be read.
-7. Call `audit_publish_outputs`; require `receipt_output_binding_verified=true` and
-   `publish_verified=true` plus one valid, unencrypted, one-page PDF with the expected physical
-   paper dimensions.
+7. Call `audit_publish_outputs`; require `source_unchanged=true`,
+   `receipt_output_binding_verified=true`, and `publish_verified=true` plus one valid,
+   unencrypted, one-page PDF with the expected physical paper dimensions.
 8. Require both source and staged DWG hashes to remain unchanged.
 9. Visually compare orientation, crop, viewport scale, lineweights, plot style, text/font output,
    and title block against the office reference PDF.
@@ -150,7 +150,7 @@ collector/assembler/validator chain to return `valid=true`.
 2. Restart AutoCAD after terminal receipts exist.
 3. Page `create_publish_operations_report` using `next_after_job_id` until `has_more=false`.
 4. Require completed jobs to remain `complete`; require every other item to expose an explicit
-   safe next action. Never requeue `manual_review` or `failed` jobs in place.
+   safe next action. Never requeue `source_changed`, `manual_review`, or `failed` jobs in place.
 5. Retain each `report_page_id` in the pilot evidence.
 6. After restart, run `cadplot-collect-recovery` on every manifest in the isolated 2–20 job
    workspace. Require its `job_count` to equal `workspace_job_count`, with every job
@@ -166,8 +166,8 @@ collector/assembler/validator chain to return `valid=true`.
 - Live build commit and running adapter DLL SHA-256 match the verified bundle build manifest.
 - Staged manifest passes the independent plug-in workspace check.
 - The queued job succeeds, its immutable receipt and exact output-set binding validate after
-  restart, and the PDF audit reports `receipt_output_binding_verified=true` and
-  `publish_verified=true`.
+  restart, and the PDF audit reports `source_unchanged=true`,
+  `receipt_output_binding_verified=true`, and `publish_verified=true`.
 - Source and staged DWG hashes remain unchanged after plotting.
 - The authorized visual comparison is accepted for scale, crop, style, and orientation.
 - No proprietary asset is present in the Git repository or release archive.

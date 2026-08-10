@@ -10,7 +10,7 @@ from mcp.server.fastmcp.server import Settings as FastMCPSettings
 from mcp.types import ToolAnnotations
 
 from cadplot_mcp.audit import audit_publish_outputs as build_output_audit
-from cadplot_mcp.audit import load_staged_manifest
+from cadplot_mcp.audit import audit_source_drawing, load_staged_manifest
 from cadplot_mcp.audit import read_publish_receipt as load_publish_receipt
 from cadplot_mcp.backends.isolated_autocad import IsolatedAutoCADInspector
 from cadplot_mcp.batch import (
@@ -88,8 +88,8 @@ FastMCPSettings.model_rebuild()
 SERVER_INSTRUCTIONS = (
     "Run validate_environment; use inventory_office_resources for unknown names. Dry-run before "
     "writes. Never stage without exact plan_id approval or queue without the exact approved "
-    "plan_id and manifest_sha256. Source DWGs are immutable. Complete only when "
-    "audit_publish_outputs returns publish_verified=true. For approved batches, respect "
+    "plan_id and manifest_sha256. Source DWGs are immutable. Complete only when audit "
+    "returns source_unchanged=true and publish_verified=true. For approved batches, respect "
     "queueAvailable, retry unchanged deferred queue_full approvals, cancel only exact "
     "Pending work, and recover with create_publish_operations_report after restart."
 )
@@ -290,6 +290,12 @@ def validate_staged_job(
     config = _config()
     try:
         manifest, _ = load_staged_manifest(manifest_path, config)
+        source = audit_source_drawing(manifest, config)
+        if source["status"] != "unchanged":
+            return {
+                "accepted": False,
+                "error": "Source drawing changed after staging; create and approve a new plan.",
+            }
         request = {
             **manifest,
             "manifest": str(Path(manifest_path).expanduser().resolve(strict=True)),
@@ -312,6 +318,13 @@ def queue_publish_job(
     config = _config()
     try:
         manifest, _ = load_staged_manifest(manifest_path, config)
+        source = audit_source_drawing(manifest, config)
+        if source["status"] != "unchanged":
+            return {
+                "queued": False,
+                "plan_id": manifest["plan_id"],
+                "error": "Source drawing changed after staging; create and approve a new plan.",
+            }
         request = {
             **manifest,
             "manifest": str(Path(manifest_path).expanduser().resolve(strict=True)),

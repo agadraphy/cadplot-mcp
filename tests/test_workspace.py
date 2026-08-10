@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from base64 import b64encode
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 from pypdf import PdfWriter
 from pypdf.generic import NameObject, NumberObject
 
+from cadplot_mcp import server as mcp_server
 from cadplot_mcp.audit import (
     audit_publish_outputs,
     build_receipt_output_digest,
@@ -264,6 +266,8 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
 
     missing = audit_publish_outputs(job["manifest"], config)
     assert missing["complete"] is False
+    assert missing["source_unchanged"] is True
+    assert missing["source"]["status"] == "unchanged"
     assert missing["outputs_complete"] is False
     assert missing["execution_verified"] is False
     assert missing["publish_verified"] is False
@@ -305,9 +309,70 @@ def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path)
 
     assert result == {"found": True, "receipt": receipt}
     assert report["execution_receipt"] == result
+    assert report["source_unchanged"] is True
     assert report["receipt_output_binding_verified"] is True
     assert report["execution_verified"] is True
     assert report["publish_verified"] is True
+
+
+def test_output_audit_rejects_stale_pdf_after_source_revision(tmp_path: Path) -> None:
+    drawing, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    pdf_writer = PdfWriter()
+    pdf_writer.add_blank_page(width=842, height=595)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        pdf_writer.write(stream)
+    receipt = _successful_receipt(job, manifest_path)
+    (manifest_path.parent / "receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
+    assert audit_publish_outputs(manifest_path, config)["publish_verified"] is True
+
+    drawing.write_bytes(b"a newer authorized drawing revision")
+    report = audit_publish_outputs(manifest_path, config)
+
+    assert report["outputs_complete"] is True
+    assert report["receipt_output_binding_verified"] is True
+    assert report["execution_verified"] is True
+    assert report["source_unchanged"] is False
+    assert report["source"]["status"] == "changed"
+    assert report["source"]["matches"]["sha256"] is False
+    assert report["source"]["expected_sha256"] == plan["drawing_fingerprint"]["sha256"]
+    assert report["source"]["current_sha256"] != report["source"]["expected_sha256"]
+    assert report["publish_verified"] is False
+
+
+def test_output_audit_rejects_source_timestamp_change_after_staging(tmp_path: Path) -> None:
+    drawing, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    original = drawing.stat()
+    os.utime(
+        drawing,
+        ns=(original.st_atime_ns, original.st_mtime_ns + 10_000_000_000),
+    )
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["source_unchanged"] is False
+    assert report["source"]["matches"] == {
+        "sha256": True,
+        "size_bytes": True,
+        "modified_ns": False,
+    }
+    assert report["publish_verified"] is False
+
+
+def test_output_audit_rejects_incomplete_source_fingerprint(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source_fingerprint"].pop("size_bytes")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="invalid source fingerprint"):
+        audit_publish_outputs(manifest_path, config)
 
 
 def test_valid_replacement_pdf_cannot_reuse_successful_receipt(tmp_path: Path) -> None:
@@ -452,6 +517,7 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
 
     assert report["summary"] == {
         "complete": 1,
+        "source_changed": 0,
         "awaiting_execution": 1,
         "cancelled_hold": 1,
         "failed": 1,
@@ -471,6 +537,54 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
     assert cancelled["status"] == "cancelled_hold"
     assert cancelled["cancellation_requires_live_plugin_verification"] is True
     assert "queue_approval" not in cancelled
+
+
+def test_operations_report_blocks_queue_approval_for_changed_source(tmp_path: Path) -> None:
+    drawing, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    drawing.write_bytes(b"revision after staging")
+
+    report = build_publish_operations_report(config, limit=20)
+    item = next(value for value in report["items"] if value["job_id"] == job["job_id"])
+
+    assert report["summary"]["source_changed"] == 1
+    assert report["summary"]["awaiting_execution"] == 0
+    assert item["status"] == "source_changed"
+    assert item["source_unchanged"] is False
+    assert item["next_action"] == "review_changed_source_then_plan_and_stage_new_job"
+    assert "queue_approval" not in item
+
+
+def test_live_validation_and_queue_reject_changed_source_before_pipe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawing, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    drawing.write_bytes(b"revision before live queue")
+    monkeypatch.setattr(mcp_server, "_config", lambda: config)
+
+    def unexpected_pipe_call(*args: object, **kwargs: object) -> dict:
+        raise AssertionError("changed source must be rejected before the plug-in pipe")
+
+    monkeypatch.setattr(
+        mcp_server, "request_staged_job_validation", unexpected_pipe_call
+    )
+    monkeypatch.setattr(mcp_server, "request_publish_queue", unexpected_pipe_call)
+
+    validation = mcp_server.validate_staged_job(job["manifest"])
+    queued = mcp_server.queue_publish_job(
+        job["manifest"], plan["plan_id"], job["manifest_sha256"]
+    )
+
+    assert validation == {
+        "accepted": False,
+        "error": "Source drawing changed after staging; create and approve a new plan.",
+    }
+    assert queued == {
+        "queued": False,
+        "plan_id": plan["plan_id"],
+        "error": "Source drawing changed after staging; create and approve a new plan.",
+    }
 
 
 def test_operations_report_cursor_resumes_without_repeating_jobs(tmp_path: Path) -> None:

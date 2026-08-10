@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Normal output auditing now re-fingerprints the authorized source DWG at completion and requires
+  its SHA-256, byte length, and modification timestamp to match the staged approval before
+  `publish_verified=true`. Changed sources are reported as `source_changed`, receive no restart
+  requeue approval, and are rejected by staged validation and queueing before any plug-in pipe
+  call, preventing a valid receipt for an older snapshot from being mistaken for the latest
+  revision.
 - Pilot evidence schema v7 now makes the bounded post-restart batch gate non-optional. The new
   `cadplot-collect-recovery` command accepts only an exact isolated 2–20 job workspace, replays each
   manifest, successful receipt, output binding, and source/staged hash, and binds separate 2016 and

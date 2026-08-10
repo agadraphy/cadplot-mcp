@@ -104,9 +104,9 @@ taşınmaz.
    değişkeni etkili sayılmaz.
 8. Yalnız bir paftayı, staging sonucundaki tam `plan_id + manifest_sha256` ile sıraya alın.
 9. Canlı durum `Succeeded` olduktan sonra `read_publish_receipt` ve
-   `audit_publish_outputs` çalıştırın. Schema-v2 receipt için `output_count`, `outputs_sha256` ve
-   `receipt_output_binding_verified=true` gösterilmelidir. Kabul sonucu yalnız
-   `publish_verified=true` ise geçer.
+   `audit_publish_outputs` çalıştırın. Kaynak için `source_unchanged=true`; schema-v2 receipt için
+   `output_count`, `outputs_sha256` ve `receipt_output_binding_verified=true` gösterilmelidir.
+   Kabul sonucu yalnız `publish_verified=true` ise geçer.
 10. PDF'yi referansla yan yana açıp yön, crop, gerçek ölçek, lineweight, CTB/STB, font ve title
     block kontrolünü sorumluya yaptırın.
 11. Tek-pafta kabulünden sonra yalnız o sürüme ait temiz bir workspace'te 2–20 işlik küçük batch'i

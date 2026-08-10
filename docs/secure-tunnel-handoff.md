@@ -65,7 +65,8 @@ tunnel-client run --profile cadplot-local
 Keep `run` healthy while creating the ChatGPT developer-mode app and choose **Tunnel** as the
 connection. The administrator must retain the successful doctor result, workspace association, app
 scan, and a one-sheet approval-gated CadPlot pilot as separate evidence. Do not interpret tunnel
-health as plot success; CadPlot completion still requires `publish_verified=true`.
+health as plot success; CadPlot completion still requires final
+`source_unchanged=true` and `publish_verified=true` evidence.
 
 Then prepare and complete the 13-case evaluation in
 [ChatGPT tool-selection evaluation](chatgpt-evaluation.md). It exercises direct, indirect,

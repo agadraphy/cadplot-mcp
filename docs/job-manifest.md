@@ -64,10 +64,17 @@ After publishing, call `audit_publish_outputs` with the manifest path. The audit
 rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,
 and any output that is not exactly one page. Its report includes page dimensions, byte size, and
 SHA-256 digest for each valid PDF, then independently recomputes the successful receipt's canonical
-output-set binding. `outputs_complete` describes only the expected PDFs; `execution_verified`
-requires a valid successful receipt whose output binding still matches; `publish_verified` is true
-only when both are true. Replacing even a structurally valid PDF after receipt creation therefore
-fails closed. `read_publish_receipt` exposes the same cross-checked terminal evidence directly.
+output-set binding. It also re-fingerprints the original allowed-root source at the end of the audit;
+`source_unchanged` requires the approved SHA-256, byte length, and modification timestamp to match.
+`outputs_complete` describes only the expected PDFs; `execution_verified` requires a valid
+successful receipt whose output binding still matches; `publish_verified` is true only when all
+three gates pass. Replacing even a structurally valid PDF, or revising the source after staging,
+therefore fails closed. `read_publish_receipt` still exposes the immutable historical terminal
+evidence directly, even when a new plan is now required.
+
+Both `validate_staged_job` and `queue_publish_job` run the same source-currency check before opening
+the local plug-in pipe. A changed source is never silently substituted into the old staging job;
+plan, explicit approval, and copy-only staging must be repeated.
 
 Schema-v1 receipts are intentionally not upgraded or rewritten. Preserve them for review, then
 plan, stage, and publish a new job to obtain schema-v2 evidence.

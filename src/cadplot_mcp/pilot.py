@@ -189,6 +189,8 @@ def build_pilot_run_evidence(
     if plugin_status.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME:
         raise ValueError("Live AutoCAD status requires authenticated durable queue intent.")
     report = audit_publish_outputs(manifest_value, config)
+    if report.get("source_unchanged") is not True:
+        raise ValueError("Pilot source DWG changed after approval.")
     if report.get("publish_verified") is not True:
         raise ValueError("Pilot run requires publish_verified=true output evidence.")
     if len(report.get("outputs", [])) != 1:

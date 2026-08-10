@@ -89,7 +89,7 @@ The bridge must not:
 - expose AutoCAD COM, the local named pipe, or an arbitrary command endpoint;
 - accept unrestricted filesystem paths or a workspace root from remote requests;
 - bypass the exact `plan_id` and `manifest_sha256` approval gates;
-- claim success before `publish_verified=true` evidence exists.
+- claim success before final `source_unchanged=true` and `publish_verified=true` evidence exists.
 
 This repository does not yet implement that managed HTTPS proxy. The local `stdio` wrapper and
 loopback HTTP endpoint must not be represented as a production ChatGPT web connector.
