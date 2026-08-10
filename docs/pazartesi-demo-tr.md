@@ -96,7 +96,9 @@ taşınmaz.
    exact ProgID/pipe/runtime/adapter/commit/hash eşleşmesini tek no-overwrite JSON'a bağlamalı;
    `live_publish_proven=false` ve `licensed_live_pilot_ready=false` kalmalıdır. Başarılı komutun
    yanında ürettiği `.mcp.json` dosyasındaki `mcpServers` girdisini gösterin; salt-okunur girdide
-   `CADPLOT_ENABLE_PUBLISH` bulunmamalıdır.
+   `CADPLOT_ENABLE_PUBLISH` bulunmamalıdır. Aynı kanıtta `mcp_config_probe_passed=true`, 20 araçlık
+   tool surface ve `mcp_tools_called=false` değerlerini gösterin. Bu sınırlı prob yalnız
+   `initialize/tools/list` yapar; AutoCAD açmaz, DWG işlemez ve PDF üretmez.
 3. `inspect_drawing` çalıştırıp bulunan çerçeve, mevcut layout, page setup, plotter, media ve stili
    ekranda karşılaştırın.
 4. `create_publish_plan` çalıştırın. Ölçek, yön, plot window, hedef layout ve blocker listesini
@@ -110,7 +112,8 @@ taşınmaz.
    salt-okunur preflight dosyasıyla çalıştırın; exact queue authentication ve aynı release binary
    kimliği doğrulanmalı, `live_publish_proven=false` kalmalıdır. Yalnız komut başarılıysa üretilen
    publish-session `.mcp.json` girdisini onaylı yerel ChatGPT/Codex ayarına birleştirin; tam
-   `CADPLOT_ENABLE_PUBLISH=1` değerini ve doğru sürüm pipe/ProgID'sini ekranda doğrulayın.
+   `CADPLOT_ENABLE_PUBLISH=1` değerini, doğru sürüm pipe/ProgID'sini ve salt-okunur kayıtla aynı MCP
+   tool-surface hash'ini ekranda doğrulayın.
 8. Yalnız bir paftayı, staging sonucundaki tam `plan_id + manifest_sha256` ile sıraya alın.
 9. Canlı durum `Succeeded` olduktan sonra `read_publish_receipt` ve
    `audit_publish_outputs` çalıştırın. Kaynak için `source_unchanged=true`; schema-v2 receipt için

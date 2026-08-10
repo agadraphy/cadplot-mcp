@@ -125,6 +125,12 @@ if (
     $wheelSmoke.tunnel_preflight_redacted -ne $true -or
     $wheelSmoke.tunnel_preflight_target_probed -ne $true -or
     [string]$wheelSmoke.tunnel_preflight_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+    $wheelSmoke.client_config_read_only_probed -ne $true -or
+    $wheelSmoke.client_config_publish_probed -ne $true -or
+    [string]$wheelSmoke.client_config_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+    $wheelSmoke.client_config_tool_surface_sha256 -cne `
+        $wheelSmoke.tunnel_preflight_tool_surface_sha256 -or
+    $wheelSmoke.client_config_tools_called -ne $false -or
     $wheelSmoke.chatgpt_eval_plan_prepared -ne $true -or
     $wheelSmoke.chatgpt_eval_case_count -ne 13 -or
     $wheelSmoke.sbom_cli_verified -ne $true -or
@@ -149,6 +155,8 @@ if (
     $licensedPreflight.no_overwrite -ne $true -or
     $licensedPreflight.mcp_config_created -ne $true -or
     $licensedPreflight.mcp_config_overwrite_blocked -ne $true -or
+    $licensedPreflight.mcp_config_protocol_probed -ne $true -or
+    $licensedPreflight.mcp_config_tools_not_called -ne $true -or
     $licensedPreflight.mcp_read_only_publish_flag_absent -ne $true -or
     $licensedPreflight.mcp_publish_flag_exact -ne $true -or
     $licensedPreflight.publish_enabled_blocked -ne $true -or

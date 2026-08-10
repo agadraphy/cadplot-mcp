@@ -68,6 +68,11 @@ def _workstation_gates(release: str, plugin_sha256: str) -> dict:
         "inspection_identity_matched": True,
         "workspace_configured": True,
         "status_command_read_only": True,
+        "mcp_config_probe_passed": True,
+        "mcp_protocol_version": "2025-11-25",
+        "mcp_tool_count": 20,
+        "mcp_tool_surface_sha256": "8" * 64,
+        "mcp_tools_called": False,
         "autocad_launched": False,
         "live_publish_proven": False,
         "licensed_live_pilot_ready": False,
@@ -83,6 +88,7 @@ def _workstation_gates(release: str, plugin_sha256: str) -> dict:
                 "read_only": True,
                 "publish_enabled": False,
                 "queue_authentication_active": False,
+                "mcp_config_sha256": "6" * 64,
                 "licensed_workstation_preflight_ready": True,
                 "licensed_publish_session_ready": False,
                 "next_gate": "Restart with publish opt-in and verify the bound publish session",
@@ -97,6 +103,7 @@ def _workstation_gates(release: str, plugin_sha256: str) -> dict:
                 "read_only": False,
                 "publish_enabled": True,
                 "queue_authentication_active": True,
+                "mcp_config_sha256": "7" * 64,
                 "licensed_workstation_preflight_ready": False,
                 "licensed_publish_session_ready": True,
                 "read_only_preflight_verified": True,
@@ -119,6 +126,8 @@ def _licensed_preflight_smoke() -> dict:
         "no_overwrite": True,
         "mcp_config_created": True,
         "mcp_config_overwrite_blocked": True,
+        "mcp_config_protocol_probed": True,
+        "mcp_config_tools_not_called": True,
         "mcp_read_only_publish_flag_absent": True,
         "mcp_publish_flag_exact": True,
         "publish_enabled_blocked": True,
@@ -144,6 +153,10 @@ def _wheel_install_smoke(wheel_sha256: str) -> dict:
         "tunnel_preflight_redacted": True,
         "tunnel_preflight_target_probed": True,
         "tunnel_preflight_tool_surface_sha256": "a" * 64,
+        "client_config_read_only_probed": True,
+        "client_config_publish_probed": True,
+        "client_config_tool_surface_sha256": "a" * 64,
+        "client_config_tools_called": False,
         "chatgpt_eval_plan_prepared": True,
         "chatgpt_eval_case_count": 13,
         "sbom_cli_verified": True,
@@ -562,8 +575,8 @@ def test_acceptance_rejects_licensed_config_smoke_tamper(tmp_path: Path) -> None
             encoding="utf-8"
         )
     )
-    outer["licensed_workstation_preflight_smoke"]["mcp_config_created"] = False
-    manifest["licensed_workstation_preflight_smoke"]["mcp_config_created"] = False
+    outer["licensed_workstation_preflight_smoke"]["mcp_config_protocol_probed"] = False
+    manifest["licensed_workstation_preflight_smoke"]["mcp_config_protocol_probed"] = False
 
     with pytest.raises(
         ValueError, match="licensed-workstation session/config evidence is invalid"

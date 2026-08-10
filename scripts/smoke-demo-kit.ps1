@@ -206,6 +206,10 @@ try {
             tunnel_preflight_redacted = $true
             tunnel_preflight_target_probed = $true
             tunnel_preflight_tool_surface_sha256 = "a" * 64
+            client_config_read_only_probed = $true
+            client_config_publish_probed = $true
+            client_config_tool_surface_sha256 = "a" * 64
+            client_config_tools_called = $false
             chatgpt_eval_plan_prepared = $true
             chatgpt_eval_case_count = 13
             sbom_cli_verified = $true
@@ -226,6 +230,8 @@ try {
             no_overwrite = $true
             mcp_config_created = $true
             mcp_config_overwrite_blocked = $true
+            mcp_config_protocol_probed = $true
+            mcp_config_tools_not_called = $true
             mcp_read_only_publish_flag_absent = $true
             mcp_publish_flag_exact = $true
             publish_enabled_blocked = $true
@@ -520,10 +526,29 @@ try {
         throw "Demo-kit verifier accepted altered local-target probe evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $clientConfigProbeTamper = [System.Text.Encoding]::UTF8.GetString(
+        $manifestBytes
+    ) | ConvertFrom-Json
+    $clientConfigProbeTamper.wheel_install_smoke.client_config_read_only_probed = $false
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($clientConfigProbeTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $clientConfigProbeTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*local-target probe evidence*") { throw }
+        $clientConfigProbeTamperBlocked = $true
+    }
+    if (-not $clientConfigProbeTamperBlocked) {
+        throw "Demo-kit verifier accepted altered executable client-config probe evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     $licensedPreflightTamper = [System.Text.Encoding]::UTF8.GetString(
         $manifestBytes
     ) | ConvertFrom-Json
-    $licensedPreflightTamper.licensed_workstation_preflight_smoke.wrong_adapter_blocked = $false
+    $licensedPreflightTamper.licensed_workstation_preflight_smoke.mcp_config_protocol_probed = $false
     [System.IO.File]::WriteAllText(
         $manifestPath,
         ($licensedPreflightTamper | ConvertTo-Json -Depth 7),
@@ -596,6 +621,7 @@ try {
         blank_pdf_evidence_tamper_blocked = $blankPdfTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
+        client_config_probe_tamper_blocked = $clientConfigProbeTamperBlocked
         licensed_preflight_tamper_blocked = $licensedPreflightTamperBlocked
         wheel_tamper_blocked = $true
         autocad_launched = $false

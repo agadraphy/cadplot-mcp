@@ -30,6 +30,8 @@ try {
     $adapter2016 = Join-Path $bundle "Contents\Windows\2016\CadPlotMcp.AutoCAD2016.dll"
     $doctorJson = Join-Path $fixtureRoot "doctor.json"
     $doctorCommand = Join-Path $commands "cadplot-doctor.cmd"
+    $probeCommand = Join-Path $commands "cadplot-probe-client-config.cmd"
+    $probeFixtureScript = Join-Path $fixtureRoot "probe-client-config.ps1"
     $pythonExe = Join-Path $python "venv\Scripts\python.exe"
     $output = Join-Path $pilot "licensed-preflight-2025.json"
 
@@ -94,6 +96,58 @@ try {
         "@echo off`r`ntype `"$doctorJson`"`r`nexit /b 0`r`n",
         [System.Text.ASCIIEncoding]::new()
     )
+    $probeFixtureContent = @'
+param(
+    [string]$Config,
+    [string]$ServerId,
+    [string]$ExpectedMode,
+    [double]$TimeoutSeconds
+)
+$raw = Get-Content -LiteralPath $Config -Raw -Encoding UTF8 | ConvertFrom-Json
+$server = $raw.mcpServers.PSObject.Properties[$ServerId].Value
+$hash = (Get-FileHash -LiteralPath $Config -Algorithm SHA256).Hash.ToLowerInvariant()
+$release = if ($ServerId -like "cadplot-2016-*") { "2016" } else { "2025" }
+[ordered]@{
+    schema_version = 1
+    passed = $true
+    server_id = $ServerId
+    session_mode = $ExpectedMode
+    autocad_release = $release
+    publish_enabled = $ExpectedMode -ceq "publish"
+    config_sha256 = $hash
+    protocol_version = "2025-11-25"
+    server_name = "CadPlot MCP"
+    tool_count = 20
+    tool_surface_sha256 = "a" * 64
+    exact_tool_names = $true
+    instructions_contract = $true
+    annotations_contract = $true
+    closed_output_schemas = $true
+    tools_called = $false
+    command_matches_current_interpreter = $true
+    exact_environment = $true
+    secrets_included = $false
+    machine_paths_included = $false
+    autocad_launched = $false
+    live_tunnel_proven = $false
+    live_publish_proven = $false
+} | ConvertTo-Json
+'@
+    [System.IO.File]::WriteAllText(
+        $probeFixtureScript,
+        $probeFixtureContent,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    [System.IO.File]::WriteAllText(
+        $probeCommand,
+        (
+            "@echo off`r`n" +
+            "powershell -NoProfile -ExecutionPolicy Bypass -File `"$probeFixtureScript`" " +
+            "-Config `"%~1`" -ServerId `"%~3`" -ExpectedMode `"%~5`" " +
+            "-TimeoutSeconds %~7`r`nexit /b %errorlevel%`r`n"
+        ),
+        [System.Text.ASCIIEncoding]::new()
+    )
 
     $verifier = Join-Path $kitScripts "verify-release-install.ps1"
     $verifierContent = @"
@@ -136,6 +190,8 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $positive.PublishEnabled -ne $false -or
         $positive.LivePublishProven -ne $false -or
         $positive.McpConfigCreated -ne $true -or
+        $positive.McpConfigProtocolProbed -ne $true -or
+        $positive.McpToolsCalled -ne $false -or
         $positive.McpServerId -cne "cadplot-2025-readonly" -or
         -not (Test-Path -LiteralPath $output -PathType Leaf)
     ) {
@@ -147,6 +203,10 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $record.autocad_release -cne "2025" -or
         $record.plugin_sha256 -cne $adapterHash -or
         $record.publish_enabled -ne $false -or
+        $record.mcp_config_probe_passed -ne $true -or
+        $record.mcp_protocol_version -cne "2025-11-25" -or
+        $record.mcp_tool_count -ne 20 -or
+        $record.mcp_tools_called -ne $false -or
         $record.live_publish_proven -ne $false -or
         $record.licensed_live_pilot_ready -ne $false
     ) {
@@ -337,6 +397,9 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         $publishRecord.read_only_preflight_verified -ne $true -or
         $publishRecord.status_command_read_only -ne $true -or
         $publishRecord.queue_authentication_active -ne $true -or
+        $publishRecord.mcp_config_probe_passed -ne $true -or
+        $publishRecord.mcp_tool_surface_sha256 -cne $record.mcp_tool_surface_sha256 -or
+        $publishRecord.mcp_tools_called -ne $false -or
         $publishRecord.live_publish_proven -ne $false -or
         $publishRecord.licensed_live_pilot_ready -ne $false
     ) {
@@ -474,6 +537,8 @@ if (`$PassThru) { `$result } else { `$result | ConvertTo-Json }
         no_overwrite = $overwriteBlocked
         mcp_config_created = $true
         mcp_config_overwrite_blocked = $mcpConfigOverwriteBlocked
+        mcp_config_protocol_probed = $true
+        mcp_config_tools_not_called = $true
         mcp_read_only_publish_flag_absent = $true
         mcp_publish_flag_exact = $true
         publish_enabled_blocked = $publishBlocked

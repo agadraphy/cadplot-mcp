@@ -253,6 +253,9 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "audit-release-artifacts.py",
         "smoke-wheel-install.py",
         "tunnel_preflight_target_probed -ne $true",
+        "client_config_read_only_probed -ne $true",
+        "client_config_publish_probed -ne $true",
+        "client_config_tools_called -ne $false",
         "chatgpt_eval_plan_prepared -ne $true",
         "chatgpt_eval_case_count -ne 13",
         "wheel_install_smoke = [ordered]@{",
@@ -512,6 +515,7 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"cadplot-assemble-pilot"',
         '"cadplot-validate-pilot"',
         '"cadplot-tunnel-preflight"',
+        '"cadplot-probe-client-config"',
         '"cadplot-chatgpt-eval"',
         '"pilot_cli_commands": len(pilot_commands)',
         '"cadplot-acceptance"',
@@ -519,6 +523,10 @@ def test_wheel_smoke_uses_frozen_hashed_dependencies_and_no_source_import() -> N
         '"tunnel_preflight_redacted": True',
         '"tunnel_preflight_target_probed": True',
         '"tunnel_preflight_tool_surface_sha256"',
+        '"client_config_read_only_probed": True',
+        '"client_config_publish_probed": True',
+        '"client_config_tool_surface_sha256"',
+        '"client_config_tools_called": False',
         '"chatgpt_eval_plan_prepared": True',
         '"chatgpt_eval_case_count"',
         'or "runtime-secret-sentinel" in tunnel_output',
@@ -1221,6 +1229,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "licensed_workstation_preflight_smoke = $licensedPreflight",
         "session/config smoke evidence",
         "mcp_config_created -ne $true",
+        "mcp_config_protocol_probed -ne $true",
+        "mcp_config_tools_not_called -ne $true",
         "marking_content_verified -ne 300",
         "blank_pdf_rejected -ne $true",
     ):
@@ -1248,6 +1258,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "licensed_workstation_preflight_smoke",
         "session/config smoke evidence",
         "mcp_config_created -ne $true",
+        "mcp_config_protocol_probed -ne $true",
+        "mcp_config_tools_not_called -ne $true",
         "marking_content_verified -ne 300",
         "blank_pdf_rejected -ne $true",
         '"scripts/verify-release-kit.ps1"',
@@ -1286,6 +1298,7 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "cadplot-validate-pilot.cmd\" --help" in guide
     assert "cadplot-acceptance.cmd\" --help" in guide
     assert "cadplot-tunnel-preflight.cmd\" --help" in guide
+    assert "cadplot-probe-client-config.cmd\" --help" in guide
     assert "new-local-pilot.ps1" in guide
     assert "test-licensed-workstation.ps1" in guide
     assert "-SessionMode Publish" in guide
@@ -1327,6 +1340,11 @@ def test_licensed_workstation_gate_binds_publish_session_to_read_only_evidence()
         '"CADPLOT_WORKSPACE_ROOT"',
         "McpConfigSha256",
         "McpConfigCreated = $true",
+        "cadplot-probe-client-config.cmd",
+        "mcp_config_probe_passed",
+        "mcp_tool_surface_sha256",
+        "mcp_tools_called",
+        "McpConfigProtocolProbed = $true",
     ):
         assert required in gate
     for required in (
@@ -1337,6 +1355,8 @@ def test_licensed_workstation_gate_binds_publish_session_to_read_only_evidence()
         "unauthenticated_publish_session_blocked",
         "mcp_config_created = $true",
         "mcp_config_overwrite_blocked = $mcpConfigOverwriteBlocked",
+        "mcp_config_protocol_probed = $true",
+        "mcp_config_tools_not_called = $true",
         "mcp_read_only_publish_flag_absent = $true",
         "mcp_publish_flag_exact = $true",
     ):
@@ -1357,6 +1377,7 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "archive_tamper_blocked",
         "dependency_license_tamper_blocked",
         "tunnel_target_probe_tamper_blocked",
+        "client_config_probe_tamper_blocked",
         "licensed_preflight_tamper_blocked",
         "AllowProtocolOnlyFixture",
         "autocad_launched = $false",
@@ -1422,6 +1443,7 @@ def test_bundle_install_smoke_is_protocol_only_and_never_launches_autocad() -> N
         "bundle_release_archive_tamper_blocked = $archiveTamperBlocked",
         "release_kit_self_verification_passed",
         "release_kit_tunnel_target_probe_tamper_blocked",
+        "release_kit_client_config_probe_tamper_blocked",
         "release_kit_licensed_preflight_tamper_blocked",
         "copied_hashes_verified = $true",
         "bundle_install_autocad_process_blocked = $installProcessGuardBlocked",
@@ -1469,6 +1491,7 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "Not implemented or claimed" in architecture
     assert "loopback-only Streamable HTTP" in architecture
     assert "cadplot-tunnel-preflight" in architecture
+    assert "cadplot-probe-client-config" in architecture
     assert "chatgpt-evaluation.md" in deployment
     assert "ChatGPT tool-selection evaluation" in architecture
 
@@ -1557,6 +1580,7 @@ def test_release_python_installer_is_locked_no_overwrite_and_verified() -> None:
         "cadplot-doctor.cmd",
         "cadplot-mcp-http.cmd",
         "cadplot-tunnel-preflight.cmd",
+        "cadplot-probe-client-config.cmd",
         "cadplot-chatgpt-eval.cmd",
         "PYTHONDONTWRITEBYTECODE",
         "[System.IO.File]::Delete($inventoryScript)",

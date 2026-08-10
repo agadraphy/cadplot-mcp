@@ -193,6 +193,10 @@ try {
         tunnel_preflight_redacted = $true
         tunnel_preflight_target_probed = $true
         tunnel_preflight_tool_surface_sha256 = "a" * 64
+        client_config_read_only_probed = $true
+        client_config_publish_probed = $true
+        client_config_tool_surface_sha256 = "a" * 64
+        client_config_tools_called = $false
         chatgpt_eval_plan_prepared = $true
         chatgpt_eval_case_count = 13
         sbom_cli_verified = $true
@@ -239,6 +243,8 @@ try {
         no_overwrite = $true
         mcp_config_created = $true
         mcp_config_overwrite_blocked = $true
+        mcp_config_protocol_probed = $true
+        mcp_config_tools_not_called = $true
         mcp_read_only_publish_flag_absent = $true
         mcp_publish_flag_exact = $true
         publish_enabled_blocked = $true
@@ -867,8 +873,22 @@ try {
     }
     [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
 
+    $clientConfigProbeTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
+    $clientConfigProbeTamper.wheel_install_smoke.client_config_read_only_probed = $false
+    Write-SmokeJson -Path $outerPath -Value $clientConfigProbeTamper
+    $clientConfigProbeTamperBlocked = $false
+    try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
+    catch {
+        if ($_.Exception.Message -notlike "*local-target probe evidence*") { throw }
+        $clientConfigProbeTamperBlocked = $true
+    }
+    if (-not $clientConfigProbeTamperBlocked) {
+        throw "Release-kit verifier accepted altered executable client-config probe evidence."
+    }
+    [System.IO.File]::WriteAllBytes($outerPath, $outerBytes)
+
     $licensedPreflightTamper = Get-Content -LiteralPath $outerPath -Raw | ConvertFrom-Json
-    $licensedPreflightTamper.licensed_workstation_preflight_smoke.mcp_config_created = $false
+    $licensedPreflightTamper.licensed_workstation_preflight_smoke.mcp_config_protocol_probed = $false
     Write-SmokeJson -Path $outerPath -Value $licensedPreflightTamper
     $licensedPreflightTamperBlocked = $false
     try { & $verifier -ReleaseRoot $resolvedSmokeRoot -PassThru -AllowProtocolOnlyFixture }
@@ -906,6 +926,7 @@ try {
         dependency_license_tamper_blocked = $licenseTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
+        client_config_probe_tamper_blocked = $clientConfigProbeTamperBlocked
         licensed_preflight_tamper_blocked = $licensedPreflightTamperBlocked
         archive_tamper_blocked = $tamperBlocked
         python_install_what_if_safe = $true

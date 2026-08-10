@@ -259,8 +259,11 @@ else {
 }
 
 $doctor = Join-Path ([string]$installed.PythonPath) "bin\cadplot-doctor.cmd"
+$mcpConfigProbe = Join-Path ([string]$installed.PythonPath) "bin\cadplot-probe-client-config.cmd"
 $adapterPath = Join-Path ([string]$installed.BundlePath) $expected.AdapterRelativePath
-foreach ($path in @($config, $workspace, $doctor, $pythonExe, $adapterPath, $receipt)) {
+foreach ($path in @(
+    $config, $workspace, $doctor, $mcpConfigProbe, $pythonExe, $adapterPath, $receipt
+)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Licensed preflight required path is missing: $path"
     }
@@ -292,6 +295,8 @@ if ($SessionMode -eq "Publish") {
         "install_receipt_sha256", "config_sha256", "config_changed_since_install",
         "inspection_identity_matched", "workspace_configured", "status_command_read_only",
         "read_only", "publish_enabled", "queue_authentication_active",
+        "mcp_config_sha256", "mcp_config_probe_passed", "mcp_protocol_version",
+        "mcp_tool_count", "mcp_tool_surface_sha256", "mcp_tools_called",
         "licensed_workstation_preflight_ready", "licensed_publish_session_ready",
         "autocad_launched", "live_publish_proven", "licensed_live_pilot_ready",
         "company_assets_copied", "next_gate"
@@ -324,6 +329,12 @@ if ($SessionMode -eq "Publish") {
         $prior.read_only -ne $true -or
         $prior.publish_enabled -ne $false -or
         $prior.queue_authentication_active -ne $false -or
+        [string]$prior.mcp_config_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $prior.mcp_config_probe_passed -ne $true -or
+        $prior.mcp_protocol_version -cne "2025-11-25" -or
+        $prior.mcp_tool_count -ne 20 -or
+        [string]$prior.mcp_tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $prior.mcp_tools_called -ne $false -or
         $prior.licensed_workstation_preflight_ready -ne $true -or
         $prior.licensed_publish_session_ready -ne $false -or
         $prior.autocad_launched -ne $false -or
@@ -478,6 +489,60 @@ $mcpWritten = $false
 try {
     Write-NewUtf8Json -Path $mcpOutput -Value $mcpConfiguration
     $mcpWritten = $true
+    $mcpOutputSha256 = (
+        Get-FileHash -LiteralPath $mcpOutput -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $probeOutput = @(& $mcpConfigProbe `
+        $mcpOutput `
+        --server-id $serverId `
+        --expect-mode $SessionMode.ToLowerInvariant() `
+        --timeout-seconds 20 2>&1)
+    $probeExitCode = $LASTEXITCODE
+    $probeText = ($probeOutput -join [Environment]::NewLine).Trim()
+    try { $probeReport = $probeText | ConvertFrom-Json }
+    catch { throw "MCP client-config probe did not return valid JSON." }
+    if (
+        $probeExitCode -ne 0 -or
+        $probeReport.schema_version -ne 1 -or
+        $probeReport.passed -ne $true -or
+        $probeReport.server_id -cne $serverId -or
+        $probeReport.session_mode -cne $SessionMode.ToLowerInvariant() -or
+        $probeReport.autocad_release -cne $AutoCADRelease -or
+        $probeReport.publish_enabled -ne ($SessionMode -eq "Publish") -or
+        $probeReport.config_sha256 -cne $mcpOutputSha256 -or
+        $probeReport.protocol_version -cne "2025-11-25" -or
+        $probeReport.server_name -cne "CadPlot MCP" -or
+        $probeReport.tool_count -ne 20 -or
+        [string]$probeReport.tool_surface_sha256 -notmatch '^[0-9a-f]{64}$' -or
+        $probeReport.exact_tool_names -ne $true -or
+        $probeReport.instructions_contract -ne $true -or
+        $probeReport.annotations_contract -ne $true -or
+        $probeReport.closed_output_schemas -ne $true -or
+        $probeReport.tools_called -ne $false -or
+        $probeReport.command_matches_current_interpreter -ne $true -or
+        $probeReport.exact_environment -ne $true -or
+        $probeReport.secrets_included -ne $false -or
+        $probeReport.machine_paths_included -ne $false -or
+        $probeReport.autocad_launched -ne $false -or
+        $probeReport.live_tunnel_proven -ne $false -or
+        $probeReport.live_publish_proven -ne $false -or
+        (Get-FileHash -LiteralPath $mcpOutput -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+            $mcpOutputSha256
+    ) {
+        throw "Generated MCP client configuration failed its bounded protocol probe."
+    }
+    if (
+        $null -ne $readOnlyPreflight -and
+        $probeReport.tool_surface_sha256 -cne $readOnlyPreflight.Value.mcp_tool_surface_sha256
+    ) {
+        throw "MCP tool surface changed between read-only and publish-session verification."
+    }
+    $evidence["mcp_config_sha256"] = $mcpOutputSha256
+    $evidence["mcp_config_probe_passed"] = $true
+    $evidence["mcp_protocol_version"] = [string]$probeReport.protocol_version
+    $evidence["mcp_tool_count"] = [int]$probeReport.tool_count
+    $evidence["mcp_tool_surface_sha256"] = [string]$probeReport.tool_surface_sha256
+    $evidence["mcp_tools_called"] = $false
     Write-NewUtf8Json -Path $output -Value $evidence
 }
 catch {
@@ -487,7 +552,6 @@ catch {
     throw
 }
 $outputSha256 = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
-$mcpOutputSha256 = (Get-FileHash -LiteralPath $mcpOutput -Algorithm SHA256).Hash.ToLowerInvariant()
 $result = [pscustomobject]@{
     Passed = $true
     AutoCADRelease = $AutoCADRelease
@@ -501,6 +565,9 @@ $result = [pscustomobject]@{
     McpConfigSha256 = $mcpOutputSha256
     McpServerId = $serverId
     McpConfigCreated = $true
+    McpConfigProtocolProbed = $true
+    McpToolSurfaceSha256 = [string]$probeReport.tool_surface_sha256
+    McpToolsCalled = $false
     ReadOnly = $SessionMode -eq "ReadOnly"
     PublishEnabled = $SessionMode -eq "Publish"
     LivePublishProven = $false

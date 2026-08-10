@@ -46,7 +46,9 @@ authenticated queue before any job is accepted. Neither check opens or queues a 
 Each successful check creates a separate no-overwrite standard `mcpServers` config bound to the
 verified installed interpreter and session environment. Read-only output omits the publish flag;
 publish output contains exact `CADPLOT_ENABLE_PUBLISH=1` only after the authenticated session gate
-succeeds.
+succeeds. Before the evidence file is written, the exact generated entry must pass the installed
+`cadplot-probe-client-config` MCP `initialize`/`tools/list` check with the exact 20-tool surface and
+zero tool calls. This is executable client-config evidence only, not AutoCAD or PDF evidence.
 The plug-in reserves its single current-user pipe instance before initialization returns; a second
 AutoCAD process configured with the same name fails visibly instead of becoming an ambiguous hidden
 listener. The same server instance stays reserved across sequential MCP connections.

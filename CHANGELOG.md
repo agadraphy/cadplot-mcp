@@ -48,8 +48,11 @@ All notable changes to this project are documented in this file.
 - Successful licensed-workstation verification now emits a separate no-overwrite standard
   `mcpServers` JSON entry bound to the verified installed Python, config, workspace, exact ProgID,
   and pipe. Read-only output omits the publish flag; publish output includes exact
-  `CADPLOT_ENABLE_PUBLISH=1` only after the authenticated publish-session gate passes. Demo/release
-  manifests retain the config-generation smoke, and their verifiers reject altered evidence.
+  `CADPLOT_ENABLE_PUBLISH=1` only after the authenticated publish-session gate passes. Before the
+  workstation evidence is written, the exact generated command, arguments, and sanitized environment
+  must start successfully and pass a bounded MCP `initialize`/`tools/list` probe with the exact
+  20-tool surface and zero tool calls. Demo/release manifests retain both config-generation and
+  executable-config probe evidence, and their verifiers reject altered evidence.
 - Licensed pilot schema v8 now requires each one-sheet run to embed the exact path-redacted
   read-only and publish-session workstation records plus their source-file SHA-256 values. The
   collector binds the second record to the first, rechecks both input files after collection, and

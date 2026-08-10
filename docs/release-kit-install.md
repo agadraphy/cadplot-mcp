@@ -221,7 +221,20 @@ a PDF. On success it also creates `licensed-preflight-2025.mcp.json` beside the 
 no-overwrite file contains one exact standard `"mcpServers"` entry bound to the verified installed
 Python, config, workspace, ProgID, and pipe; the read-only entry deliberately omits
 `CADPLOT_ENABLE_PUBLISH`. For 2016 the default name is `licensed-preflight-2016.mcp.json`. Preserve
-each release's record and generated config with the private pilot evidence.
+each release's record and generated config with the private pilot evidence. Before writing the record,
+the verifier runs the installed `cadplot-probe-client-config` against that exact generated entry. It
+requires MCP protocol `2025-11-25`, the exact 20-tool surface, and zero CadPlot tool calls; it does not
+launch AutoCAD, open a DWG, or prove a PDF.
+
+The bounded protocol check can be repeated manually without calling any CadPlot tool:
+
+```powershell
+$commandRoot = Split-Path -Parent $installed.PythonExecutable
+& "$commandRoot\cadplot-probe-client-config.cmd" --help
+& "$commandRoot\cadplot-probe-client-config.cmd" `
+  (Join-Path $installed.PilotRoot "licensed-preflight-2025.mcp.json") `
+  --server-id cadplot-2025-readonly --expect-mode readonly
+```
 
 After inspection/staging approval, close AutoCAD, set `CADPLOT_ENABLE_PUBLISH=1` in the same exact
 launcher environment, restart that release, and bind the authenticated write-capable session to the
@@ -252,7 +265,9 @@ publish entry contains exact `CADPLOT_ENABLE_PUBLISH=1` because the authenticate
 verified. Use the read-only `.mcp.json` for inspection-only work. `-McpConfigOutputPath <path>` can
 select another output under the verified pilot root, but neither the evidence file nor the MCP config
 is ever overwritten. Restart the client after importing the selected entry. Never import a publish
-config produced by a failed, interrupted, copied, or different-release verification attempt.
+config produced by a failed, interrupted, copied, or different-release verification attempt. The
+publish record's `mcp_tool_surface_sha256` must match the prior read-only record and both must record
+`mcp_tools_called=false`.
 
 ## Evidence boundary
 

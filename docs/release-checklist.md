@@ -43,6 +43,10 @@ Use this checklist for every alpha release.
 - [ ] The isolated wheel smoke records `tunnel_preflight_target_probed=true`: the installed package
       passed a secret/path-redacted local `initialize/list_tools` probe with the exact 20-tool
       surface while `autocad_launched=false` and `live_tunnel_proven=false` stayed explicit.
+- [ ] The same isolated install generated read-only and publish `mcpServers` fixtures and
+      `cadplot-probe-client-config` executed both exact entries through `initialize/tools/list`; both
+      matched the tunnel's 20-tool surface, recorded zero tool calls, and retained false AutoCAD/live
+      claims.
 - [ ] `scripts/smoke-demo-kit.ps1` proves exact-tree/hash verification, wheel tamper rejection,
       removal of machine-local API paths, outer identity/archive hash rejection, and ZIP traversal
       rejection for the portable demo delivery.
@@ -96,13 +100,14 @@ Use this checklist for every alpha release.
       verified install; both no-overwrite records retained false live-publish/pilot-readiness claims.
 - [ ] Each successful read-only verifier produced a separate no-overwrite `.mcp.json` whose single
       `mcpServers` entry used the verified installed Python/config/workspace/ProgID/pipe and omitted
-      `CADPLOT_ENABLE_PUBLISH`.
+      `CADPLOT_ENABLE_PUBLISH`; before evidence was written, that exact entry passed the bounded MCP
+      probe with protocol `2025-11-25`, 20 tools, and zero tool calls.
 - [ ] After each explicitly approved publish-enabled restart, the same verifier passed with
       `-SessionMode Publish` and the exact prior read-only record; doctor required authenticated
       queue state and identical receipt/config/runtime/binary identity before any job was queued.
 - [ ] Only each successful publish-session `.mcp.json` was merged into the approved client; it used
       the matching release identity and exact `CADPLOT_ENABLE_PUBLISH=1`, without replacing unrelated
-      client configuration.
+      client configuration, and its probed tool-surface digest matched the prior read-only record.
 - [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
       mandatory hashes, staged without overwrite, atomically renamed, and
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.

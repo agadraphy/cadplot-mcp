@@ -277,16 +277,11 @@ async def _probe_local_target_async(
         environment.pop("CADPLOT_TUNNEL_ID", None)
         environment.pop("CONTROL_PLANE_API_KEY", None)
         environment.pop("CADPLOT_ENABLE_PUBLISH", None)
-        parameters = StdioServerParameters(
+        return await _probe_stdio_server_async(
             command=sys.executable,
             args=["-m", "cadplot_mcp"],
-            env=environment,
+            environment=environment,
         )
-        with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as error_log:
-            async with stdio_client(parameters, errlog=error_log) as (reader, writer):
-                async with ClientSession(reader, writer) as session:
-                    initialized = await session.initialize()
-                    listed = await session.list_tools()
     else:
         url = f"http://127.0.0.1:{port}/mcp"
         async with streamable_http_client(url) as (reader, writer, _):
@@ -294,6 +289,40 @@ async def _probe_local_target_async(
                 initialized = await session.initialize()
                 listed = await session.list_tools()
     return _validated_probe_evidence(initialized, listed, transport)
+
+
+async def _probe_stdio_server_async(
+    *, command: str, args: list[str], environment: dict[str, str]
+) -> dict[str, Any]:
+    parameters = StdioServerParameters(command=command, args=args, env=environment)
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as error_log:
+        async with stdio_client(parameters, errlog=error_log) as (reader, writer):
+            async with ClientSession(reader, writer) as session:
+                initialized = await session.initialize()
+                listed = await session.list_tools()
+    return _validated_probe_evidence(initialized, listed, "stdio")
+
+
+def probe_stdio_server(
+    *,
+    command: str,
+    args: list[str],
+    environment: dict[str, str],
+    timeout_seconds: float = 20,
+) -> dict[str, Any]:
+    """Initialize and list tools from one exact STDIO command without calling a tool."""
+    if not 1 <= timeout_seconds <= 60:
+        raise ValueError("timeout_seconds must be between 1 and 60")
+    return asyncio.run(
+        asyncio.wait_for(
+            _probe_stdio_server_async(
+                command=command,
+                args=args,
+                environment=environment,
+            ),
+            timeout=timeout_seconds,
+        )
+    )
 
 
 def probe_local_target(*, config: str, transport: str, port: int) -> dict[str, Any]:

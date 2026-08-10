@@ -167,6 +167,12 @@ WORKSTATION_GATE_COMMON_FIELDS = {
     "read_only",
     "publish_enabled",
     "queue_authentication_active",
+    "mcp_config_sha256",
+    "mcp_config_probe_passed",
+    "mcp_protocol_version",
+    "mcp_tool_count",
+    "mcp_tool_surface_sha256",
+    "mcp_tools_called",
     "licensed_workstation_preflight_ready",
     "licensed_publish_session_ready",
     "autocad_launched",
@@ -270,7 +276,13 @@ def validate_workstation_gate_evidence(
             raise ValueError(f"Workstation {name} running commit mismatch.")
         if record["plugin_sha256"] != expected_plugin_sha256:
             raise ValueError(f"Workstation {name} plug-in binary mismatch.")
-        for field in ("plugin_sha256", "install_receipt_sha256", "config_sha256"):
+        for field in (
+            "plugin_sha256",
+            "install_receipt_sha256",
+            "config_sha256",
+            "mcp_config_sha256",
+            "mcp_tool_surface_sha256",
+        ):
             _require_digest(record[field], f"workstation_gates.{name}.{field}")
         if not isinstance(record["package_version"], str) or not re.fullmatch(
             r"[0-9]+(?:\.[0-9]+){2}(?:[A-Za-z0-9.+-]*)?", record["package_version"]
@@ -282,6 +294,7 @@ def validate_workstation_gate_evidence(
             "inspection_identity_matched",
             "workspace_configured",
             "status_command_read_only",
+            "mcp_config_probe_passed",
         ):
             if record[field] is not True:
                 raise ValueError(f"Workstation {name} requires {field}=true.")
@@ -293,6 +306,12 @@ def validate_workstation_gate_evidence(
         ):
             if record[field] is not False:
                 raise ValueError(f"Workstation {name} requires {field}=false.")
+        if (
+            record["mcp_protocol_version"] != "2025-11-25"
+            or record["mcp_tool_count"] != 20
+            or record["mcp_tools_called"] is not False
+        ):
+            raise ValueError(f"Workstation {name} MCP client-config probe is invalid.")
         try:
             timestamp = datetime.fromisoformat(record["checked_utc"])
         except (TypeError, ValueError) as exc:
@@ -318,9 +337,14 @@ def validate_workstation_gate_evidence(
         "plugin_sha256",
         "install_receipt_sha256",
         "config_sha256",
+        "mcp_protocol_version",
+        "mcp_tool_count",
+        "mcp_tool_surface_sha256",
     ):
         if read_only[field] != publish[field]:
             raise ValueError(f"Workstation gate identity changed between sessions: {field}.")
+    if read_only["mcp_config_sha256"] == publish["mcp_config_sha256"]:
+        raise ValueError("Read-only and publish MCP client configs must be distinct.")
     if current_config_sha256 is not None:
         _require_digest(current_config_sha256, "current_config_sha256")
         if read_only["config_sha256"] != current_config_sha256:

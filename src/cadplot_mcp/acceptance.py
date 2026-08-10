@@ -492,6 +492,9 @@ def _validate_release_manifest_identity(outer: Any, manifest: Any) -> None:
             "http_transport_header_guards": True,
             "tunnel_preflight_redacted": True,
             "tunnel_preflight_target_probed": True,
+            "client_config_read_only_probed": True,
+            "client_config_publish_probed": True,
+            "client_config_tools_called": False,
             "chatgpt_eval_plan_prepared": True,
             "chatgpt_eval_case_count": 13,
             "sbom_cli_verified": True,
@@ -504,10 +507,19 @@ def _validate_release_manifest_identity(outer: Any, manifest: Any) -> None:
         }.items()
     ):
         raise ValueError("Release-kit installed local-target evidence is invalid.")
-    for digest_field in ("wheel_sha256", "tunnel_preflight_tool_surface_sha256"):
+    for digest_field in (
+        "wheel_sha256",
+        "tunnel_preflight_tool_surface_sha256",
+        "client_config_tool_surface_sha256",
+    ):
         digest = wheel_smoke.get(digest_field)
         if not isinstance(digest, str) or not SHA256.fullmatch(digest):
             raise ValueError("Release-kit installed local-target digest evidence is invalid.")
+    if (
+        wheel_smoke["client_config_tool_surface_sha256"]
+        != wheel_smoke["tunnel_preflight_tool_surface_sha256"]
+    ):
+        raise ValueError("Release-kit client-config tool surface evidence is inconsistent.")
     durable = manifest.get("durable_queue_recovery")
     if not isinstance(durable, dict) or any(
         durable.get(field) != expected
@@ -552,6 +564,8 @@ def _validate_release_manifest_identity(outer: Any, manifest: Any) -> None:
             "no_overwrite": True,
             "mcp_config_created": True,
             "mcp_config_overwrite_blocked": True,
+            "mcp_config_protocol_probed": True,
+            "mcp_config_tools_not_called": True,
             "mcp_read_only_publish_flag_absent": True,
             "mcp_publish_flag_exact": True,
             "publish_enabled_blocked": True,

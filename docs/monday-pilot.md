@@ -92,7 +92,10 @@ pilot root. Retain the no-overwrite JSON. Its required result keeps `publish_ena
 `live_publish_proven=false`, and `licensed_live_pilot_ready=false`; it is the gate before inspection,
 not a substitute for the one-sheet pilot. A successful run also emits a no-overwrite `.mcp.json`
 containing the exact local `mcpServers` entry. Confirm its command, config, workspace, ProgID, and pipe
-match the evidence; the read-only entry must have no `CADPLOT_ENABLE_PUBLISH` key.
+match the evidence; the read-only entry must have no `CADPLOT_ENABLE_PUBLISH` key. The verifier must
+also record `mcp_config_probe_passed=true`, MCP protocol `2025-11-25`, the exact 20-tool surface digest,
+and `mcp_tools_called=false`. Its bounded probe runs only `initialize` and `tools/list`; it does not
+open a drawing or call a CadPlot tool.
 
 ## Gate 4: drawing inspection
 
@@ -138,7 +141,8 @@ match the evidence; the read-only entry must have no `CADPLOT_ENABLE_PUBLISH` ke
     claims. The verifier and `cadplot-doctor --expect-publish-enabled` do not queue a drawing.
    Only after this succeeds, merge the generated publish-session `.mcp.json` server entry into the
    approved local client. Require exact `CADPLOT_ENABLE_PUBLISH=1`; never reuse it for the other
-   AutoCAD release or accept an existing/overwritten config.
+   AutoCAD release or accept an existing/overwritten config. Require the publish record's MCP tool
+   surface digest to match the prior read-only record before import.
 3. Use a one-sheet anonymized DWG copy first. Record source and staged SHA-256 values.
 4. Call `queue_publish_job` with the exact manifest path, approved `plan_id`, and approved
    `manifest_sha256` returned by staging.

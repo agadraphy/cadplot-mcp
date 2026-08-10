@@ -34,6 +34,9 @@ verified installed Python executable, external config, workspace, AutoCAD ProgID
 Merge that one child into the approved client configuration; do not overwrite unrelated servers.
 Read-only output omits `CADPLOT_ENABLE_PUBLISH`. A publish entry with exact value `1` is emitted only
 after the authenticated `-SessionMode Publish` gate succeeds and still does not prove a PDF was made.
+Before either workstation record is committed, `cadplot-probe-client-config` starts the exact generated
+entry in a sanitized environment and performs only MCP `initialize` and `tools/list`. The gate requires
+the exact 20-tool surface and records zero CadPlot tool calls; it does not open AutoCAD or a DWG.
 
 ## Required operation sequence
 

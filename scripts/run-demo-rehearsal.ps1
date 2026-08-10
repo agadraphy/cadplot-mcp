@@ -109,6 +109,8 @@ try {
         $preflightSummary.licensed_workstation_preflight_smoke.no_overwrite -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.mcp_config_created -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.mcp_config_overwrite_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.mcp_config_protocol_probed -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.mcp_config_tools_not_called -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.mcp_read_only_publish_flag_absent -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.mcp_publish_flag_exact -ne $true -or
         $preflightSummary.licensed_workstation_preflight_smoke.publish_enabled_blocked -ne $true -or
@@ -127,6 +129,13 @@ try {
         $preflightSummary.wheel_install_smoke.tunnel_preflight_target_probed -ne $true -or
         [string]$preflightSummary.wheel_install_smoke.tunnel_preflight_tool_surface_sha256 `
             -notmatch '^[0-9a-f]{64}$' -or
+        $preflightSummary.wheel_install_smoke.client_config_read_only_probed -ne $true -or
+        $preflightSummary.wheel_install_smoke.client_config_publish_probed -ne $true -or
+        [string]$preflightSummary.wheel_install_smoke.client_config_tool_surface_sha256 `
+            -notmatch '^[0-9a-f]{64}$' -or
+        $preflightSummary.wheel_install_smoke.client_config_tool_surface_sha256 -cne `
+            $preflightSummary.wheel_install_smoke.tunnel_preflight_tool_surface_sha256 -or
+        $preflightSummary.wheel_install_smoke.client_config_tools_called -ne $false -or
         $preflightSummary.wheel_install_smoke.chatgpt_eval_plan_prepared -ne $true -or
         $preflightSummary.wheel_install_smoke.chatgpt_eval_case_count -ne 13 -or
         $preflightSummary.wheel_install_smoke.sbom_cli_verified -ne $true -or

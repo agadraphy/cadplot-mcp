@@ -90,7 +90,8 @@ $expectedCommands = @(
     "cadplot-acceptance.cmd", "cadplot-assemble-pilot.cmd", "cadplot-collect-pilot.cmd",
     "cadplot-collect-recovery.cmd",
     "cadplot-chatgpt-eval.cmd", "cadplot-doctor.cmd", "cadplot-mcp-http.cmd", "cadplot-mcp.cmd",
-    "cadplot-tunnel-preflight.cmd", "cadplot-validate-pilot.cmd"
+    "cadplot-probe-client-config.cmd", "cadplot-tunnel-preflight.cmd",
+    "cadplot-validate-pilot.cmd"
 )
 $commandRoot = Join-Path $root "bin"
 foreach ($command in $expectedCommands) {
@@ -166,6 +167,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Installed HTTP launcher smoke failed." }
     & (Join-Path $commandRoot "cadplot-tunnel-preflight.cmd") --help 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Installed tunnel preflight launcher smoke failed." }
+    & (Join-Path $commandRoot "cadplot-probe-client-config.cmd") --help 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Installed client-config probe launcher smoke failed." }
     & (Join-Path $commandRoot "cadplot-chatgpt-eval.cmd") --help 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Installed ChatGPT evaluation launcher smoke failed." }
 }

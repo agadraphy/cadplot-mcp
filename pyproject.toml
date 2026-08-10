@@ -32,6 +32,7 @@ cadplot-assemble-pilot = "cadplot_mcp.pilot_cli:assemble_main"
 cadplot-validate-pilot = "cadplot_mcp.pilot_cli:validate_main"
 cadplot-acceptance = "cadplot_mcp.acceptance_cli:main"
 cadplot-tunnel-preflight = "cadplot_mcp.tunnel_preflight:main"
+cadplot-probe-client-config = "cadplot_mcp.client_config:main"
 cadplot-chatgpt-eval = "cadplot_mcp.chatgpt_eval_cli:main"
 cadplot-sbom = "cadplot_mcp.sbom_cli:main"
 

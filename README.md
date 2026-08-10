@@ -490,7 +490,11 @@ evidence, and `CADPLOT_ENABLE_PUBLISH` unset. Its no-overwrite record proves onl
 readiness; it deliberately retains `live_publish_proven=false` and `licensed_live_pilot_ready=false`.
 After every successful check it also emits a separate no-overwrite standard `mcpServers` JSON entry
 bound to the verified installed interpreter, config, workspace, ProgID, and pipe. The read-only entry
-omits the publish flag.
+omits the publish flag. Before recording success, the verifier launches that exact entry in a
+sanitized environment and performs only MCP `initialize` and `tools/list`; it requires the exact
+20-tool contract and records `mcp_tools_called=false`. This proves that the client entry is executable,
+not that AutoCAD was launched, a DWG was opened, or a PDF was produced. The installed
+`cadplot-probe-client-config` command can repeat this bounded check without invoking a CadPlot tool.
 After the approved restart with `CADPLOT_ENABLE_PUBLISH=1`, run the same command with
 `-SessionMode Publish -ReadOnlyPreflightPath <the prior record>` and a new output path. This second
 gate uses `cadplot-doctor --expect-publish-enabled` to require the same install/runtime/binary identity

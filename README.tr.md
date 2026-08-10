@@ -300,6 +300,11 @@ Python, config, workspace, ProgID ve pipe değerlerine bağlı ayrı bir no-over
 dosyası da üretir. Salt-okunur dosyada publish bayrağı yoktur; yalnız başarılı ve kimliği doğrulanmış
 `-SessionMode Publish` oturumu tam `CADPLOT_ENABLE_PUBLISH=1` içeren bağlantı girdisi üretebilir. Bu
 tek girdi, diğer istemci ayarları ezilmeden onaylı yerel ChatGPT/Codex yapılandırmasına birleştirilir.
+Başarı kanıtı yazılmadan önce üretilen girdinin tam komut, argüman ve temizlenmiş ortamı gerçekten
+başlatılır; yalnız MCP `initialize` ve `tools/list` çalıştırılır, 20 araçlık yüzey doğrulanır ve hiçbir
+CadPlot aracı çağrılmaz. Kurulu `cadplot-probe-client-config` komutu bu sınırlı testi tekrarlar. Bu,
+istemci girdisinin çalıştığını kanıtlar; AutoCAD'in açıldığını, DWG işlendiğini veya PDF üretildiğini
+kanıtlamaz.
 Repo içindeki doğrulanmış opsiyonel Codex wrapper'ı
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md) klasöründedir; yalnız
 önceden kurulmuş `cadplot-mcp` komutunu başlatır ve şirket dosyalarını paketlemez.

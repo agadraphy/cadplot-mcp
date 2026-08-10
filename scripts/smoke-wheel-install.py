@@ -192,6 +192,7 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             "cadplot-assemble-pilot",
             "cadplot-validate-pilot",
             "cadplot-tunnel-preflight",
+            "cadplot-probe-client-config",
             "cadplot-chatgpt-eval",
             "cadplot-sbom",
         )
@@ -286,6 +287,8 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
 
         tunnel_input = temporary_root / "tunnel-input"
         tunnel_input.mkdir()
+        tunnel_workspace = temporary_root / "tunnel-work"
+        tunnel_workspace.mkdir()
         tunnel_config = temporary_root / "tunnel-config.yaml"
         tunnel_config.write_text(
             json.dumps(
@@ -306,6 +309,66 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             ),
             encoding="utf-8",
         )
+        client_probe_command = command_root / f"cadplot-probe-client-config{command_suffix}"
+        client_probe_reports: dict[str, dict[str, Any]] = {}
+        for mode in ("readonly", "publish"):
+            client_environment = {
+                "CADPLOT_CONFIG": str(tunnel_config),
+                "CADPLOT_WORKSPACE_ROOT": str(tunnel_workspace),
+                "CADPLOT_AUTOCAD_PROGID": "AutoCAD.Application.25.0",
+                "CADPLOT_PIPE_NAME": "cadplot-mcp-2025",
+            }
+            if mode == "publish":
+                client_environment["CADPLOT_ENABLE_PUBLISH"] = "1"
+            server_id = f"cadplot-2025-{mode}"
+            client_config = temporary_root / f"generated-{mode}.mcp.json"
+            client_config.write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            server_id: {
+                                "command": str(interpreter),
+                                "args": ["-m", "cadplot_mcp"],
+                                "env": client_environment,
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client_probe_reports[mode] = json.loads(
+                _run(
+                    [
+                        str(client_probe_command),
+                        str(client_config),
+                        "--server-id",
+                        server_id,
+                        "--expect-mode",
+                        mode,
+                    ],
+                    cwd=temporary_root,
+                    environment=environment,
+                )
+            )
+        read_only_probe = client_probe_reports["readonly"]
+        publish_probe = client_probe_reports["publish"]
+        if (
+            read_only_probe.get("passed") is not True
+            or publish_probe.get("passed") is not True
+            or read_only_probe.get("publish_enabled") is not False
+            or publish_probe.get("publish_enabled") is not True
+            or read_only_probe.get("tool_count") != 20
+            or publish_probe.get("tool_count") != 20
+            or read_only_probe.get("tool_surface_sha256")
+            != publish_probe.get("tool_surface_sha256")
+            or read_only_probe.get("tools_called") is not False
+            or publish_probe.get("tools_called") is not False
+            or read_only_probe.get("autocad_launched") is not False
+            or publish_probe.get("autocad_launched") is not False
+            or read_only_probe.get("live_publish_proven") is not False
+            or publish_probe.get("live_publish_proven") is not False
+        ):
+            raise RuntimeError("Installed wheel failed the generated MCP client-config probe.")
         tunnel_environment = environment.copy()
         tunnel_environment["CADPLOT_CONFIG"] = str(tunnel_config)
         tunnel_environment["CADPLOT_TUNNEL_ID"] = (
@@ -346,6 +409,8 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
             or str(tunnel_config) in tunnel_output
             or not preflight_path.is_file()
             or json.loads(preflight_path.read_text(encoding="utf-8")) != tunnel_report
+            or tunnel_report["target_probe"]["tool_surface_sha256"]
+            != read_only_probe["tool_surface_sha256"]
         ):
             raise RuntimeError("Installed wheel failed the secret-free tunnel preflight smoke.")
 
@@ -402,6 +467,10 @@ def smoke_wheel(wheel_value: Path) -> dict[str, Any]:
         "tunnel_preflight_tool_surface_sha256": tunnel_report["target_probe"][
             "tool_surface_sha256"
         ],
+        "client_config_read_only_probed": True,
+        "client_config_publish_probed": True,
+        "client_config_tool_surface_sha256": read_only_probe["tool_surface_sha256"],
+        "client_config_tools_called": False,
         "chatgpt_eval_plan_prepared": True,
         "chatgpt_eval_case_count": evaluation_report["case_count"],
         "inspector_worker_protocol": True,
