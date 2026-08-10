@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject
 
 from cadplot_mcp.audit import audit_publish_outputs
 from cadplot_mcp.batch import (
@@ -202,7 +203,18 @@ def run_synthetic_batch_demo(
         raise RuntimeError("Synthetic batch-status rehearsal lost a live plan identity.")
 
     first_pdf = Path(jobs[0]["outputs"][0]["pdf"])
-    first_pdf.write_bytes(_blank_a4_pdf())
+    first_pdf.write_bytes(_synthetic_a4_pdf(landscape=True, include_marking=False))
+    blank_probe = audit_publish_outputs(jobs[0]["manifest"], config)
+    blank_pdf_rejected = bool(
+        blank_probe["outputs_complete"] is False
+        and blank_probe["publish_verified"] is False
+        and blank_probe["outputs"][0]["status"] == "blank_pdf_page"
+    )
+    if not blank_pdf_rejected:
+        raise RuntimeError("Synthetic blank PDF page was not rejected.")
+    first_pdf.unlink()
+
+    first_pdf.write_bytes(_synthetic_a4_pdf())
     orientation_probe = audit_publish_outputs(jobs[0]["manifest"], config)
     orientation_mismatch_rejected = bool(
         orientation_probe["outputs_complete"] is False
@@ -213,7 +225,7 @@ def run_synthetic_batch_demo(
         raise RuntimeError("Synthetic PDF orientation mismatch was not rejected.")
     first_pdf.unlink()
 
-    pdf_bytes = _blank_a4_pdf(landscape=True)
+    pdf_bytes = _synthetic_a4_pdf(landscape=True)
     for job in jobs:
         outputs = job["outputs"]
         if len(outputs) != 1:
@@ -222,10 +234,16 @@ def run_synthetic_batch_demo(
 
     audit_results = [audit_publish_outputs(job["manifest"], config) for job in jobs]
     outputs_complete = sum(result["outputs_complete"] is True for result in audit_results)
+    marking_content_verified = sum(
+        result["outputs"][0].get("marking_operator_count", 0) >= 1
+        and result["outputs"][0].get("content_stream_bytes", 0) > 0
+        for result in audit_results
+    )
     execution_verified = sum(result["execution_verified"] is True for result in audit_results)
     publish_verified = sum(result["publish_verified"] is True for result in audit_results)
     if (
         outputs_complete != drawing_count
+        or marking_content_verified != drawing_count
         or execution_verified != 0
         or publish_verified != 0
     ):
@@ -295,10 +313,12 @@ def run_synthetic_batch_demo(
         "output_audit": {
             "audited_jobs": len(audit_results),
             "outputs_complete": outputs_complete,
+            "marking_content_verified": marking_content_verified,
             "execution_verified": execution_verified,
             "publish_verified": publish_verified,
             "receipts_created": False,
             "orientation_mismatch_rejected": orientation_mismatch_rejected,
+            "blank_pdf_rejected": blank_pdf_rejected,
         },
         "restart_report_after_outputs": {
             "page_size": report_page_size,
@@ -437,11 +457,17 @@ def _chunks(items: list[dict[str, str]], size: int) -> list[list[dict[str, str]]
     return [items[offset : offset + size] for offset in range(0, len(items), size)]
 
 
-def _blank_a4_pdf(*, landscape: bool = False) -> bytes:
+def _synthetic_a4_pdf(
+    *, landscape: bool = False, include_marking: bool = True
+) -> bytes:
     stream = BytesIO()
     writer = PdfWriter()
     width, height = (841.89, 595.276) if landscape else (595.276, 841.89)
-    writer.add_blank_page(width=width, height=height)
+    page = writer.add_blank_page(width=width, height=height)
+    if include_marking:
+        content = DecodedStreamObject()
+        content.set_data(b"q 0 0 0 RG 1 w 10 10 m 200 200 l S Q")
+        page.replace_contents(content)
     writer.write(stream)
     return stream.getvalue()
 

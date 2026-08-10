@@ -52,10 +52,12 @@ def test_synthetic_batch_demo_rehearses_bounded_scale_without_live_claims(
     assert result["output_audit"] == {
         "audited_jobs": 25,
         "outputs_complete": 25,
+        "marking_content_verified": 25,
         "execution_verified": 0,
         "publish_verified": 0,
         "receipts_created": False,
         "orientation_mismatch_rejected": True,
+        "blank_pdf_rejected": True,
     }
     assert result["restart_report_after_outputs"]["manual_review"] == 25
     assert result["restart_report_after_outputs"]["complete"] == 0

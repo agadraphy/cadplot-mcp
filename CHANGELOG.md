@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- PDF auditing now rejects a correctly sized but blank page unless its decoded content stream
+  contains at least one path-paint, text-show, shading, image, or form invocation operator. Valid
+  reports retain decoded-byte and marking-operator counts; the 300-drawing rehearsal proves the
+  blank-page rejection separately and binds 300/300 marking-content checks through demo/release
+  verifiers. Licensed visual-reference collection rejects blank references as well; visual review
+  remains mandatory for crop, scale, lineweight, style, fonts, and title blocks.
 - Normal output auditing now re-fingerprints the authorized source DWG at completion and requires
   its SHA-256, byte length, and modification timestamp to match the staged approval before
   `publish_verified=true`. Changed sources are reported as `source_changed`, receive no restart

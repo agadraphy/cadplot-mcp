@@ -244,6 +244,7 @@ try {
         }
         synthetic_batch_rehearsal = [ordered]@{
             target_drawings = 300; ready = 300; staged = 300; outputs_complete = 300
+            marking_content_verified = 300; blank_pdf_rejected = $true
             queue_capacity = 7; queue_waves = 45; queue_approvals = 300
             queue_simulated_acceptances = 300; queue_deferred_results = 285
             queue_pipe_attempts = 330; queue_exact_retry_identity_preserved = $true
@@ -448,6 +449,23 @@ try {
         throw "Demo-kit verifier accepted altered PDF-orientation evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $blankPdfTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $blankPdfTamper.synthetic_batch_rehearsal.blank_pdf_rejected = $false
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($blankPdfTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $blankPdfTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*300-drawing synthetic batch evidence*") { throw }
+        $blankPdfTamperBlocked = $true
+    }
+    if (-not $blankPdfTamperBlocked) {
+        throw "Demo-kit verifier accepted altered blank-PDF rejection evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     $durableTamper = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
     $durableTamper.durable_queue_recovery.authentication_scheme = "unsigned"
     [System.IO.File]::WriteAllText(
@@ -536,6 +554,7 @@ try {
         dependency_license_tamper_blocked = $licenseTamperBlocked
         queue_backpressure_tamper_blocked = $queueTamperBlocked
         orientation_evidence_tamper_blocked = $orientationTamperBlocked
+        blank_pdf_evidence_tamper_blocked = $blankPdfTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
         wheel_tamper_blocked = $true

@@ -296,9 +296,11 @@ try {
             restart_pages_before_outputs = 6
             restart_pages_after_outputs = 6
             outputs_complete = 300
+            marking_content_verified = 300
             execution_verified = 0
             publish_verified = 0
             orientation_mismatch_rejected = $true
+            blank_pdf_rejected = $true
             manual_review_without_receipts = 300
             source_unchanged = $true
             evidence_digest = "sha256:$('c' * 64)"

@@ -19,6 +19,26 @@ MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_RECEIPT_BYTES = 64 * 1024
 HASH_CHUNK_BYTES = 1024 * 1024
 RECEIPT_OUTPUT_DOMAIN = b"cadplot-receipt-outputs-v1\0"
+PDF_MARKING_OPERATORS = frozenset(
+    {
+        b"S",
+        b"s",
+        b"f",
+        b"F",
+        b"f*",
+        b"B",
+        b"B*",
+        b"b",
+        b"b*",
+        b"sh",
+        b"Tj",
+        b"TJ",
+        b"'",
+        b'"',
+        b"Do",
+        b"INLINE IMAGE",
+    }
+)
 
 
 def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> dict[str, Any]:
@@ -117,6 +137,19 @@ def audit_source_drawing(
         "expected_modified_ns": expected_modified_ns,
         "current_modified_ns": current["modified_ns"],
         "matches": matches,
+    }
+
+
+def pdf_page_marking_evidence(page: Any) -> dict[str, int]:
+    """Count decoded content bytes and operators that can place marks on one PDF page."""
+    contents = page.get_contents()
+    if contents is None:
+        return {"content_stream_bytes": 0, "marking_operator_count": 0}
+    return {
+        "content_stream_bytes": len(contents.get_data()),
+        "marking_operator_count": sum(
+            operator in PDF_MARKING_OPERATORS for _, operator in contents.operations
+        ),
     }
 
 
@@ -452,6 +485,9 @@ def _audit_pdf(
             width_points = float(media_box.width)
             height_points = float(media_box.height)
             rotation = int(page.get("/Rotate", 0) or 0)
+            marking = pdf_page_marking_evidence(page)
+            content_stream_bytes = marking["content_stream_bytes"]
+            marking_operator_count = marking["marking_operator_count"]
     except (OSError, PdfReadError, TypeError, ValueError):
         return {
             **result,
@@ -511,6 +547,16 @@ def _audit_pdf(
             "expected_paper_width_mm": expected_mm[0],
             "expected_paper_height_mm": expected_mm[1],
         }
+    if marking_operator_count < 1:
+        return {
+            **result,
+            "status": "blank_pdf_page",
+            "size_bytes": size,
+            "sha256": None,
+            "page_count": 1,
+            "content_stream_bytes": content_stream_bytes,
+            "marking_operator_count": 0,
+        }
     return {
         **result,
         "status": "valid",
@@ -521,6 +567,8 @@ def _audit_pdf(
         "page_height_points": round(height_points, 3),
         "page_width_mm": round(width_points * 25.4 / 72, 3),
         "page_height_mm": round(height_points * 25.4 / 72, 3),
+        "content_stream_bytes": content_stream_bytes,
+        "marking_operator_count": marking_operator_count,
     }
 
 

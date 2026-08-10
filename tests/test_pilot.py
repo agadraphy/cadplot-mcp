@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
-from pypdf.generic import NameObject, NumberObject
+from pypdf.generic import DecodedStreamObject, NameObject, NumberObject
 
 from cadplot_mcp.audit import build_receipt_output_digest
 from cadplot_mcp.config import load_config
@@ -23,6 +23,22 @@ from cadplot_mcp.pilot import (
     validate_bundle_build_evidence,
     validate_pilot_evidence,
 )
+
+
+def _add_marked_page(
+    writer: PdfWriter,
+    *,
+    width: float,
+    height: float,
+    rotation: int | None = None,
+):
+    page = writer.add_blank_page(width=width, height=height)
+    content = DecodedStreamObject()
+    content.set_data(b"q 0 0 0 RG 1 w 10 10 m 100 100 l S Q")
+    page.replace_contents(content)
+    if rotation is not None:
+        page.rotate(rotation)
+    return page
 
 
 def _run(
@@ -231,12 +247,12 @@ template_roots: [templates]
 """
     pdf = output_dir / "0001-pilot-a4.pdf"
     writer = PdfWriter()
-    writer.add_blank_page(width=595.276, height=841.89)
+    _add_marked_page(writer, width=595.276, height=841.89)
     with pdf.open("wb") as stream:
         writer.write(stream)
     reference_pdf = project / "approved-reference.pdf"
     reference_writer = PdfWriter()
-    reference_writer.add_blank_page(width=595.276, height=841.89)
+    _add_marked_page(reference_writer, width=595.276, height=841.89)
     with reference_pdf.open("wb") as stream:
         reference_writer.write(stream)
     manifest = {
@@ -330,7 +346,7 @@ def _completed_batch(tmp_path: Path) -> tuple[list[Path], object]:
         source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
         pdf = output_root / f"0001-pilot-{index}.pdf"
         writer = PdfWriter()
-        writer.add_blank_page(width=595.276, height=841.89)
+        _add_marked_page(writer, width=595.276, height=841.89)
         with pdf.open("wb") as stream:
             writer.write(stream)
         manifest = {
@@ -656,7 +672,7 @@ def test_build_pilot_run_binds_reference_geometry_and_rejects_wrong_orientation(
     manifest, config, reference_pdf = _completed_job(tmp_path)
     landscape = reference_pdf.with_name("wrong-orientation.pdf")
     writer = PdfWriter()
-    writer.add_blank_page(width=841.89, height=595.276)
+    _add_marked_page(writer, width=841.89, height=595.276)
     with landscape.open("wb") as stream:
         writer.write(stream)
 
@@ -678,7 +694,7 @@ def test_build_pilot_run_binds_reference_geometry_and_rejects_wrong_orientation(
 def test_build_pilot_run_applies_reference_pdf_page_rotation(tmp_path: Path) -> None:
     manifest, config, reference_pdf = _completed_job(tmp_path)
     writer = PdfWriter()
-    writer.add_blank_page(width=841.89, height=595.276).rotate(90)
+    _add_marked_page(writer, width=841.89, height=595.276, rotation=90)
     with reference_pdf.open("wb") as stream:
         writer.write(stream)
 
@@ -702,7 +718,7 @@ def test_build_pilot_run_applies_reference_pdf_page_rotation(tmp_path: Path) -> 
 def test_build_pilot_run_rejects_invalid_reference_pdf_rotation(tmp_path: Path) -> None:
     manifest, config, reference_pdf = _completed_job(tmp_path)
     writer = PdfWriter()
-    page = writer.add_blank_page(width=595.276, height=841.89)
+    page = _add_marked_page(writer, width=595.276, height=841.89)
     page[NameObject("/Rotate")] = NumberObject(45)
     with reference_pdf.open("wb") as stream:
         writer.write(stream)
@@ -722,11 +738,35 @@ def test_build_pilot_run_rejects_invalid_reference_pdf_rotation(tmp_path: Path) 
         )
 
 
+def test_build_pilot_run_rejects_blank_visual_reference(tmp_path: Path) -> None:
+    manifest, config, _ = _completed_job(tmp_path)
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    blank_reference = Path(raw["source_drawing"]).with_name("blank-reference.pdf")
+    writer = PdfWriter()
+    writer.add_blank_page(width=595.276, height=841.89)
+    with blank_reference.open("wb") as stream:
+        writer.write(stream)
+
+    with pytest.raises(ValueError, match="no marking content"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=blank_reference,
+        )
+
+
 def test_build_pilot_run_rejects_reference_outside_allowed_roots(tmp_path: Path) -> None:
     manifest, config, _ = _completed_job(tmp_path)
     outside = tmp_path / "unapproved-reference.pdf"
     writer = PdfWriter()
-    writer.add_blank_page(width=595.276, height=841.89)
+    _add_marked_page(writer, width=595.276, height=841.89)
     with outside.open("wb") as stream:
         writer.write(stream)
 

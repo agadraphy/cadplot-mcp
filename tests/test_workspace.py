@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
-from pypdf.generic import NameObject, NumberObject
+from pypdf.generic import DecodedStreamObject, NameObject, NumberObject
 
 from cadplot_mcp import server as mcp_server
 from cadplot_mcp.audit import (
@@ -25,6 +25,22 @@ from cadplot_mcp.models import (
 from cadplot_mcp.planner import create_publish_plan
 from cadplot_mcp.reporting import build_publish_operations_report
 from cadplot_mcp.workspace import stage_publish_job
+
+
+def _add_marked_page(
+    writer: PdfWriter,
+    *,
+    width: float,
+    height: float,
+    rotation: int | None = None,
+):
+    page = writer.add_blank_page(width=width, height=height)
+    content = DecodedStreamObject()
+    content.set_data(b"q 0 0 0 RG 1 w 10 10 m 100 100 l S Q")
+    page.replace_contents(content)
+    if rotation is not None:
+        page.rotate(rotation)
+    return page
 
 
 def _successful_receipt(job: dict, manifest_path: Path) -> dict:
@@ -276,7 +292,7 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
 
     pdf = Path(job["outputs"][0]["pdf"])
     writer = PdfWriter()
-    writer.add_blank_page(width=842, height=595)
+    _add_marked_page(writer, width=842, height=595)
     with pdf.open("wb") as stream:
         writer.write(stream)
     complete = audit_publish_outputs(job["manifest"], config)
@@ -289,6 +305,46 @@ def test_output_audit_reports_missing_then_valid_pdf(tmp_path: Path) -> None:
     assert complete["outputs"][0]["page_count"] == 1
     assert complete["outputs"][0]["page_width_points"] == 842
     assert complete["outputs"][0]["page_width_mm"] == pytest.approx(297.039, abs=0.001)
+    assert complete["outputs"][0]["content_stream_bytes"] > 0
+    assert complete["outputs"][0]["marking_operator_count"] == 1
+
+
+def test_output_audit_rejects_blank_single_page_pdf(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    writer.add_blank_page(width=842, height=595)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["publish_verified"] is False
+    assert report["outputs"][0]["status"] == "blank_pdf_page"
+    assert report["outputs"][0]["content_stream_bytes"] == 0
+    assert report["outputs"][0]["marking_operator_count"] == 0
+
+
+def test_output_audit_rejects_content_stream_without_paint_operator(
+    tmp_path: Path,
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=842, height=595)
+    content = DecodedStreamObject()
+    content.set_data(b"q 10 10 m 100 100 l n Q")
+    page.replace_contents(content)
+    with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
+        writer.write(stream)
+
+    report = audit_publish_outputs(job["manifest"], config)
+
+    assert report["outputs_complete"] is False
+    assert report["outputs"][0]["status"] == "blank_pdf_page"
+    assert report["outputs"][0]["content_stream_bytes"] > 0
+    assert report["outputs"][0]["marking_operator_count"] == 0
 
 
 def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path) -> None:
@@ -296,7 +352,7 @@ def test_receipt_reader_cross_checks_terminal_execution_evidence(tmp_path: Path)
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     manifest_path = Path(job["manifest"])
     pdf_writer = PdfWriter()
-    pdf_writer.add_blank_page(width=842, height=595)
+    _add_marked_page(pdf_writer, width=842, height=595)
     with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
         pdf_writer.write(stream)
     receipt = _successful_receipt(job, manifest_path)
@@ -320,7 +376,7 @@ def test_output_audit_rejects_stale_pdf_after_source_revision(tmp_path: Path) ->
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     manifest_path = Path(job["manifest"])
     pdf_writer = PdfWriter()
-    pdf_writer.add_blank_page(width=842, height=595)
+    _add_marked_page(pdf_writer, width=842, height=595)
     with Path(job["outputs"][0]["pdf"]).open("wb") as stream:
         pdf_writer.write(stream)
     receipt = _successful_receipt(job, manifest_path)
@@ -381,7 +437,7 @@ def test_valid_replacement_pdf_cannot_reuse_successful_receipt(tmp_path: Path) -
     manifest_path = Path(job["manifest"])
     pdf = Path(job["outputs"][0]["pdf"])
     original = PdfWriter()
-    original.add_blank_page(width=842, height=595)
+    _add_marked_page(original, width=842, height=595)
     with pdf.open("wb") as stream:
         original.write(stream)
     receipt = _successful_receipt(job, manifest_path)
@@ -391,7 +447,7 @@ def test_valid_replacement_pdf_cannot_reuse_successful_receipt(tmp_path: Path) -
     assert audit_publish_outputs(manifest_path, config)["publish_verified"] is True
 
     replacement = PdfWriter()
-    replacement.add_blank_page(width=842, height=595)
+    _add_marked_page(replacement, width=842, height=595)
     replacement.add_metadata({"/Title": "replacement after receipt"})
     with pdf.open("wb") as stream:
         replacement.write(stream)
@@ -481,7 +537,7 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
 
     complete_manifest = Path(complete_job["manifest"])
     writer = PdfWriter()
-    writer.add_blank_page(width=842, height=595)
+    _add_marked_page(writer, width=842, height=595)
     with Path(complete_job["outputs"][0]["pdf"]).open("wb") as stream:
         writer.write(stream)
     complete_receipt = _successful_receipt(complete_job, complete_manifest)
@@ -711,7 +767,7 @@ def test_output_audit_applies_pdf_page_rotation_to_physical_orientation(
     job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
     pdf = Path(job["outputs"][0]["pdf"])
     writer = PdfWriter()
-    writer.add_blank_page(width=595, height=842).rotate(90)
+    _add_marked_page(writer, width=595, height=842, rotation=90)
     with pdf.open("wb") as stream:
         writer.write(stream)
 

@@ -103,6 +103,9 @@ Use this checklist for every alpha release.
 - [ ] Success, bounded-failure, and post-receipt PDF-tamper tests pass; output completeness is not
       presented as execution proof unless the schema-v2 receipt's canonical output-set SHA-256
       revalidates and `publish_verified=true`.
+- [ ] Correct-size blank and non-painting content-stream PDFs are rejected; the 300-drawing
+      rehearsal reports `blank_pdf_rejected=true` and `marking_content_verified=300`. Treat this as
+      a blank-page guard, not as proof of crop, scale, lineweight, style, font, or title-block quality.
 - [ ] Source-revision and timestamp-drift tests prove that staged validation, direct queueing,
       restart reporting, and final output audit all fail closed before claiming current output;
       `source_changed` jobs expose no requeue approval and `publish_verified=false`.
@@ -113,8 +116,8 @@ Use this checklist for every alpha release.
       path-redacted `template_assets` list; every used
       asset's approved, post-pilot source, and staged-copy SHA-256 values are identical, or the list
       is explicitly empty when that run used no external template.
-- [ ] Each run binds the exact published and authorized one-page reference PDFs by path-redacted
-      SHA-256, byte length, and page geometry; the receipt output count/digest independently
+- [ ] Each run binds the exact nonblank published and authorized one-page reference PDFs by
+      path-redacted SHA-256, byte length, and page geometry; the receipt output count/digest independently
       revalidates against the published PDF, their orientation/size relationship revalidates, and
       all seven visual checks were separately attested by the named reviewer.
 - [ ] Operations-report cursor tests prove that restart pages do not repeat or skip staged jobs.

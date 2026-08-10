@@ -204,9 +204,10 @@ uv run python scripts/run-synthetic-demo.py
 - `create_publish_operations_report`: page through up to 50 staged workspace jobs with a stable
   cursor, terminal evidence, output issues, safe next actions, and exact requeue approvals.
 - `audit_publish_outputs`: verify job boundaries, staged-DWG integrity, PDF structure, one-page
-  count, expected physical paper dimensions, sizes, SHA-256 hashes, and execution evidence without
-  changing output. `publish_verified=true` requires `source_unchanged=true`, valid PDFs, and a
-  successful receipt whose canonical output-set binding independently revalidates.
+  count, expected physical paper dimensions, nonblank marking content, sizes, SHA-256 hashes, and
+  execution evidence without changing output. `publish_verified=true` requires
+  `source_unchanged=true`, valid nonblank PDFs, and a successful receipt whose canonical output-set
+  binding independently revalidates.
 - `match_paper_profile`: map a detected label to a configured office profile.
 
 ## Configuration
@@ -320,7 +321,8 @@ repeats, reads all 300 plan identities through 15 bounded batch-status calls, an
 audits 300 generated PDFs. It deliberately creates no plug-in
 receipt. Before the valid PDFs, it proves a portrait PDF cannot satisfy the landscape orientation
 derived from the frame and records `orientation_mismatch_rejected=true`, including effective PDF
-page rotation. All 300 valid
+page rotation. It also proves a correctly sized blank page is rejected, then requires all 300 valid
+PDFs to contain at least one decoded marking operator. All 300 valid
 synthetic outputs still remain `manual_review`, `execution_verified=0`, and
 `publish_verified=0`. This proves bounded local orchestration and fail-closed recovery at the target
 count; it is not AutoCAD execution evidence.

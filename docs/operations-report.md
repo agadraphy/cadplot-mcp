@@ -36,6 +36,8 @@ only after every page has been
 read through `has_more=false` and every item is `complete`. Presence of a PDF alone is never
 execution evidence. To keep MCP responses bounded, at most 20 output issues are included per job;
 use `output_issue_count` and `output_issues_truncated` to detect a longer list.
+`blank_pdf_page` is an invalid output issue even when page count and MediaBox are correct. A marking
+operator only proves that the page is not structurally empty; visual acceptance remains separate.
 
 Every report rebuild re-fingerprints the original allowed-root DWG. This is a currency check, not a
 claim that CadPlot modified the source: a user or upstream sync may have produced a newer revision.

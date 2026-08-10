@@ -244,6 +244,8 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "queue_status_identity_preserved",
         "publish_verified -ne 0",
         "orientation_mismatch_rejected",
+        "marking_content_verified",
+        "blank_pdf_rejected",
         "manual_review_without_receipts",
         "evidence_digest",
         "SummaryPath",
@@ -303,6 +305,8 @@ def test_demo_rehearsal_is_commit_bound_and_keeps_live_claims_false() -> None:
         "target_drawings -ne 300",
         "publish_verified -ne 0",
         "orientation_mismatch_rejected -ne $true",
+        "marking_content_verified -ne 300",
+        "blank_pdf_rejected -ne $true",
         "[System.IO.FileMode]::CreateNew",
         "ReportPath",
         "Readiness report target already exists",
@@ -437,6 +441,8 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "tunnel_preflight_target_probed -ne $true",
         "queue_deferred_results -ne 285",
         "orientation_mismatch_rejected -ne $true",
+        "marking_content_verified -ne 300",
+        "blank_pdf_rejected -ne $true",
         "live_publish_proven -ne $false",
     ):
         assert required in verifier
@@ -451,6 +457,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "dependency_license_tamper_blocked",
         "queue_backpressure_tamper_blocked",
         "orientation_evidence_tamper_blocked",
+        "blank_pdf_evidence_tamper_blocked",
         "tunnel_target_probe_tamper_blocked",
         "wheel_tamper_blocked = $true",
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
@@ -1195,6 +1202,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "python_license_inventory",
         "valid installed local-target probe evidence",
         "wheel_install_smoke = $wheelSmoke",
+        "marking_content_verified -ne 300",
+        "blank_pdf_rejected -ne $true",
     ):
         assert required in builder
     assert "Remove-Item" not in builder
@@ -1217,6 +1226,8 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "dependency license inventory is incomplete",
         "installed local-target probe evidence",
         "tunnel_preflight_target_probed -ne $true",
+        "marking_content_verified -ne 300",
+        "blank_pdf_rejected -ne $true",
         '"scripts/verify-release-kit.ps1"',
         '"scripts/new-local-pilot.ps1"',
         '"scripts/collect-pilot-run.py"',
@@ -1278,6 +1289,8 @@ def test_release_kit_smoke_is_explicitly_protocol_only_and_tamper_checked() -> N
         "live_publish_proven = $false",
         "synthetic_batch_rehearsal",
         "orientation_mismatch_rejected = $true",
+        "marking_content_verified = 300",
+        "blank_pdf_rejected = $true",
         "manual_review_without_receipts = 300",
         "embedded_self_verification_passed = $true",
     ):

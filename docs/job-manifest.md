@@ -62,9 +62,13 @@ result for receipt/audit review.
 
 After publishing, call `audit_publish_outputs` with the manifest path. The audit is read-only and
 rejects path escapes, duplicate PDF targets, a changed staged DWG, invalid/encrypted PDF content,
-and any output that is not exactly one page. Its report includes page dimensions, byte size, and
-SHA-256 digest for each valid PDF, then independently recomputes the successful receipt's canonical
-output-set binding. It also re-fingerprints the original allowed-root source at the end of the audit;
+and any output that is not exactly one page. A correctly sized page is still rejected as
+`blank_pdf_page` unless its decoded content contains a path-paint, text-show, shading, image, or
+form-invocation operator. The report retains decoded content byte and marking-operator counts; this
+is a strong blank-page guard, not a replacement for visual crop/scale/style review. Its report also
+includes page dimensions, byte size, and SHA-256 digest for each valid PDF, then independently
+recomputes the successful receipt's canonical output-set binding. It re-fingerprints the original
+allowed-root source at the end of the audit;
 `source_unchanged` requires the approved SHA-256, byte length, and modification timestamp to match.
 `outputs_complete` describes only the expected PDFs; `execution_verified` requires a valid
 successful receipt whose output binding still matches; `publish_verified` is true only when all

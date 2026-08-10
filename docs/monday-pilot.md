@@ -133,7 +133,8 @@ them with the pilot evidence.
    can still be read.
 7. Call `audit_publish_outputs`; require `source_unchanged=true`,
    `receipt_output_binding_verified=true`, and `publish_verified=true` plus one valid,
-   unencrypted, one-page PDF with the expected physical paper dimensions.
+   unencrypted, nonblank one-page PDF with the expected physical paper dimensions and at least one
+   marking operator.
 8. Require both source and staged DWG hashes to remain unchanged.
 9. Visually compare orientation, crop, viewport scale, lineweights, plot style, text/font output,
    and title block against the office reference PDF.

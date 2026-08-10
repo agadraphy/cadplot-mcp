@@ -37,8 +37,8 @@ tamamlanmalıdır.
 
 Preflight içinde 300 sentetik kaynak da 20'lik sayfalama/staging batch'leriyle uçtan uca prova edilir.
 Readiness raporunda `synthetic_batch_rehearsal.target_drawings=300`, `staged=300`,
-`outputs_complete=300`, `orientation_mismatch_rejected=true`, `execution_verified=0`,
-`publish_verified=0` ve
+`outputs_complete=300`, `orientation_mismatch_rejected=true`, `blank_pdf_rejected=true`,
+`marking_content_verified=300`, `execution_verified=0`, `publish_verified=0` ve
 `manual_review_without_receipts=300` görülmelidir. Son iki sıfır hata değildir: AutoCAD receipt'i
 olmayan sentetik PDF'lerin canlı başarı gibi sunulmasını engeller.
 
@@ -106,7 +106,7 @@ taşınmaz.
 9. Canlı durum `Succeeded` olduktan sonra `read_publish_receipt` ve
    `audit_publish_outputs` çalıştırın. Kaynak için `source_unchanged=true`; schema-v2 receipt için
    `output_count`, `outputs_sha256` ve `receipt_output_binding_verified=true` gösterilmelidir.
-   Kabul sonucu yalnız `publish_verified=true` ise geçer.
+   Her PDF `marking_operator_count>=1` olmalı; kabul sonucu yalnız `publish_verified=true` ise geçer.
 10. PDF'yi referansla yan yana açıp yön, crop, gerçek ölçek, lineweight, CTB/STB, font ve title
     block kontrolünü sorumluya yaptırın.
 11. Tek-pafta kabulünden sonra yalnız o sürüme ait temiz bir workspace'te 2–20 işlik küçük batch'i

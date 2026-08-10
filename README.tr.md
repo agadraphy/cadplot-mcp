@@ -32,7 +32,8 @@ Hazır olan parçalar:
 - 50 DWG'ye kadar sayfalı, kaldığı yerden devam edebilen batch planlama;
 - orijinale dokunmadan izole çalışma klasörüne doğrulanmış DWG kopyası alma;
 - beklenen PDF'leri yol, gerçek PDF yapısı, tek sayfa, sayfa ölçüsü, boyut ve SHA-256 açısından
-  denetleme;
+  denetleme; doğru ölçülü fakat çizgi/dolgu/yazı/görsel işaretleme operatörü taşımayan boş sayfayı
+  reddetme;
 - AutoCAD 2016 ve 2025 için ayrı, exact sürüme kilitli .NET adaptör/bundle yapısı;
 - varsayılan kapalı, ana AutoCAD thread'inde çalışan sınırlı yayın kuyruğu;
 - açık plan+manifest onayını workspace dışındaki Windows DPAPI korumalı anahtarla imzalayan restart
@@ -238,8 +239,9 @@ Sunumda doğrudan kullanmak için [Pazartesi demo runbook](docs/pazartesi-demo-t
 11. `read_publish_receipt` ile manifest ve PDF çıktı kümesi hash'lerine bağlı kalıcı başarı kanıtını
     doğrulayın.
 12. Üretilen dosyaları `audit_publish_outputs` ile doğrulayın; ancak PDF'ler geçerliyse,
-    `source_unchanged=true`, `receipt_output_binding_verified=true` ise ve receipt doğrulanıyorsa dönen
-    `publish_verified=true` sonucunu kabul edin.
+    `source_unchanged=true`, her PDF'de işaretleme içeriği varsa,
+    `receipt_output_binding_verified=true` ise ve receipt doğrulanıyorsa dönen `publish_verified=true`
+    sonucunu kabul edin.
 
 300 çizim için `create_batch_publish_plans` aracını varsayılan 20'lik sayfalarla kullanın ve
 ilk sayfanın `inventory_id` değerini saklayın. `has_more=false` olana kadar her `next_offset`
@@ -280,7 +282,8 @@ Prova 15 değişmez plan sayfası, 15 onaylı staging batch'i, 300 bağımsız h
 restart raporu ve 300 yapısal PDF audit'i üretir. Bilerek eklenti receipt'i oluşturmaz; bu nedenle
 önce portrait PDF'nin çerçeveden türetilen landscape sözleşmesini karşılayamadığını, PDF sayfa
 rotasyonu dahil doğrular ve `orientation_mismatch_rejected=true` kaydını tutar. Doğru yönlü 300
-sentetik çıktının tamamı yine
+sentetik çıktıdan önce doğru ölçülü boş sayfayı da reddeder; ardından 300/300 PDF'de marking operator
+kanıtı ister. Çıktıların tamamı yine
 `manual_review`, `execution_verified=0` ve `publish_verified=0` kalır. Bu kanıt
 hedef sayıda yerel orkestrasyon ve fail-closed devam davranışını gösterir; AutoCAD yürütme kanıtı
 değildir.

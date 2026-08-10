@@ -38,7 +38,7 @@ DWG, receipt, and PDFs. It queries the live named-pipe status, requires publishi
 enabled, requires `runtimeSupported=true`, records the normalized `runtimeSeries`, the running
 adapter's embedded `buildCommit`, on-disk `pluginSha256`, and exact
 `queueAuthentication=windows-dpapi-current-user+hmac-sha256-v1`, audits
-`publish_verified=true`, re-hashes source/staged files, requires exactly one PDF, and refuses to
+`publish_verified=true`, re-hashes source/staged files, requires exactly one nonblank PDF, and refuses to
 overwrite an existing evidence file. These declaration flags are human attestations; do not pass
 them before the corresponding checks are actually complete. The seven
 visual checks are deliberately separate flags. There is no blanket visual-acceptance switch.

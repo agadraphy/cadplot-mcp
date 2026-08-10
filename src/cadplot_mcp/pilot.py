@@ -16,6 +16,7 @@ from cadplot_mcp.audit import (
     audit_publish_outputs,
     build_receipt_output_digest,
     load_staged_manifest,
+    pdf_page_marking_evidence,
 )
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.reporting import JOB_ID_PATTERN, build_publish_operations_report
@@ -755,6 +756,8 @@ def _collect_visual_reference(
                 raise ValueError("Visual reference PDF rotation must be a multiple of 90 degrees.")
             if rotation % 180 != 0:
                 width_mm, height_mm = height_mm, width_mm
+            if pdf_page_marking_evidence(page)["marking_operator_count"] < 1:
+                raise ValueError("Visual reference PDF has no marking content.")
     except (OSError, PdfReadError, TypeError, ValueError) as exc:
         if isinstance(exc, ValueError) and str(exc).startswith("Visual reference"):
             raise

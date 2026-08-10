@@ -137,9 +137,11 @@ try {
         $batchResult.queue_protocol_rehearsal.status_identity_preserved -ne $true -or
         $batchResult.queue_protocol_rehearsal.plugin_contacted -ne $false -or
         $batchResult.output_audit.outputs_complete -ne 300 -or
+        $batchResult.output_audit.marking_content_verified -ne 300 -or
         $batchResult.output_audit.execution_verified -ne 0 -or
         $batchResult.output_audit.publish_verified -ne 0 -or
         $batchResult.output_audit.orientation_mismatch_rejected -ne $true -or
+        $batchResult.output_audit.blank_pdf_rejected -ne $true -or
         $batchResult.restart_report_after_outputs.manual_review -ne 300 -or
         $batchResult.restart_report_after_outputs.complete -ne 0 -or
         $batchResult.source_unchanged -ne $true -or
@@ -317,9 +319,11 @@ try {
             restart_pages_before_outputs = $batchResult.restart_report_before_outputs.pages
             restart_pages_after_outputs = $batchResult.restart_report_after_outputs.pages
             outputs_complete = $batchResult.output_audit.outputs_complete
+            marking_content_verified = $batchResult.output_audit.marking_content_verified
             execution_verified = $batchResult.output_audit.execution_verified
             publish_verified = $batchResult.output_audit.publish_verified
             orientation_mismatch_rejected = $batchResult.output_audit.orientation_mismatch_rejected
+            blank_pdf_rejected = $batchResult.output_audit.blank_pdf_rejected
             manual_review_without_receipts = $batchResult.restart_report_after_outputs.manual_review
             source_unchanged = $batchResult.source_unchanged
             evidence_digest = $batchResult.evidence_digest

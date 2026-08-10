@@ -35,7 +35,8 @@ local path at the requested count. Expected evidence is 15 planning pages, 15 st
 unique jobs, a deliberately saturated seven-slot queue simulation with exact deferred retries, six
 restart-report pages before and after outputs, 15 bounded live-status batches preserving all 300
 plan identities, 300 structurally valid PDFs, and an unchanged source inventory. The rehearsal
-never contacts AutoCAD or creates execution receipts;
+first rejects a correctly sized blank PDF, then requires all 300 valid PDFs to contain decoded
+marking operators. It never contacts AutoCAD or creates execution receipts;
 therefore its required result is `publish_verified=0` and 300 `manual_review` jobs, not live success.
 `run-local-preflight.ps1` rejects any result that crosses this evidence boundary.
 

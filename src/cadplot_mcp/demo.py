@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject
 
 from cadplot_mcp.audit import audit_publish_outputs
 from cadplot_mcp.config import load_config
@@ -78,7 +79,10 @@ paper_profiles:
 
     pdf = Path(job["outputs"][0]["pdf"])
     writer = PdfWriter()
-    writer.add_blank_page(width=841.89, height=595.276)
+    page = writer.add_blank_page(width=841.89, height=595.276)
+    content = DecodedStreamObject()
+    content.set_data(b"q 0 0 0 RG 1 w 10 10 m 287 200 l S Q")
+    page.replace_contents(content)
     with pdf.open("wb") as stream:
         writer.write(stream)
     audit = audit_publish_outputs(job["manifest"], config)

@@ -74,6 +74,8 @@ try {
         $preflightSummary.synthetic_batch_rehearsal.queue_plugin_contacted -ne $false -or
         $preflightSummary.synthetic_batch_rehearsal.publish_verified -ne 0 -or
         $preflightSummary.synthetic_batch_rehearsal.orientation_mismatch_rejected -ne $true -or
+        $preflightSummary.synthetic_batch_rehearsal.marking_content_verified -ne 300 -or
+        $preflightSummary.synthetic_batch_rehearsal.blank_pdf_rejected -ne $true -or
         $preflightSummary.durable_queue_recovery.passed -ne $true -or
         $preflightSummary.durable_queue_recovery.exact_test_count -ne 15 -or
         $preflightSummary.durable_queue_recovery.pending_intent_recovered -ne $true -or
