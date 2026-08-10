@@ -92,6 +92,9 @@ taşınmaz.
    `workspaceConfigured=true` ve `publishEnabled=false` değerlerini gösterin. `buildCommit` release
    commit'iyle, `pluginSha256` ise `bundle-build.json` içindeki ilgili adapter DLL hash'iyle aynı
    olmalıdır.
+   Ardından verified install receipt ile `scripts/test-licensed-workstation.ps1` çalıştırın. Sürümün
+   exact ProgID/pipe/runtime/adapter/commit/hash eşleşmesini tek no-overwrite JSON'a bağlamalı;
+   `live_publish_proven=false` ve `licensed_live_pilot_ready=false` kalmalıdır.
 3. `inspect_drawing` çalıştırıp bulunan çerçeve, mevcut layout, page setup, plotter, media ve stili
    ekranda karşılaştırın.
 4. `create_publish_plan` çalıştırın. Ölçek, yön, plot window, hedef layout ve blocker listesini

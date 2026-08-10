@@ -216,6 +216,17 @@ try {
             live_tunnel_proven = $false
             live_publish_proven = $false
         }
+        licensed_workstation_preflight_smoke = [ordered]@{
+            passed = $true
+            positive_preflight = $true
+            autocad_2016_preflight = $true
+            autocad_2025_preflight = $true
+            no_overwrite = $true
+            publish_enabled_blocked = $true
+            wrong_adapter_blocked = $true
+            autocad_launched = $false
+            live_publish_proven = $false
+        }
         durable_queue_recovery = [ordered]@{
             passed = $true
             exact_test_count = 15
@@ -500,6 +511,25 @@ try {
         throw "Demo-kit verifier accepted altered local-target probe evidence."
     }
     [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
+    $licensedPreflightTamper = [System.Text.Encoding]::UTF8.GetString(
+        $manifestBytes
+    ) | ConvertFrom-Json
+    $licensedPreflightTamper.licensed_workstation_preflight_smoke.wrong_adapter_blocked = $false
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        ($licensedPreflightTamper | ConvertTo-Json -Depth 7),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $licensedPreflightTamperBlocked = $false
+    try { & $verifier -KitRoot $resolvedRoot -PassThru }
+    catch {
+        if ($_.Exception.Message -notlike "*licensed-workstation preflight smoke evidence*") { throw }
+        $licensedPreflightTamperBlocked = $true
+    }
+    if (-not $licensedPreflightTamperBlocked) {
+        throw "Demo-kit verifier accepted altered licensed-workstation preflight evidence."
+    }
+    [System.IO.File]::WriteAllBytes($manifestPath, $manifestBytes)
     $sbomBytes = [System.IO.File]::ReadAllBytes($sbomPath)
     $sbomTamper = [System.Text.Encoding]::UTF8.GetString($sbomBytes) | ConvertFrom-Json
     $liveProperty = @($sbomTamper.metadata.component.properties | Where-Object {
@@ -557,6 +587,7 @@ try {
         blank_pdf_evidence_tamper_blocked = $blankPdfTamperBlocked
         durable_queue_tamper_blocked = $durableTamperBlocked
         tunnel_target_probe_tamper_blocked = $targetProbeTamperBlocked
+        licensed_preflight_tamper_blocked = $licensedPreflightTamperBlocked
         wheel_tamper_blocked = $true
         autocad_launched = $false
         live_publish_proven = $false

@@ -101,6 +101,14 @@ try {
         $preflightSummary.durable_queue_recovery.live_publish_proven -ne $false -or
         $preflightSummary.durable_queue_recovery.evidence_scope `
             -cne "production-core-net45+net8-with-synthetic-files" -or
+        $preflightSummary.licensed_workstation_preflight_smoke.passed -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.autocad_2016_preflight -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.autocad_2025_preflight -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.no_overwrite -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.publish_enabled_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.wrong_adapter_blocked -ne $true -or
+        $preflightSummary.licensed_workstation_preflight_smoke.autocad_launched -ne $false -or
+        $preflightSummary.licensed_workstation_preflight_smoke.live_publish_proven -ne $false -or
         $preflightSummary.wheel_install_smoke.passed -ne $true -or
         $preflightSummary.wheel_install_smoke.tool_count -ne 20 -or
         $preflightSummary.wheel_install_smoke.http_transport_tool_count -ne 20 -or
@@ -205,6 +213,8 @@ try {
         dependency_audit_ran = $preflightSummary.dependency_audit_ran
         dependency_audit = $preflightSummary.dependency_audit
         durable_queue_recovery = $preflightSummary.durable_queue_recovery
+        licensed_workstation_preflight_smoke = `
+            $preflightSummary.licensed_workstation_preflight_smoke
         wheel_install_smoke = $preflightSummary.wheel_install_smoke
         autocad_launched = $false
         live_publish_proven = $false

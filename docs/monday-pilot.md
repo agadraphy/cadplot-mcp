@@ -85,6 +85,13 @@ matching-SDK evidence; never use the protocol-only fixture switch on a licensed 
 and `pluginSha256` must match that release's adapter DLL entry in `bundle-build.json`; record all of
 them with the pilot evidence.
 
+With publish still disabled, run `scripts/test-licensed-workstation.ps1` from the verified release kit
+for the selected `2016` or `2025` process. It requires the install receipt, exact versioned ProgID and
+pipe, matching COM/runtime/adapter/commit/DLL hash, safe config/workspace, and a new output under the
+pilot root. Retain the no-overwrite JSON. Its required result keeps `publish_enabled=false`,
+`live_publish_proven=false`, and `licensed_live_pilot_ready=false`; it is the gate before inspection,
+not a substitute for the one-sheet pilot.
+
 ## Gate 4: drawing inspection
 
 1. Configure an allowed root containing only the approved DWG copy.

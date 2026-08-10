@@ -36,6 +36,11 @@ All notable changes to this project are documented in this file.
   entry inspection; and snapshots every manifest-listed kit file. All inputs and the exact tree are
   rechecked before a live/public readiness decision is returned, rejecting same-metadata mutation,
   redirected files, or late additions instead of combining different artifact generations.
+- Added a no-overwrite licensed-workstation read-only preflight for each exact AutoCAD release. It
+  verifies the installed-release receipt before and after `cadplot-doctor`, requires the versioned
+  COM ProgID and pipe, matches the live runtime/adapter/build commit/plugin DLL hash to the verified
+  installation, rejects any publish-enabled environment, and emits local pre-pilot evidence while
+  keeping live-publish and licensed-pilot readiness false.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,

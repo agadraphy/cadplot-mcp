@@ -258,6 +258,7 @@ def test_local_preflight_is_fail_fast_and_does_not_launch_autocad() -> None:
         "wheel_install_smoke = [ordered]@{",
         "smoke-demo-kit.ps1",
         "smoke-bundle-install.ps1",
+        "smoke-licensed-preflight.ps1",
         "dotnet\\CadPlotMcp.sln",
         "probe-durable-queue.ps1",
         "durable_queue_recovery = $durableQueueEvidence",
@@ -439,6 +440,10 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "dependency license inventory is incomplete",
         "installed local-target probe evidence",
         "tunnel_preflight_target_probed -ne $true",
+        "licensed-workstation preflight smoke evidence",
+        "autocad_2016_preflight -ne $true",
+        "autocad_2025_preflight -ne $true",
+        "wrong_adapter_blocked -ne $true",
         "queue_deferred_results -ne 285",
         "orientation_mismatch_rejected -ne $true",
         "marking_content_verified -ne 300",
@@ -459,6 +464,7 @@ def test_demo_kit_verifier_is_exact_path_redacted_and_tamper_smoked() -> None:
         "orientation_evidence_tamper_blocked",
         "blank_pdf_evidence_tamper_blocked",
         "tunnel_target_probe_tamper_blocked",
+        "licensed_preflight_tamper_blocked",
         "wheel_tamper_blocked = $true",
         "Remove-Item -LiteralPath $resolvedRoot -Recurse -Force",
     ):
@@ -1190,6 +1196,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         "assemble-pilot-evidence.py",
         "validate-pilot-evidence.py",
         "release-acceptance.py",
+        "test-licensed-workstation.ps1",
         "new-local-pilot.ps1",
         "pilot-evidence.md",
         "release-acceptance.md",
@@ -1235,6 +1242,7 @@ def test_combined_release_kit_binds_wheel_bundle_source_and_commit() -> None:
         '"scripts/assemble-pilot-evidence.py"',
         '"scripts/validate-pilot-evidence.py"',
         '"scripts/release-acceptance.py"',
+        '"scripts/test-licensed-workstation.ps1"',
         '"docs/pilot-evidence.md"',
         '"docs/release-acceptance.md"',
         '"docs/autodesk-sdk-prerequisites.md"',
@@ -1264,6 +1272,9 @@ def test_release_kit_install_guide_keeps_live_and_company_assets_external() -> N
     assert "cadplot-acceptance.cmd\" --help" in guide
     assert "cadplot-tunnel-preflight.cmd\" --help" in guide
     assert "new-local-pilot.ps1" in guide
+    assert "test-licensed-workstation.ps1" in guide
+    assert "cadplot-mcp-2016" in guide
+    assert "cadplot-mcp-2025" in guide
     assert "publisher authenticity" in guide
     assert "--from" not in guide
     assert "CADPLOT_ENABLE_PUBLISH" in guide

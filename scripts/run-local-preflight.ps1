@@ -228,6 +228,36 @@ try {
     Invoke-CheckedStep "transactional bundle install/uninstall smoke" {
         & (Join-Path $PSScriptRoot "smoke-bundle-install.ps1")
     }
+    Write-Output "PRECHECK: licensed workstation read-only preflight smoke"
+    $licensedPreflightOutput = @(
+        & (Join-Path $PSScriptRoot "smoke-licensed-preflight.ps1") 2>&1
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw (
+            "Licensed workstation preflight smoke failed.`n" +
+            ($licensedPreflightOutput -join [Environment]::NewLine)
+        )
+    }
+    try {
+        $licensedPreflightEvidence = (
+            $licensedPreflightOutput -join [Environment]::NewLine
+        ) | ConvertFrom-Json
+    }
+    catch { throw "Licensed workstation preflight smoke did not return valid JSON evidence." }
+    if (
+        $licensedPreflightEvidence.passed -ne $true -or
+        $licensedPreflightEvidence.positive_preflight -ne $true -or
+        $licensedPreflightEvidence.autocad_2016_preflight -ne $true -or
+        $licensedPreflightEvidence.autocad_2025_preflight -ne $true -or
+        $licensedPreflightEvidence.no_overwrite -ne $true -or
+        $licensedPreflightEvidence.publish_enabled_blocked -ne $true -or
+        $licensedPreflightEvidence.wrong_adapter_blocked -ne $true -or
+        $licensedPreflightEvidence.autocad_launched -ne $false -or
+        $licensedPreflightEvidence.live_publish_proven -ne $false
+    ) {
+        throw "Licensed workstation preflight smoke crossed a required safety boundary."
+    }
+    $licensedPreflightEvidence | ConvertTo-Json -Depth 3
 
     $apiProbeRan = $false
     $apiProbeEvidence = $null
@@ -276,6 +306,7 @@ try {
         dependency_audit_ran = $dependencyAuditRan
         dependency_audit = if ($dependencyAuditRan) { $dependencyAuditEvidence } else { $null }
         durable_queue_recovery = $durableQueueEvidence
+        licensed_workstation_preflight_smoke = $licensedPreflightEvidence
         wheel_install_smoke = [ordered]@{
             passed = $true
             version = $wheelSmoke.version

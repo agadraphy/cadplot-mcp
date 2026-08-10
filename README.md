@@ -483,6 +483,12 @@ The finalizer uses bounded stable JSON snapshots, pre/post release-ZIP fingerpri
 per-file fingerprints, and a final exact-tree comparison so a readiness result cannot mix release
 manifest, pilot, archive-entry, or kit-file generations.
 
+Before enabling writes on either licensed host, run the release kit's
+`scripts/test-licensed-workstation.ps1` with the exact install receipt and release (`2016` or `2025`).
+It requires the version-specific COM ProgID/pipe, a running matching plug-in, unchanged install/config
+evidence, and `CADPLOT_ENABLE_PUBLISH` unset. Its no-overwrite record proves only read-only workstation
+readiness; it deliberately retains `live_publish_proven=false` and `licensed_live_pilot_ready=false`.
+
 Before launching AutoCAD for staged-job validation, set `CADPLOT_WORKSPACE_ROOT` in the environment
 that starts AutoCAD. It must resolve to the same directory as Python configuration
 `workspace_root`. The plug-in never accepts a trusted workspace path from an MCP request.

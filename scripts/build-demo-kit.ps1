@@ -259,6 +259,21 @@ try {
         throw "Readiness report has no valid installed local-target probe evidence."
     }
 
+    $licensedPreflight = $readiness.licensed_workstation_preflight_smoke
+    if (
+        $licensedPreflight.passed -ne $true -or
+        $licensedPreflight.positive_preflight -ne $true -or
+        $licensedPreflight.autocad_2016_preflight -ne $true -or
+        $licensedPreflight.autocad_2025_preflight -ne $true -or
+        $licensedPreflight.no_overwrite -ne $true -or
+        $licensedPreflight.publish_enabled_blocked -ne $true -or
+        $licensedPreflight.wrong_adapter_blocked -ne $true -or
+        $licensedPreflight.autocad_launched -ne $false -or
+        $licensedPreflight.live_publish_proven -ne $false
+    ) {
+        throw "Readiness report has no valid licensed-workstation preflight smoke evidence."
+    }
+
     $wheelPath = Join-Path $repoRoot ("dist\{0}" -f $readiness.wheel)
     if (-not (Test-Path -LiteralPath $wheelPath -PathType Leaf)) {
         throw "Readiness-bound wheel is missing: $wheelPath"
@@ -398,6 +413,7 @@ try {
         }
         else { $null }
         wheel_install_smoke = $wheelSmoke
+        licensed_workstation_preflight_smoke = $licensedPreflight
         durable_queue_recovery = $durableQueue
         autocad_launched = $false
         live_publish_proven = $false

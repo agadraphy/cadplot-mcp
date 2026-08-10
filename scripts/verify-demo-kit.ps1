@@ -138,6 +138,21 @@ if (
     throw "Demo kit has no valid installed local-target probe evidence."
 }
 
+$licensedPreflight = $manifest.licensed_workstation_preflight_smoke
+if (
+    $licensedPreflight.passed -ne $true -or
+    $licensedPreflight.positive_preflight -ne $true -or
+    $licensedPreflight.autocad_2016_preflight -ne $true -or
+    $licensedPreflight.autocad_2025_preflight -ne $true -or
+    $licensedPreflight.no_overwrite -ne $true -or
+    $licensedPreflight.publish_enabled_blocked -ne $true -or
+    $licensedPreflight.wrong_adapter_blocked -ne $true -or
+    $licensedPreflight.autocad_launched -ne $false -or
+    $licensedPreflight.live_publish_proven -ne $false
+) {
+    throw "Demo kit has no valid licensed-workstation preflight smoke evidence."
+}
+
 $durableQueue = $manifest.durable_queue_recovery
 if (
     $durableQueue.passed -ne $true -or

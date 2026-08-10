@@ -44,6 +44,7 @@ REQUIRED_KIT_PATHS = {
     "python/uv.lock",
     "scripts/verify-release-kit.ps1",
     "scripts/release-acceptance.py",
+    "scripts/test-licensed-workstation.ps1",
     "docs/pilot-evidence.md",
     "docs/release-acceptance.md",
 }

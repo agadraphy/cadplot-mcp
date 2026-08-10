@@ -91,6 +91,9 @@ Use this checklist for every alpha release.
       no protocol-only fixture allowance was used on the workstation.
 - [ ] `verify-release-install.ps1` independently matched that receipt to the transferred kit and
       installed targets; any expected config edit appeared only as `ConfigChangedSinceInstall=true`.
+- [ ] With publish unset, `test-licensed-workstation.ps1` passed separately for 2016 and 2025 using
+      exact versioned ProgIDs/pipes and matched live COM/runtime/adapter/commit/DLL hashes to the
+      verified install; both no-overwrite records retained false live-publish/pilot-readiness claims.
 - [ ] `install-python.ps1 -WhatIf` made no changes; the real install used the frozen lock with
       mandatory hashes, staged without overwrite, atomically renamed, and
       `verify-python-install.ps1` matched wheel/lock/requirements hashes and distribution inventory.

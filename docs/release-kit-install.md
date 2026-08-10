@@ -196,6 +196,29 @@ environment is required. After both one-sheet runs and both recovery records val
 `docs/release-acceptance.md` to bind the pilot evidence to this exact transferred kit without
 exposing company-run details.
 
+Before the one-sheet write gate, start only the selected licensed AutoCAD release with the exact
+environment and run the bundled read-only preflight. For AutoCAD 2025:
+
+```powershell
+$env:CADPLOT_CONFIG = $installed.Config
+$env:CADPLOT_WORKSPACE_ROOT = Join-Path $installed.PilotRoot "pilot-work"
+$env:CADPLOT_AUTOCAD_PROGID = "AutoCAD.Application.25.0"
+$env:CADPLOT_PIPE_NAME = "cadplot-mcp-2025"
+Remove-Item Env:CADPLOT_ENABLE_PUBLISH -ErrorAction SilentlyContinue
+# Start licensed AutoCAD 2025 from this environment, then:
+& "$releaseRoot\CadPlotMcp.release\scripts\test-licensed-workstation.ps1" `
+  -ReleaseRoot $releaseRoot `
+  -ReceiptPath $installed.ReceiptPath `
+  -AutoCADRelease 2025 `
+  -OutputPath (Join-Path $installed.PilotRoot "licensed-preflight-2025.json")
+```
+
+For 2016 use `AutoCAD.Application.20.1`, `cadplot-mcp-2016`, release `2016`, and a separate output.
+The command runs the install verifier both before and after full doctor inspection, compares the live
+adapter DLL hash and embedded commit to the verified installation, and refuses a publish-enabled or
+cross-version process. It never launches AutoCAD, opens a DWG, initializes the publish queue, or proves
+a PDF. Preserve each release's record with the private pilot evidence.
+
 ## Evidence boundary
 
 Successful kit verification means the two installers and their source are cryptographically bound
