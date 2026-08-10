@@ -67,6 +67,9 @@ Use this checklist for every alpha release.
 - [ ] Pilot bundle evidence parsed and hashed the same bounded stable `bundle-build.json` bytes,
       fingerprinted the ZIP before and after entry inspection, and rejected redirected, in-flight,
       or same-size/mtime-restored manifest/archive mutation without loading the ZIP into memory.
+- [ ] The pilot assembler consumed direct bounded snapshots of the 2016/2025 run and recovery JSONs,
+      rechecked all four after bundle/schema validation, and wrote the combined evidence only after
+      every input remained exact and unchanged.
 - [ ] `build-release-kit.ps1` bound the verified matching-SDK bundle, readiness-bound Python wheel,
       300-drawing rehearsal digest, durable-queue recovery evidence, dependency/license evidence,
       lock data, source archive, install scripts, and runbooks to the same clean commit.

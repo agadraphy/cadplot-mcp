@@ -26,6 +26,11 @@ All notable changes to this project are documented in this file.
   before entry verification and a second two-pass fingerprint afterward. Manifest/ZIP replacement,
   same-size/mtime-restored mutation, and redirected inputs fail closed without loading the archive
   into memory.
+- The final licensed-pilot assembler now snapshots all four bounded intermediate JSON inputs
+  (2016/2025 one-sheet runs and recovery records) with identical two-pass bytes, parses those exact
+  bytes, and rechecks every input after bundle validation and schema-v7 assembly. Redirected or
+  replaced intermediates fail closed before the no-overwrite final evidence is written; standalone
+  pilot-evidence validation applies the same parse/validate/final-recheck contract.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,

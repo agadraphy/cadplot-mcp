@@ -628,14 +628,33 @@ def validate_pilot_evidence(raw: Any) -> dict[str, Any]:
 
 
 def load_and_validate_pilot_evidence(path: str | Path) -> dict[str, Any]:
-    evidence = Path(path).expanduser().resolve(strict=True)
-    if evidence.stat().st_size > 256 * 1024:
-        raise ValueError("Pilot evidence exceeds the 256 KiB limit.")
+    evidence = Path(path).expanduser().absolute()
+    evidence_bytes, evidence_fingerprint = read_stable_bytes(
+        evidence,
+        min_bytes=2,
+        max_bytes=256 * 1024,
+        label="Pilot evidence",
+    )
     try:
-        raw = json.loads(evidence.read_text(encoding="utf-8"))
+        raw = json.loads(evidence_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Pilot evidence must be valid UTF-8 JSON.") from exc
-    return validate_pilot_evidence(raw)
+    result = validate_pilot_evidence(raw)
+    try:
+        current_bytes, current_fingerprint = read_stable_bytes(
+            evidence,
+            min_bytes=2,
+            max_bytes=256 * 1024,
+            label="Pilot evidence",
+        )
+    except ValueError as exc:
+        raise ValueError("Pilot evidence changed during validation.") from exc
+    if (
+        current_bytes != evidence_bytes
+        or current_fingerprint != evidence_fingerprint
+    ):
+        raise ValueError("Pilot evidence changed during validation.")
+    return result
 
 
 def _validate_run(run: Any) -> dict[str, Any]:

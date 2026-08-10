@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from cadplot_mcp.config import load_config
+from cadplot_mcp.fingerprint import read_stable_bytes
 from cadplot_mcp.pilot import (
     VISUAL_CHECKS,
     assemble_pilot_evidence,
@@ -18,6 +20,28 @@ from cadplot_mcp.pilot import (
 from cadplot_mcp.pipe_client import PluginConnectionError, get_plugin_status
 
 MAX_RUN_BYTES = 256 * 1024
+
+
+@dataclass(frozen=True)
+class _RunInputSnapshot:
+    path: Path
+    label: str
+    content: bytes
+    fingerprint: dict[str, Any]
+    value: Any
+
+    def require_unchanged(self) -> None:
+        try:
+            content, fingerprint = read_stable_bytes(
+                self.path,
+                min_bytes=2,
+                max_bytes=MAX_RUN_BYTES,
+                label=self.label,
+            )
+        except ValueError as exc:
+            raise ValueError(f"{self.label} changed during pilot assembly.") from exc
+        if content != self.content or fingerprint != self.fingerprint:
+            raise ValueError(f"{self.label} changed during pilot assembly.")
 
 
 def collect_main() -> int:
@@ -185,17 +209,26 @@ def assemble_main() -> int:
             "assembled", "Output already exists; final pilot evidence is never overwritten."
         )
     try:
-        bundle = Path(args.bundle).expanduser().resolve(strict=True)
-        if not bundle.is_file():
-            raise ValueError("Bundle path must be a file.")
+        run_2016 = _load_run(args.run_2016, label="AutoCAD 2016 pilot run")
+        run_2025 = _load_run(args.run_2025, label="AutoCAD 2025 pilot run")
+        recovery_2016 = _load_run(
+            args.recovery_2016, label="AutoCAD 2016 recovery record"
+        )
+        recovery_2025 = _load_run(
+            args.recovery_2025, label="AutoCAD 2025 recovery record"
+        )
+        inputs = (run_2016, run_2025, recovery_2016, recovery_2025)
+        bundle = Path(args.bundle).expanduser().absolute()
         bundle_evidence = validate_bundle_build_evidence(bundle, args.bundle_build_manifest)
         evidence = assemble_pilot_evidence(
-            _load_run(args.run_2016),
-            _load_run(args.run_2025),
-            _load_run(args.recovery_2016),
-            _load_run(args.recovery_2025),
+            run_2016.value,
+            run_2025.value,
+            recovery_2016.value,
+            recovery_2025.value,
             **bundle_evidence,
         )
+        for item in inputs:
+            item.require_unchanged()
         _write_new_json(output, evidence)
     except (OSError, ValueError) as exc:
         return _fail("assembled", str(exc))
@@ -231,14 +264,19 @@ def validate_main() -> int:
     return 0
 
 
-def _load_run(value: str) -> Any:
-    path = Path(value).expanduser().resolve(strict=True)
-    if not path.is_file() or path.stat().st_size > MAX_RUN_BYTES:
-        raise ValueError("Pilot run must be a file no larger than 256 KiB.")
+def _load_run(value: str, *, label: str) -> _RunInputSnapshot:
+    path = Path(value).expanduser().absolute()
+    content, fingerprint = read_stable_bytes(
+        path,
+        min_bytes=2,
+        max_bytes=MAX_RUN_BYTES,
+        label=label,
+    )
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError("Pilot run must be valid UTF-8 JSON.") from exc
+        raise ValueError(f"{label} must be valid UTF-8 JSON.") from exc
+    return _RunInputSnapshot(path, label, content, fingerprint, raw)
 
 
 def _write_new_json(path: Path, value: Any) -> None:

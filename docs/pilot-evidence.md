@@ -100,6 +100,12 @@ streaming passes before opening it, validates every entry, then repeats the two-
 Both files must remain direct plain files with identical content and metadata throughout validation.
 This detects same-size/mtime-restored mutation without loading the archive into memory.
 
+The four assembler inputs (`run-2016`, `run-2025`, `recovery-2016`, and `recovery-2025`) use the same
+bounded stable-byte rule. Each must be a direct plain JSON file no larger than 256 KiB. The assembler
+parses only the returned exact bytes, completes bundle and schema-v7 validation, then re-reads and
+compares every input before writing the final no-overwrite evidence. Standalone final-evidence
+validation likewise rechecks its input after semantic validation.
+
 The schema-v7 top level contains the full `repository_commit`, `package_version`, bundle and build
 manifest SHA-256 values, exact 2016/2025 adapter hashes, exactly two one-sheet `runs`, and exactly
 two `batch_recovery` records. Each one-sheet run records:

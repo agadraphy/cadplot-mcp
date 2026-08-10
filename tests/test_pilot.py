@@ -14,6 +14,7 @@ from pypdf.errors import LimitReachedError
 from pypdf.generic import DecodedStreamObject, NameObject, NumberObject
 
 from cadplot_mcp import pilot as pilot_module
+from cadplot_mcp import pilot_cli as pilot_cli_module
 from cadplot_mcp.audit import build_receipt_output_digest
 from cadplot_mcp.config import load_config
 from cadplot_mcp.pilot import (
@@ -21,6 +22,7 @@ from cadplot_mcp.pilot import (
     assemble_pilot_evidence,
     build_batch_recovery_evidence,
     build_pilot_run_evidence,
+    load_and_validate_pilot_evidence,
     validate_batch_recovery_evidence,
     validate_bundle_build_evidence,
     validate_pilot_evidence,
@@ -1149,6 +1151,27 @@ def test_pilot_evidence_cli_returns_machine_readable_success(tmp_path: Path) -> 
     assert json.loads(result.stdout)["accepted_releases"] == ["2016", "2025"]
 
 
+def test_pilot_evidence_loader_rejects_change_during_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    evidence = tmp_path / "pilot-evidence.json"
+    evidence.write_text(json.dumps(_evidence()), encoding="utf-8")
+    original_validate = pilot_module.validate_pilot_evidence
+
+    def mutate_after_validation(value):
+        result = original_validate(value)
+        original_stat = evidence.stat()
+        content = evidence.read_bytes()
+        evidence.write_bytes(content.replace(b"{", b" ", 1))
+        os.utime(evidence, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+        return result
+
+    monkeypatch.setattr(pilot_module, "validate_pilot_evidence", mutate_after_validation)
+
+    with pytest.raises(ValueError, match="changed during validation"):
+        load_and_validate_pilot_evidence(evidence)
+
+
 def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> None:
     run_2016 = tmp_path / "run-2016.json"
     run_2025 = tmp_path / "run-2025.json"
@@ -1199,6 +1222,123 @@ def test_assemble_cli_writes_once_and_returns_valid_evidence(tmp_path: Path) -> 
     assert validate_pilot_evidence(json.loads(output.read_text(encoding="utf-8")))["valid"]
     assert duplicate.returncode == 1
     assert "never overwritten" in duplicate.stdout
+
+
+def test_assemble_cli_rejects_intermediate_changed_during_assembly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_2016 = tmp_path / "run-2016.json"
+    run_2025 = tmp_path / "run-2025.json"
+    recovery_2016 = tmp_path / "recovery-2016.json"
+    recovery_2025 = tmp_path / "recovery-2025.json"
+    bundle, build_manifest, adapter_sha256 = _bundle_release_fixture(tmp_path)
+    output = tmp_path / "pilot-evidence.json"
+    run_2016.write_text(
+        json.dumps(_run("2016", "3", plugin_sha256=adapter_sha256["2016"])),
+        encoding="utf-8",
+    )
+    run_2025.write_text(
+        json.dumps(_run("2025", "4", plugin_sha256=adapter_sha256["2025"])),
+        encoding="utf-8",
+    )
+    recovery_2016.write_text(
+        json.dumps(_recovery("2016", "5", plugin_sha256=adapter_sha256["2016"])),
+        encoding="utf-8",
+    )
+    recovery_2025.write_text(
+        json.dumps(_recovery("2025", "7", plugin_sha256=adapter_sha256["2025"])),
+        encoding="utf-8",
+    )
+    original_validate_bundle = pilot_cli_module.validate_bundle_build_evidence
+
+    def mutate_after_inputs_loaded(*args, **kwargs):
+        original_stat = run_2016.stat()
+        content = run_2016.read_bytes()
+        run_2016.write_bytes(content.replace(b"{", b" ", 1))
+        os.utime(run_2016, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+        return original_validate_bundle(*args, **kwargs)
+
+    monkeypatch.setattr(
+        pilot_cli_module, "validate_bundle_build_evidence", mutate_after_inputs_loaded
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "cadplot-assemble-pilot",
+            "--run-2016",
+            str(run_2016),
+            "--run-2025",
+            str(run_2025),
+            "--recovery-2016",
+            str(recovery_2016),
+            "--recovery-2025",
+            str(recovery_2025),
+            "--bundle",
+            str(bundle),
+            "--bundle-build-manifest",
+            str(build_manifest),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert pilot_cli_module.assemble_main() == 1
+    assert "changed during pilot assembly" in capsys.readouterr().out
+    assert not output.exists()
+
+
+def test_assemble_loader_rejects_redirected_intermediate(tmp_path: Path) -> None:
+    target = tmp_path / "run.json"
+    target.write_text(json.dumps(_run("2016", "3")), encoding="utf-8")
+    redirected = tmp_path / "redirected-run.json"
+    try:
+        redirected.symlink_to(target)
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+
+    with pytest.raises(ValueError, match="symlink or reparse point"):
+        pilot_cli_module._load_run(redirected, label="AutoCAD 2016 pilot run")
+
+
+def test_assemble_cli_preserves_redirected_bundle_detection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inputs = [tmp_path / name for name in ("r16.json", "r25.json", "b16.json", "b25.json")]
+    for item in inputs:
+        item.write_text("{}", encoding="utf-8")
+    bundle, build_manifest, _ = _bundle_release_fixture(tmp_path)
+    redirected = tmp_path / "redirected-bundle.zip"
+    try:
+        redirected.symlink_to(bundle)
+    except OSError:
+        pytest.skip("Creating symlinks is not permitted on this Windows installation")
+    output = tmp_path / "pilot-evidence.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "cadplot-assemble-pilot",
+            "--run-2016",
+            str(inputs[0]),
+            "--run-2025",
+            str(inputs[1]),
+            "--recovery-2016",
+            str(inputs[2]),
+            "--recovery-2025",
+            str(inputs[3]),
+            "--bundle",
+            str(redirected),
+            "--bundle-build-manifest",
+            str(build_manifest),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert pilot_cli_module.assemble_main() == 1
+    assert "symlink or reparse point" in capsys.readouterr().out
+    assert not output.exists()
 
 
 def test_bundle_build_evidence_rejects_archive_tamper(tmp_path: Path) -> None:

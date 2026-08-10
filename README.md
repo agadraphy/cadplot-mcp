@@ -418,6 +418,9 @@ prints SHA-256 hashes. The build and install scripts invoke it automatically.
 Licensed pilot assembly additionally binds JSON parsing and SHA-256 to one bounded stable
 `bundle-build.json` snapshot, fingerprints the bundle ZIP before and after inspecting every entry,
 and rejects redirected or in-flight changed evidence.
+It also reads each 2016/2025 one-sheet and recovery JSON through an exact bounded two-pass snapshot
+and rechecks all four after bundle and schema validation, before creating the no-overwrite combined
+pilot record.
 
 Installation copies into a uniquely named non-loadable staging directory, verifies every copied
 file hash against the already verified source, and only then atomically renames it to
