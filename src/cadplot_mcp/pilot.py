@@ -14,9 +14,8 @@ from pypdf import PdfReader
 from pypdf.errors import LimitReachedError, PdfReadError
 
 from cadplot_mcp.audit import (
-    audit_publish_outputs,
+    audit_publish_outputs_snapshot,
     build_receipt_output_digest,
-    load_staged_manifest,
     pdf_page_marking_evidence,
 )
 from cadplot_mcp.config import CadPlotConfig
@@ -190,7 +189,7 @@ def build_pilot_run_evidence(
             raise ValueError(f"Live AutoCAD status requires {field}=true.")
     if plugin_status.get("queueAuthentication") != QUEUE_AUTHENTICATION_SCHEME:
         raise ValueError("Live AutoCAD status requires authenticated durable queue intent.")
-    report = audit_publish_outputs(manifest_value, config)
+    report, snapshot = audit_publish_outputs_snapshot(manifest_value, config)
     if report.get("source_unchanged") is not True:
         raise ValueError("Pilot source DWG changed after approval.")
     if report.get("publish_verified") is not True:
@@ -198,7 +197,7 @@ def build_pilot_run_evidence(
     if len(report.get("outputs", [])) != 1:
         raise ValueError("Licensed pilot evidence must come from exactly one output sheet.")
 
-    manifest, _ = load_staged_manifest(manifest_value, config)
+    manifest = snapshot.manifest
     source = config.path_policy.require_allowed(manifest["source_drawing"], suffix=".dwg")
     staged = Path(manifest["staged_drawing"]).resolve(strict=True)
     source_before = manifest["source_fingerprint"]["sha256"]
@@ -216,7 +215,7 @@ def build_pilot_run_evidence(
         "licensed": licensed,
         "authorized_test_asset": authorized_test_asset,
         "plan_id": manifest["plan_id"],
-        "manifest_sha256": _sha256(Path(manifest_value).expanduser().resolve(strict=True)),
+        "manifest_sha256": snapshot.sha256,
         "receipt_manifest_sha256": receipt["manifest_sha256"],
         "receipt_state": receipt["state"],
         "receipt_output_count": receipt["output_count"],
@@ -239,7 +238,9 @@ def build_pilot_run_evidence(
         "approved_by": approved_by,
         "completed_utc": completed,
     }
-    return validate_pilot_run_evidence(run)
+    result = validate_pilot_run_evidence(run)
+    snapshot.require_unchanged("pilot evidence collection")
+    return result
 
 
 def validate_pilot_run_evidence(raw: Any) -> dict[str, Any]:
@@ -294,7 +295,8 @@ def build_batch_recovery_evidence(
     indexed = {item["job_id"]: item for item in operations["items"]}
     jobs: list[dict[str, Any]] = []
     for manifest_path in manifest_paths:
-        manifest, job_root = load_staged_manifest(manifest_path, config)
+        report, snapshot = audit_publish_outputs_snapshot(manifest_path, config)
+        manifest = snapshot.manifest
         job_id = manifest["job_id"]
         item = indexed.get(job_id)
         if (
@@ -303,11 +305,11 @@ def build_batch_recovery_evidence(
             or item.get("publish_verified") is not True
             or Path(str(item.get("manifest_path", ""))).resolve(strict=True)
             != manifest_path
+            or item.get("manifest_sha256") != snapshot.sha256
         ):
             raise ValueError(
                 f"Batch recovery job {job_id!r} is not complete in the current operations report."
             )
-        report = audit_publish_outputs(manifest_path, config)
         if (
             report.get("outputs_complete") is not True
             or report.get("receipt_output_binding_verified") is not True
@@ -326,7 +328,7 @@ def build_batch_recovery_evidence(
             {
                 "job_id": job_id,
                 "plan_id": manifest["plan_id"],
-                "manifest_sha256": _sha256(manifest_path),
+                "manifest_sha256": snapshot.sha256,
                 "receipt_manifest_sha256": receipt["manifest_sha256"],
                 "receipt_state": receipt["state"],
                 "receipt_output_count": receipt["output_count"],
@@ -342,6 +344,7 @@ def build_batch_recovery_evidence(
                 "publish_verified": report["publish_verified"],
             }
         )
+        snapshot.require_unchanged("batch recovery evidence collection")
 
     jobs.sort(key=lambda item: item["job_id"])
     recovery = {

@@ -112,6 +112,10 @@ Use this checklist for every alpha release.
 - [ ] Manifest/receipt mutation tests prove that final auditing uses one stable manifest byte
       snapshot for paths, receipt digest, outputs, and source, rejects in-flight manifest/receipt
       changes, and re-hashes the manifest before returning evidence.
+- [ ] Operations reporting does not reopen an audited manifest, exposes the exact snapshot digest on
+      every valid job row, and rejects same-size/mtime-restored mutation. One-sheet and batch-recovery
+      collectors consume and finally recheck that snapshot; recovery also matches the operations-row
+      digest to its independent re-audit.
 - [ ] Decoded page content above 64 MiB or pypdf's stricter decoder/aggregate limits is rejected as
       `pdf_content_limit_exceeded`; complete marking evidence must appear within an 8 MiB scan.
       Tokens inside strings, names, hexadecimal operands, or comments do not satisfy the nonblank

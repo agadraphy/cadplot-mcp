@@ -9,6 +9,7 @@ from pypdf import PdfWriter
 from pypdf.generic import ContentStream, DecodedStreamObject, NameObject, NumberObject
 
 from cadplot_mcp import audit as audit_module
+from cadplot_mcp import reporting as reporting_module
 from cadplot_mcp import server as mcp_server
 from cadplot_mcp.audit import (
     audit_publish_outputs,
@@ -585,6 +586,19 @@ def test_manifest_loader_rejects_manifest_changed_while_reading(
         audit_module.load_staged_manifest(manifest_path, config)
 
 
+def test_audited_manifest_snapshot_returns_defensive_copies(tmp_path: Path) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+
+    _, snapshot = audit_module.audit_publish_outputs_snapshot(job["manifest"], config)
+    manifest_copy = snapshot.manifest
+    manifest_copy["plan_id"] = "sha256:" + "0" * 64
+    manifest_copy["outputs"].clear()
+
+    assert snapshot.manifest["plan_id"] == job["plan_id"]
+    assert len(snapshot.manifest["outputs"]) == 1
+
+
 def test_receipt_reader_rejects_receipt_changed_while_reading(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -890,6 +904,59 @@ def test_operations_report_classifies_restartable_job_states(tmp_path: Path) -> 
     assert cancelled["status"] == "cancelled_hold"
     assert cancelled["cancellation_requires_live_plugin_verification"] is True
     assert "queue_approval" not in cancelled
+
+
+def test_operations_report_does_not_reopen_manifest_after_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    original_read_text = Path.read_text
+
+    def reject_manifest_reopen(path: Path, *args, **kwargs) -> str:
+        if path == manifest_path:
+            raise AssertionError("operations report reopened the audited manifest")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", reject_manifest_reopen)
+
+    report = build_publish_operations_report(config)
+
+    assert report["items"][0]["status"] == "awaiting_execution"
+    assert report["items"][0]["manifest_sha256"] == job["manifest_sha256"]
+
+
+def test_operations_report_rejects_manifest_changed_after_output_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, config, plan = _job_inputs(tmp_path)
+    job = stage_publish_job(plan, config, approved_plan_id=plan["plan_id"])
+    manifest_path = Path(job["manifest"])
+    original_audit = reporting_module.audit_publish_outputs_snapshot
+
+    def mutate_manifest_after_audit(*args, **kwargs):
+        report, snapshot = original_audit(*args, **kwargs)
+        original_stat = manifest_path.stat()
+        content = manifest_path.read_bytes()
+        assert b"\n" in content
+        manifest_path.write_bytes(content.replace(b"\n", b" ", 1))
+        os.utime(
+            manifest_path,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+        return report, snapshot
+
+    monkeypatch.setattr(
+        reporting_module,
+        "audit_publish_outputs_snapshot",
+        mutate_manifest_after_audit,
+    )
+
+    report = build_publish_operations_report(config)
+
+    assert report["items"][0]["status"] == "invalid_job"
+    assert "manifest changed during operations report" in report["items"][0]["error"]
 
 
 def test_operations_report_blocks_queue_approval_for_changed_source(tmp_path: Path) -> None:

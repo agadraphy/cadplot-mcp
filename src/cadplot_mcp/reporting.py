@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from cadplot_mcp.audit import audit_publish_outputs
+from cadplot_mcp.audit import audit_publish_outputs_snapshot
 from cadplot_mcp.config import CadPlotConfig
 from cadplot_mcp.security import require_plain_directory_path
 
@@ -59,14 +59,15 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
     manifest_path = job_root / "manifest.json"
     base = {"job_id": job_root.name, "manifest_path": str(manifest_path)}
     try:
-        report = audit_publish_outputs(manifest_path, config)
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest_sha256 = _sha256(manifest_path)
+        report, snapshot = audit_publish_outputs_snapshot(manifest_path, config)
+        manifest = snapshot.manifest
+        manifest_sha256 = snapshot.sha256
         cancelled_hold = _has_structural_cancelled_marker(
             job_root,
             plan_id=manifest["plan_id"],
             manifest_sha256=manifest_sha256,
         )
+        snapshot.require_unchanged("operations report")
     except (OSError, ValueError) as exc:
         return {
             **base,
@@ -120,6 +121,7 @@ def _inspect_job(job_root: Path, config: CadPlotConfig) -> dict[str, Any]:
         "status": status,
         "next_action": next_action,
         "plan_id": manifest["plan_id"],
+        "manifest_sha256": manifest_sha256,
         "created_utc": manifest.get("created_utc"),
         "source_drawing": manifest.get("source_drawing"),
         "source_unchanged": report["source_unchanged"],
@@ -178,14 +180,6 @@ def _report_page(
         "report_page_id": "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         **payload,
     }
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _has_structural_cancelled_marker(

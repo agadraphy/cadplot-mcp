@@ -550,6 +550,36 @@ def test_build_batch_recovery_cross_checks_exact_isolated_workspace(
     assert validate_batch_recovery_evidence(recovery) == recovery
 
 
+def test_build_batch_recovery_binds_operations_manifest_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifests, config = _completed_batch(tmp_path)
+    original_report = pilot_module.build_publish_operations_report
+
+    def replace_report_manifest_digest(*args, **kwargs):
+        report = original_report(*args, **kwargs)
+        report["items"][0]["manifest_sha256"] = "0" * 64
+        return report
+
+    monkeypatch.setattr(
+        pilot_module,
+        "build_publish_operations_report",
+        replace_report_manifest_digest,
+    )
+
+    with pytest.raises(ValueError, match="not complete in the current operations report"):
+        build_batch_recovery_evidence(
+            manifests,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_assets=True,
+            restart_verified=True,
+        )
+
+
 def test_build_batch_recovery_rejects_extra_workspace_job(tmp_path: Path) -> None:
     manifests, config = _completed_batch(tmp_path)
     extra = Path(config.workspace_root) / "job-20260810T090000000003Z-cccccccccccc"
@@ -628,6 +658,45 @@ def test_build_pilot_run_cross_checks_job_plugin_and_attestations(tmp_path: Path
     assert run["visual_reference"]["page_count"] == 1
     assert run["published_pdf"]["sha256"]
     assert str(tmp_path) not in json.dumps(run)
+
+
+def test_build_pilot_run_rejects_manifest_changed_after_output_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, config, reference_pdf = _completed_job(tmp_path)
+    original_audit = pilot_module.audit_publish_outputs_snapshot
+
+    def mutate_manifest_after_audit(*args, **kwargs):
+        report, snapshot = original_audit(*args, **kwargs)
+        original_stat = manifest.stat()
+        content = manifest.read_bytes()
+        assert b"\n" not in content
+        manifest.write_bytes(content.replace(b"{", b" ", 1))
+        os.utime(
+            manifest,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+        return report, snapshot
+
+    monkeypatch.setattr(
+        pilot_module,
+        "audit_publish_outputs_snapshot",
+        mutate_manifest_after_audit,
+    )
+
+    with pytest.raises(ValueError, match="manifest changed during pilot evidence collection"):
+        build_pilot_run_evidence(
+            manifest,
+            config,
+            autocad_release="2016",
+            plugin_status=_status("2016"),
+            approved_by="Authorized CAD manager",
+            licensed=True,
+            authorized_test_asset=True,
+            restart_receipt_verified=True,
+            visual_checks={name: True for name in VISUAL_CHECKS},
+            reference_pdf=reference_pdf,
+        )
 
 
 def test_build_pilot_run_refuses_unconfirmed_visual_acceptance(tmp_path: Path) -> None:

@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import struct
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -54,16 +55,32 @@ PDF_MARKING_OPERATORS = frozenset(
 
 
 @dataclass(frozen=True)
-class _ManifestSnapshot:
-    manifest: dict[str, Any]
+class StagedManifestSnapshot:
+    _manifest: dict[str, Any]
     job_root: Path
     path: Path
     stat: Any
     sha256: str
 
+    @property
+    def manifest(self) -> dict[str, Any]:
+        return deepcopy(self._manifest)
+
+    def require_unchanged(self, operation: str) -> None:
+        _require_manifest_snapshot_unchanged(self, operation)
+
 
 def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> dict[str, Any]:
     """Validate one staged job and inspect expected PDFs without writing any files."""
+    report, _ = audit_publish_outputs_snapshot(manifest_value, config)
+    return report
+
+
+def audit_publish_outputs_snapshot(
+    manifest_value: str | Path,
+    config: CadPlotConfig,
+) -> tuple[dict[str, Any], StagedManifestSnapshot]:
+    """Audit outputs and retain the exact validated manifest snapshot for trusted consumers."""
     snapshot = _load_staged_manifest_snapshot(manifest_value, config)
     manifest = snapshot.manifest
     job_root = snapshot.job_root
@@ -103,8 +120,8 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
     )
     source = audit_source_drawing(manifest, config)
     source_unchanged = source["status"] == "unchanged"
-    _require_manifest_snapshot_unchanged(snapshot, "output audit")
-    return {
+    snapshot.require_unchanged("output audit")
+    report = {
         "schema_version": 1,
         "job_id": manifest["job_id"],
         "plan_id": manifest["plan_id"],
@@ -124,6 +141,7 @@ def audit_publish_outputs(manifest_value: str | Path, config: CadPlotConfig) -> 
         "outputs": results,
         "execution_receipt": receipt,
     }
+    return report, snapshot
 
 
 def audit_source_drawing(
@@ -291,11 +309,11 @@ def read_publish_receipt(
     """Read and cross-check immutable plug-in execution evidence for a staged job."""
     snapshot = _load_staged_manifest_snapshot(manifest_value, config)
     result = _read_publish_receipt(snapshot)
-    _require_manifest_snapshot_unchanged(snapshot, "receipt audit")
+    snapshot.require_unchanged("receipt audit")
     return result
 
 
-def _read_publish_receipt(snapshot: _ManifestSnapshot) -> dict[str, Any]:
+def _read_publish_receipt(snapshot: StagedManifestSnapshot) -> dict[str, Any]:
     manifest = snapshot.manifest
     job_root = snapshot.job_root
     receipt_path = job_root / "receipt.json"
@@ -423,7 +441,7 @@ def load_staged_manifest(
 def _load_staged_manifest_snapshot(
     manifest_value: str | Path,
     config: CadPlotConfig,
-) -> _ManifestSnapshot:
+) -> StagedManifestSnapshot:
     if config.workspace_root is None:
         raise ValueError("workspace_root must be configured before auditing outputs.")
     workspace_value = require_plain_directory_path(config.workspace_root)
@@ -592,14 +610,14 @@ def _load_staged_manifest_snapshot(
         seen.add(pdf)
     if used_template_ids != template_ids:
         raise ValueError("Job manifest contains an unused template asset.")
-    snapshot = _ManifestSnapshot(
-        manifest=raw,
+    snapshot = StagedManifestSnapshot(
+        _manifest=raw,
         job_root=job_root,
         path=manifest_path,
         stat=manifest_stat,
         sha256=hashlib.sha256(manifest_bytes).hexdigest(),
     )
-    _require_manifest_snapshot_unchanged(snapshot, "manifest validation")
+    snapshot.require_unchanged("manifest validation")
     return snapshot
 
 
@@ -624,7 +642,7 @@ def _read_stable_bytes(
 
 
 def _require_manifest_snapshot_unchanged(
-    snapshot: _ManifestSnapshot,
+    snapshot: StagedManifestSnapshot,
     operation: str,
 ) -> None:
     _require_file_snapshot_unchanged(

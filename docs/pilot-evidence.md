@@ -121,12 +121,19 @@ two `batch_recovery` records. Each one-sheet run records:
   and title block;
 - the authorized approver and a timezone-qualified completion timestamp.
 
+The one-sheet collector derives the manifest fields and digest from the same snapshot already used
+for PDF/receipt/source auditing. After collecting template hashes, source/staged hashes, and the visual
+reference it re-hashes that snapshot before returning evidence. It does not reopen the manifest to
+construct the pilot identity.
+
 Each path-redacted batch-recovery record binds the same live release/adapter/commit/binary and queue
 authentication identity, an exact complete operations-report page ID, an explicit post-restart
 attestation, and 2–20 ordered jobs. Every job retains its job/plan/manifest identity, successful
 schema-v2 receipt count and output-set digest, independently verified receipt/output binding, and
 unchanged source/staged hashes. The assembler requires recovery evidence for both 2016 and 2025 and
-matches each running binary to the same verified bundle as its one-sheet run.
+matches each running binary to the same verified bundle as its one-sheet run. Recovery also requires
+each operations-row manifest digest to equal the independently re-audited snapshot digest, then
+rechecks that snapshot after collecting the job evidence.
 
 The validator rejects missing/extra fields, duplicate releases, incorrect adapter/runtime-series
 pairs, incorrect ACADVER product identity,

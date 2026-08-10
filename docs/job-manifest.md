@@ -80,7 +80,10 @@ bounded, stable byte snapshot; its parsed fields and SHA-256 drive the PDF paths
 and source check together. Receipt JSON is also read from a stable snapshot. Device/file identity,
 size, timestamp, or content changes during either read fail closed, and the audit rechecks the exact
 manifest snapshot after all PDF, receipt, and source work before returning a report. Evidence from
-two manifest versions therefore cannot be combined. It re-fingerprints the original
+two manifest versions therefore cannot be combined. Trusted restart-report and licensed-pilot
+collectors retain this audited snapshot and its digest rather than reopening `manifest.json`; each
+collector performs its own final unchanged check after gathering its additional marker, template,
+reference, or source/staged evidence. It re-fingerprints the original
 allowed-root source at the end of the audit;
 `source_unchanged` requires the approved SHA-256, byte length, and modification timestamp to match.
 `outputs_complete` describes only the expected PDFs; `execution_verified` requires a valid

@@ -11,6 +11,10 @@ All notable changes to this project are documented in this file.
   identity, size, modification-time, or content-digest changes during validation, and the manifest
   is rechecked after PDF, receipt, and source auditing before a report can be returned. This prevents
   evidence from two concurrently replaced manifest versions from being combined into one result.
+  Restart operations rows, one-sheet pilot collection, and licensed batch-recovery collection now
+  consume that exact audited snapshot instead of reopening the manifest. Every valid operations row
+  carries its snapshot digest; recovery rejects a row whose digest differs from its independent
+  re-audit, and pilot collectors recheck the snapshot after gathering all supporting evidence.
 - Final PDF auditing now rejects symlink/junction-redirection anywhere in the staged job path,
   snapshots each output exactly once under a 128 MiB safety limit, and parses page geometry,
   marking operators, and SHA-256 from those identical bytes. A file whose device, identity, size,
