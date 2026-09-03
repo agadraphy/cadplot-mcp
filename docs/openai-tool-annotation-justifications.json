@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "scope": "cadplot_public_phase_1_cad_read_only",
+  "public_contract": {
+    "framework_injected_parameters_not_in_public_input": [
+      "Context"
+    ],
+    "operation_view_required_fields": [
+      "operation_id",
+      "workstation_id",
+      "task",
+      "state",
+      "created_at",
+      "expires_at",
+      "lease_expires_at",
+      "started_at",
+      "completed_at",
+      "result",
+      "error_code"
+    ],
+    "nonterminal_states": [
+      "CREATED",
+      "LEASED",
+      "RUNNING"
+    ],
+    "terminal_states": [
+      "SUCCEEDED",
+      "FAILED",
+      "EXPIRED",
+      "ATTENTION_REQUIRED"
+    ],
+    "terminal_success_result_field_sets_are_complete": true,
+    "terminal_failure_shape": {
+      "result": null,
+      "error_code": "A bounded machine-safe code."
+    }
+  },
+  "tools": [
+    {
+      "name": "list_workstations",
+      "public_signature": "list_workstations() -> ListWorkstationsOutput",
+      "public_output": {
+        "required_fields": [
+          "workstations"
+        ],
+        "workstation_item_required_fields": [
+          "workstation_id",
+          "display_name",
+          "online"
+        ],
+        "workstation_item_field_set_is_complete": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "Lists bounded summaries of workstations already authorized for the authenticated tenant and does not create, update, delete, enroll, revoke, or contact a workstation.",
+        "destructiveHint": "The tool cannot delete, overwrite, cancel, publish, or otherwise irreversibly change user or CAD data.",
+        "idempotentHint": "Repeating the same authorized lookup has no side effect; it only observes the current workstation registry state.",
+        "openWorldHint": "The tool reads CadPlot's private tenant-scoped registry and cannot post, message, publish, submit, or modify publicly visible internet state."
+      }
+    },
+    {
+      "name": "list_projects",
+      "public_signature": "list_projects(workstation_id: WorkstationId) -> OperationView",
+      "terminal_success_result": {
+        "required_fields": [
+          "command",
+          "project_ids"
+        ],
+        "command": "list_projects"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "False because the call creates private durable operation/dispatch records and successful completion may refresh CadPlot's derived private project catalog. The workstation discovery itself remains CAD- and user-file-read-only.",
+        "destructiveHint": "The operation cannot delete, overwrite, publish, or otherwise irreversibly change projects, drawings, files, or jobs.",
+        "idempotentHint": "False because a separate invocation with the same public arguments may enqueue a new durable operation. Transport retries of one MCP request remain deduplicated by a server-derived idempotency key.",
+        "openWorldHint": "The operation is confined to CadPlot's private tenant and registered-workstation boundary and cannot change publicly visible internet state."
+      }
+    },
+    {
+      "name": "validate_environment",
+      "public_signature": "validate_environment(workstation_id: WorkstationId) -> OperationView",
+      "terminal_success_result": {
+        "required_fields": [
+          "command",
+          "ready",
+          "warning_codes"
+        ],
+        "command": "validate_environment"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "False because the call creates private durable operation/dispatch state. The readiness check does not change configuration, launch publishing, edit CAD state, or create user files.",
+        "destructiveHint": "The tool performs health checks only and cannot delete, overwrite, cancel, publish, or irreversibly alter workstation or CAD data.",
+        "idempotentHint": "False because a separate invocation with the same public arguments may enqueue a new durable operation. Transport retries of one MCP request remain deduplicated by a server-derived idempotency key.",
+        "openWorldHint": "The check remains inside the tenant's private CadPlot gateway and registered workstation and cannot change publicly visible internet state."
+      }
+    },
+    {
+      "name": "scan_drawings",
+      "public_signature": "scan_drawings(project_id: ProjectId, recursive: bool = true, limit: int = 100) -> OperationView",
+      "terminal_success_result": {
+        "required_fields": [
+          "command",
+          "project_id",
+          "drawing_ids",
+          "truncated"
+        ],
+        "command": "scan_drawings"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "False because the call creates private durable operation/dispatch records and successful completion may refresh CadPlot's derived private drawing catalog. It does not save, copy, rename, or modify a drawing.",
+        "destructiveHint": "The tool cannot delete, overwrite, move, repair, stage, plot, or otherwise irreversibly alter a drawing or project.",
+        "idempotentHint": "False because a separate invocation with the same public arguments may enqueue a new durable operation and refresh derived catalog metadata. Transport retries of one MCP request resolve to the same operation.",
+        "openWorldHint": "The scan is confined to the tenant's private registered project and cannot change publicly visible internet state."
+      }
+    },
+    {
+      "name": "inspect_drawing",
+      "public_signature": "inspect_drawing(drawing_id: DrawingId) -> OperationView",
+      "terminal_success_result": {
+        "required_fields": [
+          "command",
+          "drawing_id",
+          "layout_count",
+          "sheet_count",
+          "warning_codes"
+        ],
+        "command": "inspect_drawing"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "False because the call creates private durable operation/dispatch state. The isolated inspection does not expose worker-only layout, page-setup, or frame objects and does not save, repair, plot, or edit the drawing.",
+        "destructiveHint": "The tool cannot overwrite or delete the source, change CAD entities or settings, publish output, or perform another irreversible action.",
+        "idempotentHint": "False because a separate invocation with the same public arguments may enqueue a new durable operation. Transport retries of one MCP request resolve to the same operation.",
+        "openWorldHint": "Inspection is confined to a private authorized workstation resource and cannot post, publish, message, submit, or otherwise change public internet state."
+      }
+    },
+    {
+      "name": "create_publish_plan",
+      "public_signature": "create_publish_plan(drawing_id: DrawingId) -> OperationView",
+      "terminal_success_result": {
+        "required_fields": [
+          "command",
+          "drawing_id",
+          "plan_id",
+          "ready",
+          "sheet_count",
+          "warning_codes"
+        ],
+        "command": "create_publish_plan"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "False because the call creates private durable operation/dispatch state. The advisory dry run does not stage, queue for publication, plot, publish, transfer, or write a user file.",
+        "destructiveHint": "The tool cannot change or overwrite the source drawing, create publish artifacts, delete data, cancel work, or perform another irreversible action.",
+        "idempotentHint": "False because a separate invocation with the same public arguments may enqueue a new durable operation and recompute the plan summary. Transport retries of one MCP request resolve to the same operation.",
+        "openWorldHint": "The computation stays within CadPlot's private tenant and workstation boundary and cannot change publicly visible internet state."
+      }
+    },
+    {
+      "name": "get_operation",
+      "public_signature": "get_operation(operation_id: OperationId) -> OperationView",
+      "terminal_success_result_union": {
+        "validate_environment": [
+          "command",
+          "ready",
+          "warning_codes"
+        ],
+        "list_projects": [
+          "command",
+          "project_ids"
+        ],
+        "scan_drawings": [
+          "command",
+          "project_id",
+          "drawing_ids",
+          "truncated"
+        ],
+        "inspect_drawing": [
+          "command",
+          "drawing_id",
+          "layout_count",
+          "sheet_count",
+          "warning_codes"
+        ],
+        "create_publish_plan": [
+          "command",
+          "drawing_id",
+          "plan_id",
+          "ready",
+          "sheet_count",
+          "warning_codes"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "justification": {
+        "readOnlyHint": "False because the lookup may materialize a deadline-driven EXPIRED or ATTENTION_REQUIRED transition in the private durable operation store. It does not start, retry, cancel, acknowledge, or delete work and does not mutate CAD or user data.",
+        "destructiveHint": "The tool cannot cancel or replay work, delete history, overwrite results, publish output, or irreversibly change any resource.",
+        "idempotentHint": "False because a lookup can be the call that persists a due deadline transition. After that transition, later calls only return the current stored state and result without starting or replaying the operation.",
+        "openWorldHint": "The lookup is confined to CadPlot's private tenant-scoped operation store and cannot change publicly visible internet state."
+      }
+    }
+  ]
+}

@@ -11,16 +11,17 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Demir Eren" }]
 dependencies = [
+  "cryptography>=46,<51",
   "mcp[cli]>=1.29,<1.30",
   "pydantic>=2.11,<2.13",
-  "pypdf>=6.14,<7.0",
+  "pypdf>=6.16.1,<7.0",
   "pyyaml>=6.0,<7.0",
   "typing-extensions>=4.12,<5.0",
 ]
 
 [project.optional-dependencies]
 autocad = ["pywin32>=305; sys_platform == 'win32'"]
-dev = ["pip-audit>=2.9,<3.0", "pytest>=8.0,<9.0", "ruff>=0.9,<1.0"]
+dev = ["pip-audit>=2.9,<3.0", "pytest>=9.0.3,<10.0", "ruff>=0.9,<1.0"]
 
 [project.scripts]
 cadplot-mcp = "cadplot_mcp.server:main"
@@ -35,12 +36,13 @@ cadplot-tunnel-preflight = "cadplot_mcp.tunnel_preflight:main"
 cadplot-probe-client-config = "cadplot_mcp.client_config:main"
 cadplot-chatgpt-eval = "cadplot_mcp.chatgpt_eval_cli:main"
 cadplot-sbom = "cadplot_mcp.sbom_cli:main"
+cadplot-worker = "cadplot_mcp.worker_cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cadplot_mcp"]
+packages = ["src/cadplot_mcp", "packages/protocol/src/cadplot_protocol"]
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/.venv*"]
+exclude = ["/.uv-cache", "/.venv*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

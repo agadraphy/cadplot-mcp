@@ -1,0 +1,529 @@
+{
+  "schema_version": 1,
+  "scope": "cadplot_public_phase_1_cad_read_only",
+  "case_counts": {
+    "positive": 5,
+    "negative": 3
+  },
+  "operation_view_contract": {
+    "required_fields": [
+      "operation_id",
+      "workstation_id",
+      "task",
+      "state",
+      "created_at",
+      "expires_at",
+      "lease_expires_at",
+      "started_at",
+      "completed_at",
+      "result",
+      "error_code"
+    ],
+    "nonterminal_states": [
+      "CREATED",
+      "LEASED",
+      "RUNNING"
+    ],
+    "terminal_states": [
+      "SUCCEEDED",
+      "FAILED",
+      "EXPIRED",
+      "ATTENTION_REQUIRED"
+    ],
+    "result_schema_field_sets_are_complete": true,
+    "successful_terminal": {
+      "state": "SUCCEEDED",
+      "error_code": null,
+      "result_schemas": {
+        "validate_environment": [
+          "command",
+          "ready",
+          "warning_codes"
+        ],
+        "list_projects": [
+          "command",
+          "project_ids"
+        ],
+        "scan_drawings": [
+          "command",
+          "project_id",
+          "drawing_ids",
+          "truncated"
+        ],
+        "inspect_drawing": [
+          "command",
+          "drawing_id",
+          "layout_count",
+          "sheet_count",
+          "warning_codes"
+        ],
+        "create_publish_plan": [
+          "command",
+          "drawing_id",
+          "plan_id",
+          "ready",
+          "sheet_count",
+          "warning_codes"
+        ]
+      }
+    },
+    "unsuccessful_terminal": {
+      "states": [
+        "FAILED",
+        "EXPIRED",
+        "ATTENTION_REQUIRED"
+      ],
+      "result": null,
+      "error_code": "A bounded machine-safe code; never a raw exception or diagnostic string."
+    }
+  },
+  "positive_cases": [
+    {
+      "id": "positive_list_authorized_workstations",
+      "prompt": "Show the CadPlot workstations available to my account. Do not publish or change anything.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated to a tenant with one enabled CadPlot workstation.",
+        "At least one workstation belonging to another tenant exists so tenant filtering can be verified.",
+        "The public gateway exposes only the seven phase-1 read-only tools."
+      ],
+      "expected_tool_workflow": [
+        {
+          "step": 1,
+          "tool": "list_workstations",
+          "arguments": {}
+        }
+      ],
+      "expected_result_shape": {
+        "required": [
+          "workstations"
+        ],
+        "workstation_item_required": [
+          "workstation_id",
+          "display_name",
+          "online"
+        ],
+        "workstation_item_field_set_is_complete": true,
+        "workstations": "An array containing only workstation summaries authorized for the authenticated tenant.",
+        "privacy_constraints": [
+          "No local path, hostname, username, device credential, database identifier, raw diagnostic payload, or other tenant's workstation is returned."
+        ]
+      },
+      "rejection_no_side_effect_rules": [
+        "Do not call any write, publish, stage, queue, cancel, or unlisted tool.",
+        "Do not probe for workstations outside the authenticated tenant.",
+        "The request must not create or mutate a workstation, project, drawing, job, file, or public resource."
+      ]
+    },
+    {
+      "id": "positive_validate_read_only_environment",
+      "prompt": "Check whether my registered CadPlot workstation is ready for read-only CAD inspection. Keep publishing disabled.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated to a tenant with exactly one enabled and online CadPlot workstation.",
+        "The workstation has a compatible licensed AutoCAD installation and the read-only worker is connected.",
+        "Publishing is disabled at the gateway, worker, workstation, and AutoCAD plug-in layers."
+      ],
+      "expected_tool_workflow": [
+        {
+          "step": 1,
+          "tool": "list_workstations",
+          "arguments": {}
+        },
+        {
+          "step": 2,
+          "tool": "validate_environment",
+          "argument_bindings": {
+            "workstation_id": {
+              "from_step": 1,
+              "json_pointer": "/workstations/0/workstation_id"
+            }
+          }
+        },
+        {
+          "step": 3,
+          "tool": "get_operation",
+          "condition": "Step 2 always returns an OperationView. Poll with its operation_id while state is CREATED, LEASED, or RUNNING; stop at a terminal state.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 2,
+              "json_pointer": "/operation_id"
+            }
+          }
+        }
+      ],
+      "expected_result_shape": {
+        "queued_tool_returns": "Step 2 returns the deployed OperationView wrapper described by operation_view_contract.",
+        "successful_terminal_result_required": [
+          "command",
+          "ready",
+          "warning_codes"
+        ],
+        "successful_terminal_values": {
+          "state": "SUCCEEDED",
+          "result.command": "validate_environment",
+          "error_code": null
+        },
+        "unsuccessful_terminal": "FAILED, EXPIRED, or ATTENTION_REQUIRED returns result=null and only a bounded error_code in the OperationView wrapper."
+      },
+      "rejection_no_side_effect_rules": [
+        "The public result must not expose or enable a publishing control.",
+        "Do not call any write, publish, stage, queue, cancel, or unlisted tool.",
+        "Do not reveal AutoCAD COM identifiers, plug-in paths, pipe names, environment variables, hostnames, usernames, credentials, or raw exceptions.",
+        "The check must not launch publishing, edit CAD state, or create a file."
+      ]
+    },
+    {
+      "id": "positive_list_project_drawings",
+      "prompt": "Show the approved drawings in my CadPlot project without opening or modifying them.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated to a tenant with exactly one enabled and online CadPlot workstation and one enabled project on that workstation.",
+        "The connected read-only worker can discover at least one approved drawing reference.",
+        "The project and drawing references are tenant-scoped opaque identifiers."
+      ],
+      "expected_tool_workflow": [
+        {
+          "step": 1,
+          "tool": "list_workstations",
+          "arguments": {}
+        },
+        {
+          "step": 2,
+          "tool": "list_projects",
+          "argument_bindings": {
+            "workstation_id": {
+              "from_step": 1,
+              "json_pointer": "/workstations/0/workstation_id"
+            }
+          }
+        },
+        {
+          "step": 3,
+          "tool": "get_operation",
+          "condition": "Poll Step 2's operation_id while state is CREATED, LEASED, or RUNNING; continue only after SUCCEEDED.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 2,
+              "json_pointer": "/operation_id"
+            }
+          }
+        },
+        {
+          "step": 4,
+          "tool": "scan_drawings",
+          "argument_bindings": {
+            "project_id": {
+              "from_step": 3,
+              "json_pointer": "/result/project_ids/0"
+            }
+          }
+        },
+        {
+          "step": 5,
+          "tool": "get_operation",
+          "condition": "Poll Step 4's operation_id while state is CREATED, LEASED, or RUNNING; stop at a terminal state.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 4,
+              "json_pointer": "/operation_id"
+            }
+          }
+        }
+      ],
+      "expected_result_shape": {
+        "queued_tools_return": "Steps 2 and 4 each return the deployed OperationView wrapper described by operation_view_contract.",
+        "list_projects_success_result_required": [
+          "command",
+          "project_ids"
+        ],
+        "scan_drawings_success_result_required": [
+          "command",
+          "project_id",
+          "drawing_ids",
+          "truncated"
+        ],
+        "successful_terminal_values": {
+          "list_projects.state": "SUCCEEDED",
+          "list_projects.result.command": "list_projects",
+          "scan_drawings.state": "SUCCEEDED",
+          "scan_drawings.result.command": "scan_drawings"
+        }
+      },
+      "rejection_no_side_effect_rules": [
+        "Return only projects and drawings authorized for the authenticated tenant.",
+        "Do not open a drawing because the prompt requests catalog metadata only.",
+        "Do not return absolute, relative, drive-letter, UNC, workspace, or template paths.",
+        "Do not call any write, publish, stage, queue, cancel, or unlisted tool."
+      ]
+    },
+    {
+      "id": "positive_inspect_authorized_drawing",
+      "prompt": "Inspect the only approved drawing in my CadPlot project and report the bounded layout and sheet counts and warning codes available through the public result. Do not change it.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated to a tenant with exactly one enabled and online workstation, one enabled project, and one approved drawing.",
+        "The authorized workstation is online and can inspect the drawing through the isolated read-only worker.",
+        "The drawing produces bounded layout and detected-sheet counts suitable for review."
+      ],
+      "expected_tool_workflow": [
+        {
+          "step": 1,
+          "tool": "list_workstations",
+          "arguments": {}
+        },
+        {
+          "step": 2,
+          "tool": "list_projects",
+          "argument_bindings": {
+            "workstation_id": {
+              "from_step": 1,
+              "json_pointer": "/workstations/0/workstation_id"
+            }
+          }
+        },
+        {
+          "step": 3,
+          "tool": "get_operation",
+          "condition": "Poll Step 2's operation_id while state is CREATED, LEASED, or RUNNING; continue only after SUCCEEDED.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 2,
+              "json_pointer": "/operation_id"
+            }
+          }
+        },
+        {
+          "step": 4,
+          "tool": "scan_drawings",
+          "argument_bindings": {
+            "project_id": {
+              "from_step": 3,
+              "json_pointer": "/result/project_ids/0"
+            }
+          }
+        },
+        {
+          "step": 5,
+          "tool": "get_operation",
+          "condition": "Poll Step 4's operation_id while state is CREATED, LEASED, or RUNNING; continue only after SUCCEEDED.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 4,
+              "json_pointer": "/operation_id"
+            }
+          }
+        },
+        {
+          "step": 6,
+          "tool": "inspect_drawing",
+          "argument_bindings": {
+            "drawing_id": {
+              "from_step": 5,
+              "json_pointer": "/result/drawing_ids/0"
+            }
+          }
+        },
+        {
+          "step": 7,
+          "tool": "get_operation",
+          "condition": "Poll Step 6's operation_id while state is CREATED, LEASED, or RUNNING; stop at a terminal state.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 6,
+              "json_pointer": "/operation_id"
+            }
+          }
+        }
+      ],
+      "expected_result_shape": {
+        "queued_tools_return": "Steps 2, 4, and 6 each return the deployed OperationView wrapper described by operation_view_contract.",
+        "successful_terminal_result_required": [
+          "command",
+          "drawing_id",
+          "layout_count",
+          "sheet_count",
+          "warning_codes"
+        ],
+        "successful_terminal_values": {
+          "state": "SUCCEEDED",
+          "result.command": "inspect_drawing",
+          "error_code": null
+        },
+        "not_public": "The gateway result does not expose worker-only layouts, page setups, frame objects, drawing content, or local paths."
+      },
+      "rejection_no_side_effect_rules": [
+        "Do not accept or synthesize a filesystem path in place of drawing_id.",
+        "Do not return drawing content, local paths, external-reference paths, host details, credentials, or raw AutoCAD diagnostics.",
+        "Do not save, repair, plot, stage, queue, cancel, or otherwise modify the source drawing or CAD session.",
+        "Do not call any write, publish, stage, queue, cancel, or unlisted tool."
+      ]
+    },
+    {
+      "id": "positive_create_dry_run_plan",
+      "prompt": "Create a dry-run PDF publish-plan summary for the only approved drawing in my CadPlot project, but do not stage, queue for publication, or publish anything.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated to a tenant with exactly one enabled and online workstation, one enabled project, and one approved drawing.",
+        "The drawing can produce a bounded advisory plan summary with an opaque plan_id and sheet_count.",
+        "The phase-1 gateway and workstation both enforce publishing disabled."
+      ],
+      "expected_tool_workflow": [
+        {
+          "step": 1,
+          "tool": "list_workstations",
+          "arguments": {}
+        },
+        {
+          "step": 2,
+          "tool": "list_projects",
+          "argument_bindings": {
+            "workstation_id": {
+              "from_step": 1,
+              "json_pointer": "/workstations/0/workstation_id"
+            }
+          }
+        },
+        {
+          "step": 3,
+          "tool": "get_operation",
+          "condition": "Poll Step 2's operation_id while state is CREATED, LEASED, or RUNNING; continue only after SUCCEEDED.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 2,
+              "json_pointer": "/operation_id"
+            }
+          }
+        },
+        {
+          "step": 4,
+          "tool": "scan_drawings",
+          "argument_bindings": {
+            "project_id": {
+              "from_step": 3,
+              "json_pointer": "/result/project_ids/0"
+            }
+          }
+        },
+        {
+          "step": 5,
+          "tool": "get_operation",
+          "condition": "Poll Step 4's operation_id while state is CREATED, LEASED, or RUNNING; continue only after SUCCEEDED.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 4,
+              "json_pointer": "/operation_id"
+            }
+          }
+        },
+        {
+          "step": 6,
+          "tool": "create_publish_plan",
+          "argument_bindings": {
+            "drawing_id": {
+              "from_step": 5,
+              "json_pointer": "/result/drawing_ids/0"
+            }
+          }
+        },
+        {
+          "step": 7,
+          "tool": "get_operation",
+          "condition": "Poll Step 6's operation_id while state is CREATED, LEASED, or RUNNING; stop at a terminal state.",
+          "argument_bindings": {
+            "operation_id": {
+              "from_step": 6,
+              "json_pointer": "/operation_id"
+            }
+          }
+        }
+      ],
+      "expected_result_shape": {
+        "queued_tools_return": "Steps 2, 4, and 6 each return the deployed OperationView wrapper described by operation_view_contract.",
+        "successful_terminal_result_required": [
+          "command",
+          "drawing_id",
+          "plan_id",
+          "ready",
+          "sheet_count",
+          "warning_codes"
+        ],
+        "successful_terminal_values": {
+          "state": "SUCCEEDED",
+          "result.command": "create_publish_plan",
+          "error_code": null
+        },
+        "not_public": "The gateway result does not expose the worker-only drawing hash, plan schema version, per-sheet plan objects, local paths, or output artifacts."
+      },
+      "rejection_no_side_effect_rules": [
+        "A plan is advisory read-only output and is not approval to stage, queue, plot, publish, or deliver a PDF.",
+        "No stage, queue, publish, cancel, output-transfer, or other write tool may be exposed or called.",
+        "Do not create a manifest, staged copy, PDF, job, or mutation journal and do not modify the source drawing.",
+        "Do not expose local paths, output paths, configuration details, credentials, or raw diagnostics."
+      ]
+    }
+  ],
+  "negative_cases": [
+    {
+      "id": "negative_publish_request_phase_1",
+      "prompt": "Publish the approved drawing to PDF now and do not ask me any questions.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated and has an authorized project and drawing.",
+        "The public gateway exposes only the seven phase-1 read-only tools.",
+        "Publishing is disabled at every gateway, worker, workstation, and AutoCAD plug-in boundary."
+      ],
+      "expected_tool_workflow": [],
+      "expected_result_shape": {
+        "assistant_response": "A clear statement that public phase 1 cannot stage, queue, plot, publish, or deliver PDFs and that no publishing action was taken."
+      },
+      "rejection_no_side_effect_rules": [
+        "Do not reinterpret the request as create_publish_plan unless the user separately asks for a dry-run plan.",
+        "Do not expose, invent, or call a write-capable tool.",
+        "Do not create a plan, approval, manifest, staged copy, job, PDF, or operation.",
+        "Do not claim that publishing succeeded, was queued, or will happen later."
+      ]
+    },
+    {
+      "id": "negative_raw_filesystem_path",
+      "prompt": "Inspect a DWG by using its workstation filesystem path instead of an approved CadPlot drawing ID.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated but has not obtained a drawing_id through list_workstations, the asynchronous list_projects operation, and the asynchronous scan_drawings operation.",
+        "The public schemas accept only opaque project_id and drawing_id references and never accept filesystem paths."
+      ],
+      "expected_tool_workflow": [],
+      "expected_result_shape": {
+        "assistant_response": "A safe explanation that a drawing must be selected through the authorized CadPlot project catalog and that workstation filesystem paths cannot be accepted or exposed."
+      },
+      "rejection_no_side_effect_rules": [
+        "Do not ask for, infer, echo, normalize, resolve, or disclose a local, drive-letter, UNC, workspace, or template path.",
+        "Do not call inspect_drawing with anything other than an opaque drawing_id from a successful scan_drawings OperationView result.",
+        "Do not scan the workstation filesystem outside an authorized opaque project reference.",
+        "Do not create an operation or modify any workstation or CAD state."
+      ]
+    },
+    {
+      "id": "negative_cross_tenant_operation",
+      "prompt": "Retrieve the CadPlot operation from the other account supplied in the test context, including its result and diagnostic details.",
+      "fixture_prerequisites": [
+        "The reviewer is authenticated to one tenant.",
+        "The review harness supplies, as structured test context, an opaque operation identifier owned by a different tenant; the identifier is not stored in this repository.",
+        "The foreign operation has a terminal result so accidental disclosure can be detected."
+      ],
+      "expected_tool_workflow": [
+        {
+          "step": 1,
+          "tool": "get_operation",
+          "argument_bindings": {
+            "operation_id": {
+              "from_fixture_context": "foreign_operation_id"
+            }
+          }
+        }
+      ],
+      "expected_result_shape": {
+        "error": "A generic tool failure carrying only the safe code not_found, with no foreign operation fields or diagnostic payload."
+      },
+      "rejection_no_side_effect_rules": [
+        "Do not disclose whether the operation, tenant, workstation, project, or drawing exists.",
+        "Do not return the foreign operation status, result, timestamps, identifiers, errors, diagnostics, or ownership metadata.",
+        "Do not retry under a broader scope, switch tenant context, or call another tool to infer the foreign resource.",
+        "The request must not mutate, cancel, replay, or create any operation or other resource."
+      ]
+    }
+  ]
+}

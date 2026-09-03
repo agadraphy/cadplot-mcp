@@ -39,6 +39,32 @@ authoritative evidence and keeps licensed/company-only gates explicit.
 At load time the plug-in normalizes the real `ACADVER` value and refuses to enable publishing when
 the loaded adapter does not match the running AutoCAD release.
 
+## Public MCP gateway (implemented, not deployed)
+
+The repository now includes a separately packaged OAuth resource server under
+[`services/gateway`](services/gateway/README.md) and an outbound-only Windows worker protocol. The
+public surface is deliberately limited to seven CAD-read-only tools: workstation/project discovery,
+environment validation, drawing scan and inspection, dry-run planning, and operation status. It
+uses tenant-bound opaque identifiers; local paths, AutoCAD control details, office resources, and
+DWG contents are not public API fields.
+
+Only `list_workstations` is a pure read under MCP annotation semantics. The five queue tools and
+`get_operation` accurately declare internal state writes because they persist private operation,
+dispatch, catalog, or deadline state, even though none can modify CAD or user files. CadPlot does
+not bundle or select an AI model: the connected MCP host/client chooses a compatible model.
+
+The repository includes the production composition, PostgreSQL repositories and RLS migrations,
+signed worker control routes, and a strict Windows worker CLI. This is still not a live public
+service: a verified HTTPS domain, production OAuth provider, hosted PostgreSQL, edge controls,
+device enrollment/revocation, and a licensed AutoCAD workstation must be supplied and operated.
+Public ChatGPT availability additionally requires support/privacy/terms pages and OpenAI review.
+Do not expose the local stdio or loopback HTTP servers directly. See the
+[public deployment design](docs/public-deployment.md), [Windows worker guide](docs/windows-worker.md),
+and [public submission gates](docs/openai-public-submission.md).
+
+CadPlot is MIT licensed; AutoCAD and Autodesk SDK rights are not included. Each operator must use a
+compatible AutoCAD installation under their own valid Autodesk license.
+
 ## Safety contract
 
 - No arbitrary AutoLISP or AutoCAD command execution.
@@ -241,7 +267,9 @@ A generic local stdio client example is available at
 [examples/mcp.local.example.json](examples/mcp.local.example.json). Client configuration formats
 vary; see [deployment modes](docs/deployment-modes.md) before connecting a managed ChatGPT
 workspace. The [ChatGPT connection architecture](docs/chatgpt-connection.md) separates the
-implemented local worker/loopback tunnel target from the still-unimplemented managed HTTPS bridge.
+implemented local worker/loopback tunnel target from the implemented-but-undeployed public HTTPS
+gateway. A real domain, identity provider, database, workstation enrollment, licensed acceptance,
+and platform review remain deployment evidence rather than repository code.
 An optional validated Codex plugin wrapper is available under
 [`integrations/codex/cadplot-mcp`](integrations/codex/cadplot-mcp/README.md). It invokes an already
 installed `cadplot-mcp` CLI and intentionally packages no DWGs, credentials, Autodesk binaries, or

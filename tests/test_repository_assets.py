@@ -1,5 +1,6 @@
 import json
 import re
+import tomllib
 import xml.etree.ElementTree as element_tree
 from pathlib import Path
 
@@ -110,11 +111,14 @@ def test_repository_contains_mit_license() -> None:
 
 
 def test_source_distribution_excludes_all_local_virtual_environments() -> None:
-    pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    pyproject = tomllib.loads(
+        (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")
 
-    assert "[tool.hatch.build.targets.sdist]" in pyproject
-    assert 'exclude = ["/.venv*"]' in pyproject
+    exclusions = pyproject["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"]
+    assert "/.venv*" in exclusions
+    assert "/.uv-cache" in exclusions
     assert ".venv-*/" in gitignore
 
 
@@ -1484,16 +1488,56 @@ def test_deployment_docs_separate_local_and_remote_boundaries() -> None:
     assert "Public ChatGPT plugin" in deployment
     assert "Local targets/preflight implemented" in deployment
     assert "cadplot-mcp-http --port 8765" in deployment
-    assert "does not yet implement that managed HTTPS proxy" in deployment
+    assert "seven-tool CAD-read-only HTTPS gateway" in deployment
+    assert "internal writes in their MCP annotations" in deployment
     assert "named pipe" in deployment
     assert "publish_verified=true" in deployment
     assert "The DWG stays" in architecture
-    assert "Not implemented or claimed" in architecture
+    assert "Not provisioned or claimed" in architecture
     assert "loopback-only Streamable HTTP" in architecture
     assert "cadplot-tunnel-preflight" in architecture
     assert "cadplot-probe-client-config" in architecture
     assert "chatgpt-evaluation.md" in deployment
     assert "ChatGPT tool-selection evaluation" in architecture
+
+
+def test_public_review_records_have_exact_cases_and_truthful_annotations() -> None:
+    review_cases = json.loads(
+        (REPOSITORY_ROOT / "docs" / "openai-review-cases.json").read_text(encoding="utf-8")
+    )
+    annotation_record = json.loads(
+        (REPOSITORY_ROOT / "docs" / "openai-tool-annotation-justifications.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert len(review_cases["positive_cases"]) == 5
+    assert len(review_cases["negative_cases"]) == 3
+    annotations = {
+        item["name"]: item["annotations"] for item in annotation_record["tools"]
+    }
+    assert set(annotations) == {
+        "list_workstations",
+        "list_projects",
+        "validate_environment",
+        "scan_drawings",
+        "inspect_drawing",
+        "create_publish_plan",
+        "get_operation",
+    }
+    assert annotations["list_workstations"] == {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+    for name in set(annotations) - {"list_workstations"}:
+        assert annotations[name] == {
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        }
 
 
 def test_secure_tunnel_handoff_is_secret_free_and_keeps_live_gates_external() -> None:
@@ -1776,6 +1820,12 @@ def test_ci_is_bounded_read_only_and_runs_protocol_and_synthetic_smokes() -> Non
     assert "persist-credentials: false" in workflow
     action_pins = re.findall(r"uses:\s+[^\s@]+@([0-9a-f]{40})", workflow)
     assert action_pins == [
+        "11d5960a326750d5838078e36cf38b85af677262",
+        "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
+        "a26af69be951a213d495a4c3e4e4022e16d87065",
+        "11d5960a326750d5838078e36cf38b85af677262",
+        "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
+        "a26af69be951a213d495a4c3e4e4022e16d87065",
         "11d5960a326750d5838078e36cf38b85af677262",
         "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
         "a26af69be951a213d495a4c3e4e4022e16d87065",

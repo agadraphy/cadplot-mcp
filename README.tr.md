@@ -56,6 +56,28 @@ geçmesidir. Bu doğrulama yapılmadan proje üretim-hazır olarak sunulmaz.
 Eklenti yüklenirken gerçek `ACADVER` değeri normalize edilir; çalışan AutoCAD sürümü ile yüklenen
 adaptör uyuşmuyorsa yayın özelliği fail-closed biçimde kapalı kalır.
 
+## Herkese açık MCP ağ geçidi (uygulandı, canlı değil)
+
+Depoda, AutoCAD ve DWG dosyalarını kullanıcının lisanslı Windows iş istasyonunda tutan ayrı bir
+OAuth korumalı HTTPS ağ geçidi bulunmaktadır. İlk genel yüzey yalnız yedi CAD-salt-okunur araç sunar:
+iş istasyonu ve proje keşfi, ortam doğrulama, çizim tarama ve inceleme, dry-run yayın planı ve
+işlem durumu. Bulut tarafına yerel yol, named pipe, COM ProgID, şirket plot kaynağı veya DWG içeriği
+taşınmaz; Windows işçisi ağ geçidine yalnız dışarı doğru imzalı HTTPS istekleri yapar.
+
+MCP annotation anlamında yalnız `list_workstations` saf okumadır. Beş kuyruk aracı ile
+`get_operation`, CAD veya kullanıcı dosyasını değiştirmese de özel işlem, dispatch, katalog ya da
+zaman-aşımı durumunu kalıcılaştırdığı için iç durum yazdığını doğru biçimde ilan eder. CadPlot bir
+yapay zekâ modeli paketlemez veya seçmez; uyumlu modeli bağlı MCP istemcisi/host seçer.
+
+Üretim bileşimi, PostgreSQL/RLS migration'ları, imzalı işçi kontrol rotaları ve katı Windows işçi
+CLI'ı kodda hazırdır; ancak servis internette etkin değildir. Canlı kullanım için gerçek HTTPS alan
+adı, OAuth sağlayıcısı, barındırılan PostgreSQL ve edge kontrolleri, cihaz kayıt/iptal süreci ve
+lisanslı AutoCAD iş istasyonu gerekir. ChatGPT'de herkese açık listeleme ayrıca destek/gizlilik/
+koşullar sayfaları ile OpenAI inceleme ve onayına tabidir. CadPlot kodu MIT lisanslıdır; AutoCAD ve
+Autodesk lisansı dahil değildir. Ayrıntılar için [genel dağıtım tasarımına](docs/public-deployment.md),
+[Windows işçi rehberine](docs/windows-worker.md) ve
+[OpenAI gönderim kapılarına](docs/openai-public-submission.md) bakın.
+
 ## Güvenlik modeli
 
 - Keyfi AutoLISP veya AutoCAD komutu çalıştırılmaz.
@@ -310,7 +332,7 @@ Repo içindeki doğrulanmış opsiyonel Codex wrapper'ı
 önceden kurulmuş `cadplot-mcp` komutunu başlatır ve şirket dosyalarını paketlemez.
 [Dağıtım modları](docs/deployment-modes.md) ve
 [ChatGPT bağlantı mimarisi](docs/chatgpt-connection.md), hazır yerel işçi/loopback tünel hedefi ile
-henüz uygulanmamış yönetilen HTTPS köprüsünü ayrı teslim kapıları olarak tanımlar.
+uygulanmış fakat henüz dağıtılmamış genel HTTPS ağ geçidini ayrı teslim kapıları olarak tanımlar.
 
 AutoCAD başlatılmadan önce aynı terminal/başlatıcı ortamında `CADPLOT_WORKSPACE_ROOT`, Python
 ayarındaki `workspace_root` ile aynı klasöre ayarlanmalıdır. Eklenti güvenilir workspace değerini

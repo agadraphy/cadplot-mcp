@@ -13,8 +13,8 @@ public AutoCAD port or file share.
 | --- | --- | --- | --- | --- |
 | Local workstation | `stdio` launched by Codex or ChatGPT desktop | Same Windows workstation | First licensed pilot and normal single-user operation | Implemented |
 | ChatGPT web developer pilot | Secure MCP Tunnel to local STDIO (recommended) or loopback HTTP | Same Windows workstation | Temporary Business/Enterprise/Edu evaluation | Local targets/preflight implemented; tunnel/admin provisioning external |
-| Managed company deployment | Authenticated, publicly reachable HTTPS Streamable HTTP `/mcp` proxy | Registered company workstations | Centrally governed internal use | Architecture only |
-| Public ChatGPT plugin | Stable public HTTPS Streamable HTTP `/mcp`, verified domain, review requirements | Requires a separately designed managed worker service | Marketplace/public distribution | Not implemented or claimed |
+| Managed company deployment | Authenticated, publicly reachable HTTPS Streamable HTTP `/mcp` gateway | Registered company workstations | Centrally governed internal use | Read-only gateway/worker code implemented; infrastructure external |
+| Public ChatGPT plugin | Stable public HTTPS Streamable HTTP `/mcp`, verified domain, review requirements | Outbound-only registered Windows workers | Marketplace/public distribution | Phase-1 code implemented; not deployed, submitted, or approved |
 
 ## Local workstation pilot
 
@@ -101,15 +101,20 @@ The bridge must not:
 - bypass the exact `plan_id` and `manifest_sha256` approval gates;
 - claim success before final `source_unchanged=true` and `publish_verified=true` evidence exists.
 
-This repository does not yet implement that managed HTTPS proxy. The local `stdio` wrapper and
-loopback HTTP endpoint must not be represented as a production ChatGPT web connector.
+This repository implements a separately packaged, seven-tool CAD-read-only HTTPS gateway and
+outbound-only signed Windows worker. Queue/status tools still persist private durable service state
+and advertise those internal writes in their MCP annotations. It does not provision a real
+domain/TLS edge, identity provider, PostgreSQL service, device enrollment, or operations controls.
+The local `stdio` wrapper and loopback HTTP endpoint must not be represented as a production
+ChatGPT web connector.
 
 ## Public ChatGPT plugin
 
 Public submission requires a stable publicly reachable HTTPS Streamable HTTP MCP server and the
 applicable domain verification and review process. Secure MCP Tunnel endpoints are not eligible as
-the production endpoint. CadPlot's workstation-bound AutoCAD executor therefore needs a separate,
-security-reviewed gateway/worker architecture before public ChatGPT distribution can be claimed.
+the production endpoint. CadPlot's phase-1 gateway/worker implementation must be deployed and
+security-reviewed, pass licensed workstation acceptance, and receive OpenAI approval before public
+ChatGPT distribution can be claimed.
 
 The public GitHub repository can still distribute the local MCP server and AutoCAD bundle source
 under MIT without being a public ChatGPT plugin.

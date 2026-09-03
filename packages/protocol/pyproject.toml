@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cadplot-protocol"
+version = "0.1.0"
+description = "Closed, path-free wire protocol shared by CadPlot gateway and workstation workers."
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Demir Eren" }]
+dependencies = ["pydantic>=2.11,<3.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0.3,<10.0", "ruff>=0.12,<1.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cadplot_protocol"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

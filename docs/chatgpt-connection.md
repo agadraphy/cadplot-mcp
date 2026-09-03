@@ -7,6 +7,9 @@ stage exact approved plans, queue exact approved manifests, and audit the result
 chooses typed CadPlot tools; it does not generate AutoLISP, shell commands, or arbitrary AutoCAD
 commands.
 
+CadPlot is model-agnostic and does not ship or pin an AI model. The connected MCP host/client
+selects a compatible model and controls model availability.
+
 "Upload the DWG to ChatGPT" is not the normal architecture. The DWG stays inside an authorized
 local source root. A local client passes its path to the local MCP server. For ChatGPT web, a
 managed bridge must route an authorized job reference to a registered workstation without exposing
@@ -54,7 +57,7 @@ The MCP server advertises this sequence in its server instructions and marks loc
 write annotations. Client approvals remain mandatory because annotations are descriptive hints,
 not authorization.
 
-## Implemented and unimplemented boundaries
+## Implemented and external boundaries
 
 Implemented in this repository:
 
@@ -65,16 +68,20 @@ Implemented in this repository:
 - verified-session, no-overwrite local `mcpServers` config generation with read-only/publish separation;
 - local Python/AutoCAD named-pipe protocol;
 - approval-bound staging and publishing;
-- immutable receipt and PDF audit evidence.
+- immutable receipt and PDF audit evidence;
 - a canonical, hash-bound 13-case ChatGPT tool-selection evaluation plan and sanitized result
-  validator.
+  validator;
+- a separately packaged, OAuth-protected public Streamable HTTP `/mcp` gateway with seven
+  read-only tools;
+- tenant-bound PostgreSQL/RLS repositories, signed outbound worker routes, a closed shared wire
+  protocol, and a strict Windows worker CLI.
 
-Not implemented or claimed:
+Not provisioned or claimed:
 
-- a hosted Streamable HTTP gateway;
-- OAuth, mutual TLS, device enrollment, or organization user mapping;
+- a live domain/TLS deployment, production OAuth provider or OAuth client;
+- production PostgreSQL, edge controls, audit operations, or device enrollment/revocation;
 - Secure MCP Tunnel provisioning;
-- public ChatGPT plugin submission;
+- public ChatGPT plugin submission, review, or approval;
 - live AutoCAD 2016 and 2025 acceptance evidence.
 
 Those are separate delivery gates. A successful local synthetic test or compile probe must never be
