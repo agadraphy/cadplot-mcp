@@ -996,16 +996,23 @@ def test_migration_defines_hardened_least_privilege_runtime_role() -> None:
         "nocreaterole noinherit noreplication nobypassrls"
     )
     assert create_attributes in normalized
-    hardened = (
-        "alter role cadplot_gateway_runtime with nologin nosuperuser nocreatedb "
-        "nocreaterole noinherit noreplication nobypassrls"
-    )
     role_alters = tuple(
         statement
         for statement in statements
         if statement.startswith("alter role cadplot_gateway_runtime")
     )
-    assert role_alters == (hardened,)
+    assert role_alters == ()
+    for unsafe_attribute in (
+        "rolcanlogin",
+        "rolsuper",
+        "rolcreatedb",
+        "rolcreaterole",
+        "rolinherit",
+        "rolreplication",
+        "rolbypassrls",
+    ):
+        assert unsafe_attribute in normalized
+    assert "raise exception 'cadplot_gateway_runtime role posture is unsafe'" in normalized
     assert "grant cadplot_gateway_runtime to" not in normalized
     assert " password " not in f" {normalized} "
 

@@ -24,14 +24,30 @@ BEGIN
 END;
 $cadplot_runtime_role$;
 
-ALTER ROLE cadplot_gateway_runtime WITH
-    NOLOGIN
-    NOSUPERUSER
-    NOCREATEDB
-    NOCREATEROLE
-    NOINHERIT
-    NOREPLICATION
-    NOBYPASSRLS;
+-- Managed PostgreSQL owners commonly have CREATEROLE without SUPERUSER. Re-applying
+-- NOSUPERUSER/NOREPLICATION/NOBYPASSRLS through ALTER ROLE is rejected by PostgreSQL even when
+-- the role already has those safe attributes. Validate the complete posture instead of requiring
+-- a superuser-only no-op mutation.
+DO $cadplot_runtime_role_posture$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_roles
+        WHERE rolname = 'cadplot_gateway_runtime'
+          AND (
+              rolcanlogin
+              OR rolsuper
+              OR rolcreatedb
+              OR rolcreaterole
+              OR rolinherit
+              OR rolreplication
+              OR rolbypassrls
+          )
+    ) THEN
+        RAISE EXCEPTION 'cadplot_gateway_runtime role posture is unsafe';
+    END IF;
+END;
+$cadplot_runtime_role_posture$;
 
 COMMENT ON ROLE cadplot_gateway_runtime IS
     'CadPlot NOLOGIN capability role; explicitly grant membership only to a NOSUPERUSER NOBYPASSRLS LOGIN.';
