@@ -13,7 +13,7 @@ authors = [{ name = "Demir Eren" }]
 dependencies = [
   "cryptography>=46,<51",
   "mcp[cli]>=1.29,<1.30",
-  "pydantic>=2.11,<2.13",
+  "pydantic>=2.11,<2.14",
   "pypdf>=6.16.1,<7.0",
   "pyyaml>=6.0,<7.0",
   "typing-extensions>=4.12,<5.0",
