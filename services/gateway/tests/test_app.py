@@ -149,9 +149,7 @@ async def test_rfc9728_metadata_advertises_provider_specific_authorization_scope
     ) as client:
         metadata = await client.get("/.well-known/oauth-protected-resource/mcp")
 
-    assert metadata.json()["scopes_supported"] == [
-        "urn:zitadel:iam:org:project:id:123:aud"
-    ]
+    assert metadata.json()["scopes_supported"] == ["urn:zitadel:iam:org:project:id:123:aud"]
 
 
 @pytest.mark.asyncio

@@ -27,7 +27,7 @@ class GatewaySettings(BaseSettings):
     resource_audience: str = Field(min_length=1, max_length=512)
     authorization_scope: str = Field(
         default="cadplot.read",
-        pattern=r'^[\x21\x23-\x5B\x5D-\x7E]{1,128}$',
+        pattern=r"^[\x21\x23-\x5B\x5D-\x7E]{1,128}$",
     )
     tenant_claim: str = Field(default="organization_id", pattern=r"^[A-Za-z0-9_.:-]{1,64}$")
     principal_pepper: SecretStr
