@@ -13,8 +13,8 @@ public AutoCAD port or file share.
 | --- | --- | --- | --- | --- |
 | Local workstation | `stdio` launched by Codex or ChatGPT desktop | Same Windows workstation | First licensed pilot and normal single-user operation | Implemented |
 | ChatGPT web developer pilot | Secure MCP Tunnel to local STDIO (recommended) or loopback HTTP | Same Windows workstation | Temporary Business/Enterprise/Edu evaluation | Local targets/preflight implemented; tunnel/admin provisioning external |
-| Managed company deployment | Authenticated, publicly reachable HTTPS Streamable HTTP `/mcp` gateway | Registered company workstations | Centrally governed internal use | Read-only gateway/worker code implemented; infrastructure external |
-| Public ChatGPT plugin | Stable public HTTPS Streamable HTTP `/mcp`, verified domain, review requirements | Outbound-only registered Windows workers | Marketplace/public distribution | Phase-1 code implemented; not deployed, submitted, or approved |
+| Managed company deployment | Authenticated, publicly reachable HTTPS Streamable HTTP `/mcp` gateway | Registered company workstations | Centrally governed internal use | Gateway beta deployed; licensed worker enrollment remains per organization |
+| Public ChatGPT plugin | Stable public HTTPS Streamable HTTP `/mcp`, verified domain, review requirements | Outbound-only registered Windows workers | Marketplace/public distribution | Gateway beta deployed; support/legal pages, submission, and approval remain open |
 
 ## Local workstation pilot
 

@@ -39,7 +39,19 @@ authoritative evidence and keeps licensed/company-only gates explicit.
 At load time the plug-in normalizes the real `ACADVER` value and refuses to enable publishing when
 the loaded adapter does not match the running AutoCAD release.
 
-## Public MCP gateway (implemented, not deployed)
+## Public MCP gateway (live beta)
+
+The OAuth-protected Streamable HTTP endpoint is live at:
+
+```text
+https://cadplot-mcp-gateway.onrender.com/mcp
+```
+
+Add that URL to a remote-MCP client with OAuth 2.1 and Dynamic Client Registration support. The
+client registers itself, opens the ZITADEL sign-in flow, and requests only CadPlot's advertised
+read-only authorization scope. New users can self-register at the identity provider. The gateway
+is currently hosted on Render's free tier, so the first request after inactivity can have a cold
+start.
 
 The repository now includes a separately packaged OAuth resource server under
 [`services/gateway`](services/gateway/README.md) and an outbound-only Windows worker protocol. The
@@ -56,10 +68,11 @@ not bundle or select an AI model: the connected MCP host/client chooses a compat
 The repository includes the production composition, PostgreSQL repositories and RLS migrations,
 signed worker control routes, expiring authenticated worker presence, health/readiness endpoints,
 a hash-bound migration runner, a no-secret Render rehearsal Blueprint, and a strict Windows worker
-CLI. This is still not a live public service: a verified HTTPS domain, production OAuth provider,
-hosted PostgreSQL, edge controls, device enrollment/revocation, and a licensed AutoCAD workstation
-must be supplied and operated.
-Public ChatGPT availability additionally requires support/privacy/terms pages and OpenAI review.
+CLI. The public gateway, production OAuth provider, and hosted PostgreSQL are live. Actual DWG
+inspection still requires an organization to install and enroll the outbound Windows worker on a
+workstation with a valid AutoCAD license; no Autodesk software or license is provided by this
+service. Public ChatGPT marketplace availability additionally requires support/privacy/terms pages
+and OpenAI review.
 Do not expose the local stdio or loopback HTTP servers directly. See the
 [public deployment design](docs/public-deployment.md), [Windows worker guide](docs/windows-worker.md),
 and [public submission gates](docs/openai-public-submission.md).

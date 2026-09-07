@@ -27,6 +27,18 @@ host/client selects the compatible AI model. Publishing remains disabled until t
 mutation-journal, crash-reconciliation, licensed acceptance, and public-review gates documented in
 [`docs/public-deployment.md`](../../docs/public-deployment.md) are complete.
 
+## Live endpoint
+
+The production beta gateway is available at
+`https://cadplot-mcp-gateway.onrender.com/mcp`. It advertises OAuth protected-resource metadata,
+uses ZITADEL Dynamic Client Registration with PKCE, and allows new users to self-register. A
+connected client can discover and authenticate to the MCP endpoint without receiving a shared
+client secret from the operator.
+
+The gateway being live does not make AutoCAD itself public. Tool execution that needs a drawing
+still depends on an enrolled outbound Windows worker running a separately licensed AutoCAD
+installation. The Render free tier may cold-start after inactivity.
+
 ## Security posture
 
 - OAuth token introspection is fail-closed and audience-bound.
@@ -85,10 +97,7 @@ fresh, non-replayed signed worker request refreshes that device's bounded presen
 static `online` flag can no longer authorize a lease.
 
 The repository-root `render.yaml` and [`deploy/render/README.md`](../../deploy/render/README.md)
-provide a no-secret deployment rehearsal. They do not create a paid service or prove that a live
-endpoint exists.
-
-The code is deployable, but this repository is not evidence of a live public service. A real
-domain/TLS edge, OAuth client and claims, hosted database, rate limiting and audit operations,
-device enrollment/revocation, and a licensed Windows worker still have to be provisioned and
-verified. Public publishing remains disabled.
+remain secret-free deployment definitions. The live beta supplies the HTTPS edge, OAuth client and
+claims, and hosted database outside Git. Device enrollment/revocation and licensed Windows-worker
+acceptance remain operator responsibilities, and approval-gated CAD publishing remains disabled
+from the public gateway.
