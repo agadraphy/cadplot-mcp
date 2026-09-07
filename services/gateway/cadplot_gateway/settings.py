@@ -91,6 +91,8 @@ class GatewaySettings(BaseSettings):
             if len(self.principal_pepper.get_secret_value()) < 32:
                 raise ValueError("principal_pepper is too short for production")
             self._validate_production_database_url(self.database_url.get_secret_value())
+            if self.database_pool_min_size < 2 or self.database_pool_max_size < 2:
+                raise ValueError("production database pool must keep two connections available")
         if self.database_pool_min_size > self.database_pool_max_size:
             raise ValueError("database_pool_min_size must not exceed database_pool_max_size")
         if (

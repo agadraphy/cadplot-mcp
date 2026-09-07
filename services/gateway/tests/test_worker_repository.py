@@ -879,6 +879,58 @@ def test_request_nonce_consumption_is_one_atomic_fully_bound_call() -> None:
     )
 
 
+def test_presence_refresh_is_tenant_device_key_scoped_and_bounded() -> None:
+    pool = FakePool(
+        lambda call: ({"recorded": True},) if "record_worker_presence" in call.sql else ()
+    )
+    repository = PostgresWorkerControlRepository(pool, TENANT_A)
+
+    assert repository.record_presence(
+        workstation_id=WORKSTATION_A,
+        key_id=KEY_A,
+        presence_seconds=120,
+    )
+
+    assert_rls_context_first(pool)
+    assert len(pool.transactions[0]) == 2
+    refresh = pool.transactions[0][1]
+    assert "record_worker_presence" in refresh.sql
+    assert refresh.parameters == (TENANT_A, WORKSTATION_A, KEY_A, 120)
+
+
+@pytest.mark.parametrize("presence_seconds", [True, 0, 29, 301, 60.0])
+def test_presence_refresh_rejects_invalid_expiry_without_database_access(
+    presence_seconds: object,
+) -> None:
+    pool = FakePool()
+    repository = PostgresWorkerControlRepository(pool, TENANT_A)
+
+    assert_error(
+        "invalid_request_proof",
+        repository.record_presence,
+        workstation_id=WORKSTATION_A,
+        key_id=KEY_A,
+        presence_seconds=presence_seconds,
+    )
+    assert pool.transactions == []
+
+
+@pytest.mark.parametrize("database_value", [None, 1, "true"])
+def test_presence_refresh_database_outcome_is_strict(database_value: object) -> None:
+    pool = FakePool(
+        lambda call: ({"recorded": database_value},) if "record_worker_presence" in call.sql else ()
+    )
+    repository = PostgresWorkerControlRepository(pool, TENANT_A)
+
+    assert_error(
+        "repository_failure",
+        repository.record_presence,
+        workstation_id=WORKSTATION_A,
+        key_id=KEY_A,
+        presence_seconds=120,
+    )
+
+
 def test_request_nonce_race_has_exactly_one_winner_and_retries_are_rejected() -> None:
     handler = RequestNonceRaceHandler()
     repository = PostgresWorkerControlRepository(FakePool(handler), TENANT_A)
@@ -1185,3 +1237,53 @@ def test_worker_request_credential_migration_is_atomic_scoped_and_least_privileg
     assert f"grant insert on table {request_table}" not in normalized
     assert f"grant update on table {request_table}" not in normalized
     assert f"grant delete on table {request_table}" not in normalized
+
+
+def test_worker_presence_migration_is_expiring_scoped_and_least_privilege() -> None:
+    migration_path = Path(__file__).parents[1] / "migrations" / "0004_worker_presence.sql"
+    migration = migration_path.read_text(encoding="utf-8")
+    executable = "\n".join(line.split("--", 1)[0] for line in migration.splitlines())
+    normalized = " ".join(executable.split()).lower()
+
+    assert normalized.startswith("begin;")
+    assert normalized.endswith("commit;")
+    assert "add column last_seen_at timestamptz" in normalized
+    assert "add column presence_expires_at timestamptz" in normalized
+    assert "set online = false, last_seen_at = null, presence_expires_at = null" in normalized
+    assert "workstations_presence_timestamps" in normalized
+    assert "pg_catalog.isfinite(last_seen_at)" in normalized
+    assert "pg_catalog.isfinite(presence_expires_at)" in normalized
+    assert "presence_expires_at > last_seen_at" in normalized
+    assert "presence_expires_at <= last_seen_at + interval '5 minutes'" in normalized
+
+    function_start = normalized.index("create function cadplot_gateway.record_worker_presence")
+    function_end = normalized.index(
+        "create or replace function cadplot_gateway.lock_catalog_rows",
+        function_start,
+    )
+    function_body = normalized[function_start:function_end]
+    assert "security definer" in function_body
+    assert "set search_path = pg_catalog, pg_temp set row_security = on" in function_body
+    assert "current_setting('cadplot.tenant_id', true)" in function_body
+    assert "selected_presence_seconds < 30" in function_body
+    assert "selected_presence_seconds > 300" in function_body
+    assert "for share of verification_key for no key update of workstation" in function_body
+    assert function_body.index("for no key update of workstation") < function_body.index(
+        "database_time := clock_timestamp()"
+    )
+    assert "selected_workstation_enabled is distinct from true" in function_body
+    assert "selected_key_enabled is distinct from true" in function_body
+    assert "selected_key_algorithm is distinct from 'ed25519'" in function_body
+    assert "selected_key_length is distinct from 32" in function_body
+    assert "selected_key_revoked_at is not null" in function_body
+    assert "selected_key_not_before > database_time" in function_body
+    assert "selected_key_expires_at <= database_time" in function_body
+    assert "set online = true, last_seen_at = database_time" in function_body
+    assert "pg_catalog.make_interval(secs => selected_presence_seconds)" in function_body
+
+    lock_body = normalized[function_end:]
+    assert lock_body.count("presence_expires_at > clock_timestamp()") == 2
+    assert lock_body.count("last_seen_at is not null") == 2
+    assert "grant execute on function cadplot_gateway.record_worker_presence" in normalized
+    assert "grant update on table cadplot_gateway.workstations" not in normalized
+    assert "grant insert on table cadplot_gateway.workstations" not in normalized

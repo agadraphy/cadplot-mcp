@@ -71,6 +71,7 @@ _PROOF_HEADERS = frozenset(
 )
 _REQUIRED_SINGLETON_HEADERS = _PROOF_HEADERS | {"host", "content-type"}
 _OPTIONAL_SINGLETON_HEADERS = frozenset({"content-length", "content-encoding", "origin"})
+_WORKER_PRESENCE_SECONDS = 120
 
 
 class WorkerCredentialStoreFactory(Protocol):
@@ -166,6 +167,14 @@ class TenantWorkerControlRepository(Protocol):
         self,
         workstation_id: str,
     ) -> Sequence[WorkerVerificationKey]: ...
+
+    def record_presence(
+        self,
+        *,
+        workstation_id: str,
+        key_id: str,
+        presence_seconds: int,
+    ) -> bool: ...
 
 
 class WorkerControlRepositoryFactory(Protocol):
@@ -323,12 +332,13 @@ class WorkerRouteController:
             return _error_response(503, "worker_service_unavailable")
 
     def _poll(self, headers: Mapping[str, str], body: bytes) -> Response:
-        worker = self._authenticate(headers, body, POLL_ROUTE)
+        worker, key_id = self._authenticate(headers, body, POLL_ROUTE)
         try:
             request = parse_control_payload(body, WorkerPollRequest)
         except (TypeError, ValueError):
             raise _WorkerRouteFailure(400, "worker_request_invalid") from None
         self._require_body_identity(worker, request.tenant_id, request.device_id)
+        self._record_presence(worker, key_id)
         service = self._service(worker)
         lease = service.worker_lease(
             worker,
@@ -349,12 +359,13 @@ class WorkerRouteController:
         return _json_bytes_response(serialize_task_payload(stored.envelope))
 
     def _start(self, headers: Mapping[str, str], body: bytes) -> Response:
-        worker = self._authenticate(headers, body, START_ROUTE)
+        worker, key_id = self._authenticate(headers, body, START_ROUTE)
         try:
             request = parse_control_payload(body, WorkerStartRequest)
         except (TypeError, ValueError):
             raise _WorkerRouteFailure(400, "worker_request_invalid") from None
         self._require_body_identity(worker, request.tenant_id, request.device_id)
+        self._record_presence(worker, key_id)
         worker_repository = self._worker_repository(worker.tenant_id)
         dispatch = worker_repository.get_dispatch(
             workstation_id=worker.workstation_id,
@@ -368,12 +379,13 @@ class WorkerRouteController:
         return _json_bytes_response(serialize_control_payload(acknowledgement))
 
     def _complete(self, headers: Mapping[str, str], body: bytes) -> Response:
-        worker = self._authenticate(headers, body, COMPLETE_ROUTE)
+        worker, key_id = self._authenticate(headers, body, COMPLETE_ROUTE)
         try:
             result = parse_result_payload(body)
         except (TypeError, ValueError):
             raise _WorkerRouteFailure(400, "worker_request_invalid") from None
         self._require_body_identity(worker, result.tenant_id, result.device_id)
+        self._record_presence(worker, key_id)
         worker_repository = self._worker_repository(worker.tenant_id)
         dispatch = worker_repository.get_dispatch(
             workstation_id=worker.workstation_id,
@@ -391,14 +403,23 @@ class WorkerRouteController:
         headers: Mapping[str, str],
         body: bytes,
         route: str,
-    ) -> WorkerContext:
-        worker, _proof = self._authenticator.authenticate(
+    ) -> tuple[WorkerContext, str]:
+        worker, proof = self._authenticator.authenticate(
             headers=headers,
             body=body,
             method="POST",
             route=route,
         )
-        return worker
+        return worker, proof.key_id
+
+    def _record_presence(self, worker: WorkerContext, key_id: str) -> None:
+        repository = self._worker_repository(worker.tenant_id)
+        if not repository.record_presence(
+            workstation_id=worker.workstation_id,
+            key_id=key_id,
+            presence_seconds=_WORKER_PRESENCE_SECONDS,
+        ):
+            raise WorkerAuthenticationError()
 
     def _ingress(
         self,

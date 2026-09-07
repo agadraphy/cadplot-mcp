@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+
+services:
+  - type: web
+    name: cadplot-mcp-gateway
+    runtime: docker
+    plan: free
+    dockerfilePath: ./services/gateway/Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    autoDeployTrigger: checksPass
+    envVars:
+      # Render exposes service variables as Docker build arguments. This
+      # non-secret value must be a verified, digest-pinned image reference.
+      - key: CADPLOT_PYTHON_IMAGE
+        sync: false
+
+      - key: CADPLOT_GATEWAY_ENVIRONMENT
+        value: production
+      - key: CADPLOT_GATEWAY_HOST
+        value: 0.0.0.0
+      - key: CADPLOT_GATEWAY_PORT
+        value: "10000"
+      - key: CADPLOT_GATEWAY_DATABASE_POOL_TIMEOUT_SECONDS
+        value: "3"
+      - key: CADPLOT_GATEWAY_PUBLIC_MCP_URL
+        sync: false
+      - key: CADPLOT_GATEWAY_ISSUER_URL
+        sync: false
+      - key: CADPLOT_GATEWAY_INTROSPECTION_URL
+        sync: false
+      - key: CADPLOT_GATEWAY_INTROSPECTION_CLIENT_ID
+        sync: false
+      - key: CADPLOT_GATEWAY_INTROSPECTION_CLIENT_SECRET
+        sync: false
+      - key: CADPLOT_GATEWAY_RESOURCE_AUDIENCE
+        sync: false
+      - key: CADPLOT_GATEWAY_PRINCIPAL_PEPPER
+        generateValue: true
+      - key: CADPLOT_GATEWAY_DATABASE_URL
+        sync: false
+      - key: CADPLOT_GATEWAY_ALLOWED_HOSTS
+        sync: false
+      - key: CADPLOT_GATEWAY_GATEWAY_DISPATCH_PRIVATE_KEY_FILE
+        value: /etc/secrets/cadplot_gateway_dispatch_private_key

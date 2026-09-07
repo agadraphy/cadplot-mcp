@@ -69,12 +69,14 @@ MCP annotation anlamında yalnız `list_workstations` saf okumadır. Beş kuyruk
 zaman-aşımı durumunu kalıcılaştırdığı için iç durum yazdığını doğru biçimde ilan eder. CadPlot bir
 yapay zekâ modeli paketlemez veya seçmez; uyumlu modeli bağlı MCP istemcisi/host seçer.
 
-Üretim bileşimi, PostgreSQL/RLS migration'ları, imzalı işçi kontrol rotaları ve katı Windows işçi
-CLI'ı kodda hazırdır; ancak servis internette etkin değildir. Canlı kullanım için gerçek HTTPS alan
-adı, OAuth sağlayıcısı, barındırılan PostgreSQL ve edge kontrolleri, cihaz kayıt/iptal süreci ve
-lisanslı AutoCAD iş istasyonu gerekir. ChatGPT'de herkese açık listeleme ayrıca destek/gizlilik/
-koşullar sayfaları ile OpenAI inceleme ve onayına tabidir. CadPlot kodu MIT lisanslıdır; AutoCAD ve
-Autodesk lisansı dahil değildir. Ayrıntılar için [genel dağıtım tasarımına](docs/public-deployment.md),
+Üretim bileşimi, PostgreSQL/RLS migration'ları, imzalı işçi kontrol rotaları, süreli doğrulanmış
+işçi presence kaydı, health/readiness uçları, hash-bağlı migration runner, secretsiz Render prova
+Blueprint'i ve katı Windows işçi CLI'ı kodda hazırdır; ancak servis internette etkin değildir.
+Canlı kullanım için gerçek HTTPS alan adı, OAuth sağlayıcısı, barındırılan PostgreSQL ve edge
+kontrolleri, cihaz kayıt/iptal süreci ve lisanslı AutoCAD iş istasyonu gerekir. ChatGPT'de herkese
+açık listeleme ayrıca destek/gizlilik/koşullar sayfaları ile OpenAI inceleme ve onayına tabidir.
+CadPlot kodu MIT lisanslıdır; AutoCAD ve Autodesk lisansı dahil değildir. Ayrıntılar için
+[genel dağıtım tasarımına](docs/public-deployment.md),
 [Windows işçi rehberine](docs/windows-worker.md) ve
 [OpenAI gönderim kapılarına](docs/openai-public-submission.md) bakın.
 

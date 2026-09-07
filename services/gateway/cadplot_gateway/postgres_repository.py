@@ -136,7 +136,13 @@ _OPERATION_COLUMNS = (
     "error_code",
 )
 
-_WORKSTATION_SELECT = ", ".join(_WORKSTATION_COLUMNS)
+_WORKSTATION_SELECT = ", ".join(
+    (
+        *_WORKSTATION_COLUMNS[:-1],
+        "(online AND last_seen_at IS NOT NULL "
+        "AND presence_expires_at > clock_timestamp()) AS online",
+    )
+)
 _PROJECT_SELECT = ", ".join(_PROJECT_COLUMNS)
 _DRAWING_SELECT = ", ".join(_DRAWING_COLUMNS)
 _OPERATION_SELECT = ", ".join(_OPERATION_COLUMNS)

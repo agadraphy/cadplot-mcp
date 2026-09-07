@@ -9,6 +9,7 @@ from psycopg_pool import ConnectionPool
 from starlette.applications import Starlette
 
 from cadplot_gateway.composition import TenantServiceResolver
+from cadplot_gateway.health import add_health_routes, runtime_connection_identity_is_safe
 from cadplot_gateway.mcp_server import (
     ServiceResolver,
     build_mcp_server,
@@ -25,6 +26,8 @@ from cadplot_gateway.worker_routes import (
     WorkerRouteController,
     build_worker_gateway_app,
 )
+
+_READINESS_POOL_TIMEOUT_SECONDS = 3.0
 
 
 def build_app(
@@ -66,10 +69,18 @@ def build_postgres_app(
         factory,
         operation_ttl_seconds=settings.operation_ttl_seconds,
     )
-    return build_app(
+    application = build_app(
         settings,
         service_resolver=resolver,
         token_verifier=token_verifier,
+    )
+    return add_health_routes(
+        application,
+        pool,
+        pool_timeout_seconds=min(
+            settings.database_pool_timeout_seconds,
+            _READINESS_POOL_TIMEOUT_SECONDS,
+        ),
     )
 
 
@@ -108,7 +119,15 @@ def build_worker_enabled_postgres_app(
         lease_seconds=settings.worker_lease_seconds,
         allowed_hosts=settings.allowed_hosts,
     )
-    return build_worker_gateway_app(mcp_app, worker_controller)
+    application = build_worker_gateway_app(mcp_app, worker_controller)
+    return add_health_routes(
+        application,
+        pool,
+        pool_timeout_seconds=min(
+            settings.database_pool_timeout_seconds,
+            _READINESS_POOL_TIMEOUT_SECONDS,
+        ),
+    )
 
 
 _MAX_DISPATCH_KEY_BYTES = 16 * 1024
@@ -139,6 +158,11 @@ def _configure_runtime_connection(connection: Any) -> None:
     connection.execute("SET statement_timeout TO '15s'")
     connection.execute("SET lock_timeout TO '5s'")
     connection.execute("SET idle_in_transaction_session_timeout TO '15s'")
+    if not runtime_connection_identity_is_safe(connection):
+        try:
+            connection.rollback()
+        finally:
+            raise RuntimeError("production_database_role_unsafe")
     connection.commit()
 
 

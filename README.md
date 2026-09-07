@@ -54,9 +54,11 @@ dispatch, catalog, or deadline state, even though none can modify CAD or user fi
 not bundle or select an AI model: the connected MCP host/client chooses a compatible model.
 
 The repository includes the production composition, PostgreSQL repositories and RLS migrations,
-signed worker control routes, and a strict Windows worker CLI. This is still not a live public
-service: a verified HTTPS domain, production OAuth provider, hosted PostgreSQL, edge controls,
-device enrollment/revocation, and a licensed AutoCAD workstation must be supplied and operated.
+signed worker control routes, expiring authenticated worker presence, health/readiness endpoints,
+a hash-bound migration runner, a no-secret Render rehearsal Blueprint, and a strict Windows worker
+CLI. This is still not a live public service: a verified HTTPS domain, production OAuth provider,
+hosted PostgreSQL, edge controls, device enrollment/revocation, and a licensed AutoCAD workstation
+must be supplied and operated.
 Public ChatGPT availability additionally requires support/privacy/terms pages and OpenAI review.
 Do not expose the local stdio or loopback HTTP servers directly. See the
 [public deployment design](docs/public-deployment.md), [Windows worker guide](docs/windows-worker.md),

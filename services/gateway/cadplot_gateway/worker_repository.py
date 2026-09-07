@@ -32,6 +32,8 @@ from .worker_ingress import (
 
 _SET_TENANT_CONTEXT_SQL = "SELECT set_config('cadplot.tenant_id', %s, true)"
 _MAX_ACTIVE_VERIFICATION_KEYS = 8
+_MIN_WORKER_PRESENCE_SECONDS = 30
+_MAX_WORKER_PRESENCE_SECONDS = 300
 _KEY_ID_PATTERN = (
     r"^wkey_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-"
     r"[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -171,7 +173,7 @@ class PostgresWorkerControlRepositoryFactory:
 
 
 class PostgresWorkerControlRepository(ResultReplayGuard):
-    """Durable worker dispatch, replay, and public-key storage for exactly one tenant."""
+    """Durable worker dispatch, replay, key, and presence storage for exactly one tenant."""
 
     def __init__(self, pool: SyncConnectionPool, tenant_id: TenantId) -> None:
         if not callable(getattr(pool, "connection", None)):
@@ -694,6 +696,43 @@ class PostgresWorkerControlRepository(ResultReplayGuard):
             )
             row = cursor.fetchone()
             value = self._scalar(row, "accepted")
+            if not isinstance(value, bool):
+                raise WorkerControlRepositoryError("repository_failure")
+            return value
+
+    def record_presence(
+        self,
+        *,
+        workstation_id: WorkstationId,
+        key_id: WorkerKeyId,
+        presence_seconds: int,
+    ) -> bool:
+        """Refresh one enabled worker's bounded presence using an active verification key."""
+
+        selected_workstation = self._identifier(_WORKSTATION_ADAPTER, workstation_id)
+        selected_key = self._identifier(_KEY_ADAPTER, key_id)
+        if (
+            not isinstance(presence_seconds, int)
+            or isinstance(presence_seconds, bool)
+            or not _MIN_WORKER_PRESENCE_SECONDS <= presence_seconds <= _MAX_WORKER_PRESENCE_SECONDS
+        ):
+            raise WorkerControlRepositoryError("invalid_request_proof")
+        sql = """
+            SELECT cadplot_gateway.record_worker_presence(
+                %s, %s, %s, %s
+            ) AS recorded
+        """
+        with self._cursor() as cursor:
+            cursor.execute(
+                sql,
+                (
+                    self._tenant_id,
+                    selected_workstation,
+                    selected_key,
+                    presence_seconds,
+                ),
+            )
+            value = self._scalar(cursor.fetchone(), "recorded")
             if not isinstance(value, bool):
                 raise WorkerControlRepositoryError("repository_failure")
             return value

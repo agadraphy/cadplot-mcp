@@ -41,7 +41,7 @@ mutation-journal, crash-reconciliation, licensed acceptance, and public-review g
 ## Deployment boundary
 
 The production entry point is wired to the OAuth MCP facade, signed worker routes, and the durable
-PostgreSQL repositories. Migrations `0001` through `0003` create the tenant-isolated operation,
+PostgreSQL repositories. Migrations `0001` through `0004` create the tenant-isolated operation,
 dispatch, replay, workstation-key, and request-proof stores. Apply them with a privileged deployer;
 the runtime process sets the exact `cadplot_gateway_runtime` role and must not own schema objects.
 
@@ -54,6 +54,39 @@ deployment secret store; production rejects Unix-socket targets, host query over
 TLS modes.
 The Docker build deliberately has no default base image. Supply `CADPLOT_PYTHON_IMAGE` as an
 immutable, verified image digest only after recording it in release SBOM and provenance evidence.
+
+Apply the packaged migrations with a separate, short-lived privileged identity before starting
+the web service:
+
+```console
+CADPLOT_GATEWAY_MIGRATION_DATABASE_URL=<privileged-verify-full-url> \
+  cadplot-gateway-migrate
+```
+
+The migration job opens two database connections using that URL. One keeps a transaction-scoped
+advisory lock for the complete run while the other commits each migration separately; this remains
+safe with direct PostgreSQL, session pooling, and transaction pooling. The deployment database
+endpoint must therefore permit at least two concurrent connections for the job.
+
+The migration runner retries the nonblocking lock for at most ten seconds before returning
+`migration_lock_timeout`, rejects an unmanaged pre-existing schema, and records the exact filename
+and SHA-256 of each migration in `cadplot_gateway.schema_migrations`. Never expose the privileged
+migration URL to the long-running gateway process. The runtime database login must be a distinct
+`NOSUPERUSER`, `NOBYPASSRLS`, `NOINHERIT` login that owns no gateway objects and can only `SET ROLE
+cadplot_gateway_runtime`; pooled connections verify that boundary and fail closed.
+
+Production exposes `GET /healthz` for process liveness and `GET /readyz` for secret-free readiness.
+Readiness admits at most one isolated database probe, briefly caches its result, and fails excess
+probes closed. Production keeps at least two database connections available so anonymous health
+traffic cannot consume the entire runtime pool. A probe succeeds only when the constrained runtime
+role can reach PostgreSQL and the latest hash-bound schema migration is present. The MCP endpoint
+itself remains OAuth protected. A valid,
+fresh, non-replayed signed worker request refreshes that device's bounded presence window; an old
+static `online` flag can no longer authorize a lease.
+
+The repository-root `render.yaml` and [`deploy/render/README.md`](../../deploy/render/README.md)
+provide a no-secret deployment rehearsal. They do not create a paid service or prove that a live
+endpoint exists.
 
 The code is deployable, but this repository is not evidence of a live public service. A real
 domain/TLS edge, OAuth client and claims, hosted database, rate limiting and audit operations,

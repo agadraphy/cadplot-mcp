@@ -29,6 +29,7 @@ dev = ["pytest>=9.0.3,<10.0", "pytest-asyncio>=1.0,<2.0", "ruff>=0.12,<1.0"]
 
 [project.scripts]
 cadplot-gateway = "cadplot_gateway.app:main"
+cadplot-gateway-migrate = "cadplot_gateway.migrate:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cadplot_gateway"]

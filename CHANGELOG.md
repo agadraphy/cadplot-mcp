@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Added a production public-gateway deployment boundary: hash-bound PostgreSQL migrations under a
+  dedicated transaction-scoped, ten-second bounded advisory-lock retry, constrained-runtime role
+  verification, isolated single-flight secret-free readiness with reserved production database
+  capacity, immutable Docker build inputs, and a no-secret Render rehearsal Blueprint.
+- Authenticated outbound workers now refresh a bounded database-time presence window only after a
+  fresh signed request and exact tenant/device match. Catalog reads and lease authorization treat
+  expired presence as offline; the runtime role receives no direct workstation update grant.
 - Final output and receipt audits now validate one stable manifest byte snapshot instead of
   reopening the manifest for receipt binding. Manifest and receipt reads reject device/file
   identity, size, modification-time, or content-digest changes during validation, and the manifest

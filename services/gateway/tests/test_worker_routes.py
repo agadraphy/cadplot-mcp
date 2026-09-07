@@ -140,9 +140,15 @@ class VerificationKey:
 
 
 class MemoryWorkerRepository:
-    def __init__(self, tenant_id: str, public_key: bytes) -> None:
+    def __init__(
+        self,
+        tenant_id: str,
+        public_key: bytes,
+        catalog: TenantMemoryRepository,
+    ) -> None:
         self._tenant_id = tenant_id
         self.public_key = public_key
+        self.catalog = catalog
         self.dispatches: dict[tuple[str, str, str], SignedDispatch] = {}
         self.replays: dict[tuple[str, str, str], tuple[object, ...]] = {}
         self.applied_replays: set[tuple[str, str, str]] = set()
@@ -150,6 +156,8 @@ class MemoryWorkerRepository:
         self.replay_lookup_calls = 0
         self.replay_calls = 0
         self.key_resolution_calls = 0
+        self.presence_calls: list[tuple[str, str, int]] = []
+        self.presence_allowed = True
 
     @property
     def tenant_id(self) -> str:
@@ -235,6 +243,19 @@ class MemoryWorkerRepository:
             return ()
         return (VerificationKey(TENANT, WORKSTATION, self.public_key),)
 
+    def record_presence(
+        self,
+        *,
+        workstation_id: str,
+        key_id: str,
+        presence_seconds: int,
+    ) -> bool:
+        self.presence_calls.append((workstation_id, key_id, presence_seconds))
+        if not self.presence_allowed or workstation_id != WORKSTATION or key_id != KEY_ID:
+            return False
+        self.catalog.set_workstation_online(WORKSTATION, online=True)
+        return True
+
 
 class WorkerRepositoryFactory:
     def __init__(self, repository: MemoryWorkerRepository) -> None:
@@ -318,7 +339,7 @@ def route_fixture() -> RouteFixture:
     service_resolver = ServiceResolver(TENANT, service)
     credential_store = MemoryCredentialStore(workstation_public)
     credential_factory = CredentialStoreFactory(credential_store)
-    worker_repository = MemoryWorkerRepository(TENANT, workstation_public)
+    worker_repository = MemoryWorkerRepository(TENANT, workstation_public, repository)
     worker_factory = WorkerRepositoryFactory(worker_repository)
     controller = WorkerRouteController(
         credential_store_factory=credential_factory,
@@ -520,6 +541,40 @@ async def test_worker_routes_are_outside_oauth_and_no_generic_relay_exists(
 
 
 @pytest.mark.asyncio
+async def test_authenticated_poll_records_presence_before_online_lease(
+    route_fixture: RouteFixture,
+) -> None:
+    route_fixture.repository.set_workstation_online(WORKSTATION, online=False)
+    body = serialize_control_payload(
+        WorkerPollRequest(tenant_id=TENANT, user_id=USER, device_id=WORKSTATION)
+    )
+
+    response = await _post(route_fixture, POLL_ROUTE, body)
+
+    assert response.status_code == 200
+    workstation = route_fixture.repository.get_workstation(WORKSTATION)
+    assert workstation is not None and workstation.online is True
+    assert route_fixture.worker_repository.presence_calls == [(WORKSTATION, KEY_ID, 120)]
+
+
+@pytest.mark.asyncio
+async def test_presence_recheck_failure_is_auth_failure_before_queue_access(
+    route_fixture: RouteFixture,
+) -> None:
+    route_fixture.worker_repository.presence_allowed = False
+    body = serialize_control_payload(
+        WorkerPollRequest(tenant_id=TENANT, user_id=USER, device_id=WORKSTATION)
+    )
+
+    response = await _post(route_fixture, POLL_ROUTE, body)
+
+    assert response.status_code == 401
+    assert response.json() == {"error": "worker_authentication_failed"}
+    assert route_fixture.service_resolver.calls == []
+    assert route_fixture.operation_factory.calls == []
+
+
+@pytest.mark.asyncio
 async def test_authentication_happens_before_untrusted_body_parsing_or_service_access(
     route_fixture: RouteFixture,
 ) -> None:
@@ -534,6 +589,7 @@ async def test_authentication_happens_before_untrusted_body_parsing_or_service_a
     assert route_fixture.service_resolver.calls == []
     assert route_fixture.operation_factory.calls == []
     assert route_fixture.worker_factory.calls == []
+    assert route_fixture.worker_repository.presence_calls == []
     assert route_fixture.credential_store.nonces == set()
     assert "secret" not in response.text.casefold()
 
@@ -559,6 +615,7 @@ async def test_authenticated_extra_path_field_is_closed_and_consumes_only_reques
     assert len(route_fixture.credential_store.nonces) == 1
     assert route_fixture.service_resolver.calls == []
     assert route_fixture.worker_repository.replay_calls == 0
+    assert route_fixture.worker_repository.presence_calls == []
     assert "secret" not in response.text.casefold()
 
 
@@ -580,6 +637,7 @@ async def test_body_identity_cannot_override_authenticated_device(
     assert response.json() == {"error": "worker_request_rejected"}
     assert route_fixture.service_resolver.calls == []
     assert route_fixture.operation_factory.calls == []
+    assert route_fixture.worker_repository.presence_calls == []
 
 
 @pytest.mark.asyncio
@@ -674,6 +732,7 @@ async def test_request_replay_oversize_and_edge_boundary_fail_closed(
 
     assert first.status_code == 200
     assert second.status_code == 401
+    assert route_fixture.worker_repository.presence_calls == [(WORKSTATION, KEY_ID, 120)]
     assert too_large.status_code == 413
     assert too_large.json() == {"error": "worker_request_too_large"}
     assert bad_origin.status_code == 403

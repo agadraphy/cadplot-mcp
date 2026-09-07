@@ -124,6 +124,28 @@ def test_nonproduction_database_can_use_local_transport_without_tls() -> None:
     assert settings.environment == "test"
 
 
+@pytest.mark.parametrize(
+    ("minimum", "maximum"),
+    [(1, 1), (1, 16)],
+)
+def test_production_pool_reserves_capacity_for_protected_requests(
+    minimum: int,
+    maximum: int,
+) -> None:
+    with pytest.raises(ValidationError, match="keep two connections available"):
+        _settings(database_pool_min_size=minimum, database_pool_max_size=maximum)
+
+
+def test_nonproduction_pool_can_use_one_connection() -> None:
+    settings = _settings(
+        environment="test",
+        database_pool_min_size=1,
+        database_pool_max_size=1,
+    )
+
+    assert settings.database_pool_max_size == 1
+
+
 def test_dispatch_key_path_must_be_absolute_when_configured(tmp_path: Path) -> None:
     configured = _settings(gateway_dispatch_private_key_file=tmp_path / "dispatch.pem")
     assert configured.gateway_dispatch_private_key_file == tmp_path / "dispatch.pem"

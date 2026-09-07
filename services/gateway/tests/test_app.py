@@ -35,12 +35,40 @@ class FakeConnection:
     def __init__(self) -> None:
         self.statements: list[str] = []
         self.committed = False
+        self.rolled_back = False
 
-    def execute(self, statement: str) -> None:
+    def execute(self, statement: str):
         self.statements.append(statement)
+        if "pg_catalog.pg_roles AS login" in statement:
+            return FakeResult(
+                (
+                    "cadplot_gateway_runtime",
+                    "cadplot_gateway_login",
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    True,
+                    True,
+                )
+            )
+        return FakeResult(None)
 
     def commit(self) -> None:
         self.committed = True
+
+    def rollback(self) -> None:
+        self.rolled_back = True
+
+
+class FakeResult:
+    def __init__(self, row) -> None:
+        self.row = row
+
+    def fetchone(self):
+        return self.row
 
 
 def settings() -> GatewaySettings:
@@ -196,3 +224,37 @@ def test_pool_connections_drop_into_the_runtime_capability_role() -> None:
     assert "SET lock_timeout TO '5s'" in connection.statements
     assert "SET idle_in_transaction_session_timeout TO '15s'" in connection.statements
     assert connection.committed is True
+    assert connection.rolled_back is False
+
+
+def test_pool_rejects_a_privileged_runtime_login() -> None:
+    connection = FakeConnection()
+
+    original_execute = connection.execute
+
+    def unsafe_execute(statement: str):
+        if "pg_catalog.pg_roles AS login" in statement:
+            connection.statements.append(statement)
+            return FakeResult(
+                (
+                    "cadplot_gateway_runtime",
+                    "privileged_login",
+                    True,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    True,
+                    True,
+                )
+            )
+        return original_execute(statement)
+
+    connection.execute = unsafe_execute  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="^production_database_role_unsafe$"):
+        _configure_runtime_connection(connection)
+
+    assert connection.rolled_back is True
+    assert connection.committed is False

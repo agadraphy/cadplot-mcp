@@ -96,17 +96,23 @@ it does not grant or certify an Autodesk license, and the public listing must sa
 
 The repository now contains the phase-1 gateway composition, seven-tool MCP facade, OAuth token
 introspection, tenant-bound PostgreSQL repositories and RLS migrations, signed worker routes,
-replay-safe durable control records, shared closed protocol package, and Windows worker CLI. Local
-automated tests exercise authentication, cross-tenant denial, leases, dispatch/result signatures,
-bounded payloads, path-leak rejection, and retry behavior.
+replay-safe durable control records, expiring authenticated worker presence, hash-bound migration
+runner, database-aware readiness endpoint, shared closed protocol package, and Windows worker CLI.
+Local automated tests exercise authentication, cross-tenant denial, leases, dispatch/result
+signatures, bounded payloads, path-leak rejection, and retry behavior.
 
 That implementation is not a live deployment. The operator must still provision a verified domain
 and TLS edge, an OAuth identity provider and client, hosted PostgreSQL, edge rate limiting and audit
-retention, device enrollment/revocation, and secret management. The database migrations must be
-applied by a privileged deployment identity; the application connects through the constrained
-`cadplot_gateway_runtime` role. Configure the exact `CADPLOT_GATEWAY_*` values and mount the
-Ed25519 dispatch private key outside the image. Build only from an immutable
-`CADPLOT_PYTHON_IMAGE` digest recorded in provenance.
+retention, device enrollment/revocation, and secret management. Run `cadplot-gateway-migrate` from
+a separate short-lived job using only its privileged `CADPLOT_GATEWAY_MIGRATION_DATABASE_URL`.
+The job requires two database connections: a transaction-scoped advisory lock connection covering
+the complete run and a separate connection that commits each migration independently. This supports
+direct, session-pooled, and transaction-pooled endpoints, with lock contention bounded by
+`migration_lock_timeout`. The long-running application must never receive that credential. It uses a distinct
+unprivileged login and drops into the constrained `cadplot_gateway_runtime` role. Configure the
+exact runtime `CADPLOT_GATEWAY_*` values and mount the Ed25519 dispatch private key outside the
+image. Build only from an immutable `CADPLOT_PYTHON_IMAGE` digest recorded in provenance. The
+repository-root Render Blueprint is a free rehearsal scaffold, not a production deployment.
 
 Do not advertise or submit the service until a registered worker passes a licensed AutoCAD 2016
 and 2025 acceptance run and the public support, privacy, terms, reviewer-account, security-scan,

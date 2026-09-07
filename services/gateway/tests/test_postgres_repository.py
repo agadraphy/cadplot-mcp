@@ -332,6 +332,15 @@ def test_catalog_reads_are_parameterized_and_tenant_scoped() -> None:
     assert repository.list_projects(TENANT_A, USER_A, WS_A) == (project(),)
 
     assert_rls_context_first(pool)
+    workstation_queries = [
+        transaction[1]
+        for transaction in pool.transactions
+        if "cadplot_gateway.workstations" in transaction[1].sql
+    ]
+    assert workstation_queries
+    for query in workstation_queries:
+        assert "presence_expires_at > clock_timestamp()" in query.sql
+        assert "AS online" in query.sql
     for transaction in pool.transactions:
         query = transaction[1]
         assert "tenant_id = %s" in query.sql
