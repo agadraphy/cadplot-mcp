@@ -25,6 +25,10 @@ class GatewaySettings(BaseSettings):
     introspection_client_id: str = Field(min_length=1, max_length=256)
     introspection_client_secret: SecretStr
     resource_audience: str = Field(min_length=1, max_length=512)
+    authorization_scope: str = Field(
+        default="cadplot.read",
+        pattern=r'^[\x21\x23-\x5B\x5D-\x7E]{1,128}$',
+    )
     tenant_claim: str = Field(default="organization_id", pattern=r"^[A-Za-z0-9_.:-]{1,64}$")
     principal_pepper: SecretStr
     database_url: SecretStr
@@ -72,8 +76,6 @@ class GatewaySettings(BaseSettings):
         introspection = urlsplit(str(self.introspection_url))
         if public.path.rstrip("/") != "/mcp" or public.query or public.fragment:
             raise ValueError("public_mcp_url must be the canonical /mcp URL")
-        if self.resource_audience != str(self.public_mcp_url).rstrip("/"):
-            raise ValueError("resource_audience must exactly match public_mcp_url")
         if public.hostname is None or public.hostname.lower() not in self.allowed_hosts:
             raise ValueError("public_mcp_url host must be explicitly allowed")
         if self.environment == "production":

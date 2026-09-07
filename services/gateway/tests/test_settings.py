@@ -32,6 +32,17 @@ def test_production_settings_accept_exact_https_boundary() -> None:
     assert settings.resource_audience == "https://mcp.cadplot.test/mcp"
 
 
+def test_provider_specific_audience_and_scope_are_supported() -> None:
+    settings = _settings(
+        resource_audience="340396026519785524",
+        authorization_scope="urn:zitadel:iam:org:project:id:340396026519785524:aud",
+        tenant_claim="urn:zitadel:iam:user:resourceowner:id",
+    )
+
+    assert settings.resource_audience == "340396026519785524"
+    assert settings.authorization_scope.endswith(":aud")
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -40,7 +51,7 @@ def test_production_settings_accept_exact_https_boundary() -> None:
         ("issuer_url", "http://identity.cadplot.test"),
         ("introspection_url", "http://identity.cadplot.test/oauth/introspect"),
         ("database_url", SecretStr("sqlite:///gateway.db")),
-        ("resource_audience", "https://other.cadplot.test/mcp"),
+        ("authorization_scope", "two scopes"),
     ],
 )
 def test_production_settings_reject_boundary_mismatch(field: str, value: object) -> None:

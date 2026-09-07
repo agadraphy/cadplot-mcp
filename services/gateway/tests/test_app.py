@@ -132,6 +132,29 @@ async def test_rfc9728_metadata_is_public_but_mcp_endpoint_requires_bearer_token
 
 
 @pytest.mark.asyncio
+async def test_rfc9728_metadata_advertises_provider_specific_authorization_scope() -> None:
+    configuration = settings().model_copy(
+        update={"authorization_scope": "urn:zitadel:iam:org:project:id:123:aud"}
+    )
+    repository = InMemoryGatewayRepository()
+    app = build_app(
+        configuration,
+        GatewayService(repository, repository),
+        token_verifier=RejectAllTokens(),
+    )
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="https://mcp.cadplot.test",
+    ) as client:
+        metadata = await client.get("/.well-known/oauth-protected-resource/mcp")
+
+    assert metadata.json()["scopes_supported"] == [
+        "urn:zitadel:iam:org:project:id:123:aud"
+    ]
+
+
+@pytest.mark.asyncio
 async def test_unapproved_host_is_rejected_before_mcp_processing() -> None:
     repository = InMemoryGatewayRepository()
     app = build_app(

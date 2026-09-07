@@ -35,6 +35,10 @@ services:
         sync: false
       - key: CADPLOT_GATEWAY_RESOURCE_AUDIENCE
         sync: false
+      - key: CADPLOT_GATEWAY_AUTHORIZATION_SCOPE
+        sync: false
+      - key: CADPLOT_GATEWAY_TENANT_CLAIM
+        sync: false
       - key: CADPLOT_GATEWAY_PRINCIPAL_PEPPER
         generateValue: true
       - key: CADPLOT_GATEWAY_DATABASE_URL

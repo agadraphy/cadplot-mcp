@@ -94,7 +94,9 @@ deployment job or trusted operator environment; remove the credential when that 
 | --- | --- |
 | `CADPLOT_PYTHON_IMAGE` | Verified immutable Python image reference ending in `@sha256:` plus 64 lowercase hex digits. |
 | `CADPLOT_GATEWAY_PUBLIC_MCP_URL` | Canonical final HTTPS URL ending exactly in `/mcp`. |
-| `CADPLOT_GATEWAY_RESOURCE_AUDIENCE` | The same canonical MCP URL. |
+| `CADPLOT_GATEWAY_RESOURCE_AUDIENCE` | Exact audience required in every introspection response. For providers such as ZITADEL this can be the provider's project audience. |
+| `CADPLOT_GATEWAY_AUTHORIZATION_SCOPE` | Exact OAuth scope advertised to MCP clients and mapped to the internal read-only permission. |
+| `CADPLOT_GATEWAY_TENANT_CLAIM` | Introspection claim containing the caller's tenant or organization identifier. |
 | `CADPLOT_GATEWAY_ALLOWED_HOSTS` | JSON array containing only the exact final public hostname. |
 | `CADPLOT_GATEWAY_ISSUER_URL` | Production HTTPS OAuth issuer URL. |
 | `CADPLOT_GATEWAY_INTROSPECTION_URL` | Production HTTPS token-introspection URL. |

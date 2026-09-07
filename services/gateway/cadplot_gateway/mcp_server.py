@@ -130,7 +130,7 @@ def build_mcp_server(
         auth=AuthSettings(
             issuer_url=settings.issuer_url,
             resource_server_url=settings.public_mcp_url,
-            required_scopes=[Scope.READ.value],
+            required_scopes=[settings.authorization_scope],
         ),
     )
 
@@ -140,12 +140,14 @@ def build_mcp_server(
             issuer=str(settings.issuer_url),
             pepper=settings.principal_pepper.get_secret_value(),
         )
-        scopes = frozenset(scope for scope in Scope if scope.value in verified.scopes)
+        scopes = {scope for scope in Scope if scope.value in verified.scopes}
+        if settings.authorization_scope in verified.scopes:
+            scopes.add(Scope.READ)
         return PrincipalContext.from_auth_adapter(
             tenant_id=verified.tenant_id,
             subject_id=verified.user_id,
             client_id=verified.client_id,
-            scopes=scopes,
+            scopes=frozenset(scopes),
         )
 
     def idempotency_key(caller: PrincipalContext, context: Context, action: str) -> str:
