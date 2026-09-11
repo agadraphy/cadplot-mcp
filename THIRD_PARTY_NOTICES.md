@@ -10,6 +10,8 @@ Current direct dependencies include:
 - Pydantic (`pydantic`)
 - pypdf (`pypdf`, BSD-3-Clause)
 - PyYAML (`pyyaml`)
+- httpx (`httpx`, BSD-3-Clause, command-line client transport)
+- keyring (`keyring`, MIT, command-line client credential storage)
 - pywin32 (optional, Windows/AutoCAD integration)
 
 Development dependencies include pytest and Ruff.

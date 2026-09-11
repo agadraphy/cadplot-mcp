@@ -80,6 +80,22 @@ and [public submission gates](docs/openai-public-submission.md).
 CadPlot is MIT licensed; AutoCAD and Autodesk SDK rights are not included. Each operator must use a
 compatible AutoCAD installation under their own valid Autodesk license.
 
+## Command-line client
+
+The same public MCP is also available through the `cadplot` CLI:
+
+```sh
+pipx install "git+https://github.com/agadraphy/cadplot-mcp.git@main"
+cadplot login
+cadplot workstations list
+```
+
+The CLI supports project discovery, drawing scan/inspection, dry-run planning and
+operation status with JSON output. Credentials stay in the native OS credential store.
+No AI subscription is required for CLI commands. A licensed AutoCAD workstation and
+enrolled worker are still required for actual drawing work. See the [CLI guide](docs/cli.md)
+for virtual-environment installation, commands, secure login and exit codes.
+
 ## Safety contract
 
 - No arbitrary AutoLISP or AutoCAD command execution.
