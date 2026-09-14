@@ -110,6 +110,18 @@ def test_controls_numbers_and_unicode_are_preserved():
     )
 
 
+def test_measurement_symbols_cannot_be_removed_by_translation():
+    item = record("KOT ±0.00 / Ø12 / 45° / 10×20 m²")
+    spans = review_record(item).spans
+    decisions = [decision(item, "LEVEL ", index=0)]
+    decisions.extend(
+        decision(item, span.text, "other", index=i) for i, span in enumerate(spans) if i
+    )
+    result = plan(snapshot(item), decisions)
+    assert result.ready
+    assert result.changes[0].after == "LEVEL ±0.00 / Ø12 / 45° / 10×20 m²"
+
+
 def test_unchanged_non_turkish_is_byte_exact_and_source_bound():
     item = record(r"{\C3;Room A-01}")
     decisions = [

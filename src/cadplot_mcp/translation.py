@@ -139,7 +139,7 @@ def parts(raw: str) -> list[tuple[bool, str]]:
     cursor = 0
     protected = re.compile(
         r"\\(?:[ACcFfHhQqTtWwpa][^;]*;|S[^;]*;|[PpLlOoKkXx~{}\\])"
-        r"|[{}\r\n\t]|<>|%%(?:[a-zA-Z]|\d{3})"
+        r"|[{}\r\n\t⌀Øø°±×²³]|<>|%%(?:[a-zA-Z]|\d{3})"
         r"|[+-]?\d+(?:[.,]\d+)*(?:[/:-]\d+(?:[.,]\d+)*)*"
     )
     while cursor < len(raw):
@@ -319,8 +319,10 @@ def build_translation_plan(
         raise ValueError("Decisions contain unknown text spans.")
     blockers = sorted(set(blockers))
     material = {
+        "schema_version": 1,
         "inventory_id": current,
         "decisions": [by_id[key].model_dump() for key in sorted(by_id)],
+        "changes": [change.model_dump() for change in changes],
     }
     return TranslationPlan(
         plan_id="sha256:" + digest(material),
