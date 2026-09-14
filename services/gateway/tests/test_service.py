@@ -414,7 +414,9 @@ def test_every_read_command_has_a_closed_enqueue_method(fixture: Fixture) -> Non
             ),
         ),
     ]
-    assert [operation.task.command for operation in operations] == list(TaskCommand)
+    assert [operation.task.command for operation in operations] == [
+        command for command in TaskCommand if command is not TaskCommand.TRANSLATION
+    ]
     assert all(operation.state is OperationState.CREATED for operation in operations)
 
 

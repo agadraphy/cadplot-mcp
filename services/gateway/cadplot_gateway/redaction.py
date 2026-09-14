@@ -40,6 +40,39 @@ class UnsafePublicPayload(ValueError):
     pass
 
 
+def redact_authorized_translation_text(value) -> dict:
+    """Check all controls normally; exempt ONLY schema-validated, opted-in drawing text.
+
+    This copy is for egress validation, not persistence or the response. No generic key
+    named 'text' can bypass redaction in existing tools or an unknown payload.
+    """
+    from cadplot_protocol.translation_protocol import PlanResult, ScanResult, SubmitReview
+
+    from cadplot_gateway.models import OperationView, TranslationTask, TranslationTaskResult
+
+    data = value.model_dump(mode="json")
+    if not isinstance(value, OperationView) or not isinstance(value.task, TranslationTask):
+        return data
+    if isinstance(value.task.request, SubmitReview):
+        for decision in data["task"]["request"]["decisions"]:
+            decision["source"] = decision["target"] = "approved_drawing_text"
+            decision["span_id"] = "validated_text_identifier"
+    if isinstance(value.result, TranslationTaskResult):
+        response = data["result"]["response"]
+        if isinstance(value.result.response, ScanResult):
+            for record in response["records"]:
+                record["id"] = "validated_text_identifier"
+                record["raw"] = record["block"] = record["layer"] = "approved_drawing_text"
+                # Individual text spans can exceed the generic collection bound but are
+                # closed/bounded by the translation schema. All are content, not controls.
+                record["spans"] = []
+        elif isinstance(value.result.response, PlanResult):
+            for change in response["changes"]:
+                change["record_id"] = "validated_text_identifier"
+                change["before"] = change["after"] = "approved_drawing_text"
+    return data
+
+
 def assert_public_payload_safe(value: Any, *, max_depth: int = 12) -> None:
     """Fail closed if a worker result contains local-control or path-shaped data."""
 

@@ -19,6 +19,7 @@ class GatewaySettings(BaseSettings):
     )
 
     environment: Literal["development", "test", "production"] = "production"
+    translation_enabled: bool = False
     public_mcp_url: AnyHttpUrl
     issuer_url: AnyHttpUrl
     introspection_url: AnyHttpUrl

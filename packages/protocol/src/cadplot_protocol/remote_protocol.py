@@ -18,6 +18,8 @@ from pydantic import (
     model_validator,
 )
 
+from cadplot_protocol.translation_protocol import TranslationCommand, TranslationResult
+
 PROTOCOL_VERSION = 1
 WORKER_AUDIENCE = "cadplot-worker"
 SIGNATURE_ALGORITHM = "ed25519"
@@ -134,7 +136,8 @@ ReadOnlyCommand = Annotated[
     | ListProjectsCommand
     | ScanDrawingsCommand
     | InspectDrawingCommand
-    | CreatePublishPlanCommand,
+    | CreatePublishPlanCommand
+    | TranslationCommand,
     Field(discriminator="action"),
 ]
 
@@ -342,6 +345,7 @@ ReadOnlyAction = Literal[
     "scan_drawings",
     "inspect_drawing",
     "create_publish_plan",
+    "translation",
 ]
 
 
@@ -359,6 +363,7 @@ WorkerResult = Annotated[
     | DrawingsResult
     | InspectionResult
     | PublishPlanResult
+    | TranslationResult
     | ErrorResult,
     Field(discriminator="kind"),
 ]

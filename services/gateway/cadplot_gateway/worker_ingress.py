@@ -36,6 +36,11 @@ from cadplot_protocol.remote_protocol import (
     WorkerTaskEnvelope,
     parse_result_payload,
 )
+from cadplot_protocol.translation_protocol import (
+    TranslationCommand,
+    TranslationResult,
+    require_matching_result,
+)
 from cadplot_protocol.worker_http_protocol import (
     WorkerControlAck,
     WorkerStartRequest,
@@ -57,6 +62,8 @@ from .models import (
     ScanDrawingsResult,
     ScanDrawingsTask,
     TaskResult,
+    TranslationTask,
+    TranslationTaskResult,
     ValidateEnvironmentResult,
     ValidateEnvironmentTask,
     WorkerContext,
@@ -584,6 +591,7 @@ class GatewayWorkerIngress:
                 worker,
                 correlation.operation_id,
                 envelope.result.code,
+                attention_required=envelope.result.attention_required,
             )
         try:
             adapted = _gateway_result(envelope)
@@ -607,6 +615,7 @@ class GatewayWorkerIngress:
                     worker,
                     correlation.operation_id,
                     envelope.result.code,
+                    attention_required=envelope.result.attention_required,
                 )
             )
         else:
@@ -691,6 +700,13 @@ class GatewayWorkerIngress:
             raise WorkerIngressError("result_binding_invalid")
         result = envelope.result
         command = correlation.command
+        if isinstance(command, TranslationCommand) and isinstance(result, TranslationResult):
+            if result.drawing_id != command.drawing_id:
+                raise WorkerIngressError("result_binding_invalid")
+            try:
+                require_matching_result(command.request, result.response)
+            except ValueError:
+                raise WorkerIngressError("result_binding_invalid") from None
         if (
             isinstance(command, ScanDrawingsCommand)
             and isinstance(result, DrawingsResult)
@@ -735,6 +751,8 @@ class GatewayWorkerIngress:
 
 def _remote_command(operation: OperationRecord) -> ReadOnlyCommand:
     task = operation.task
+    if isinstance(task, TranslationTask):
+        return TranslationCommand(drawing_id=task.drawing_id, request=task.request)
     if isinstance(task, ValidateEnvironmentTask):
         if task.workstation_id != operation.workstation_id:
             raise WorkerIngressError("task_binding_invalid")
@@ -767,6 +785,8 @@ def _result_action(envelope: WorkerResultEnvelope) -> str:
 
 def _gateway_result(envelope: WorkerResultEnvelope) -> TaskResult:
     result = envelope.result
+    if isinstance(result, TranslationResult):
+        return TranslationTaskResult(drawing_id=result.drawing_id, response=result.response)
     if isinstance(result, EnvironmentResult):
         return ValidateEnvironmentResult(
             ready=result.ready,

@@ -3,6 +3,10 @@
 CadPlot's public topology gives MCP clients one HTTPS endpoint while keeping AutoCAD and CAD files
 on each user's licensed Windows workstation.
 
+For the separately opted-in text-translation extension, migration 0005 and its
+additional authorization/data-sharing gates, see [remote translation](remote-translation.md).
+The read-only phase described below remains the default deployment.
+
 ```text
 MCP client
   | OAuth bearer token

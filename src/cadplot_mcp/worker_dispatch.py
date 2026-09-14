@@ -30,6 +30,7 @@ from cadplot_protocol.remote_protocol import (
     WorkerResultEnvelope,
     WorkerTaskEnvelope,
 )
+from cadplot_protocol.translation_protocol import TranslationCommand
 
 from cadplot_mcp.backends.autocad_com import AutoCADUnavailableError
 from cadplot_mcp.backends.isolated_autocad import AutoCADInspectionTimeoutError
@@ -38,6 +39,7 @@ from cadplot_mcp.discovery import scan_drawings
 from cadplot_mcp.environment import diagnose_environment
 from cadplot_mcp.local_refs import LocalReferenceError, LocalReferenceStore
 from cadplot_mcp.models import DrawingFile, DrawingInspection
+from cadplot_mcp.remote_translation import TranslationAttentionRequired
 from cadplot_mcp.server import _build_current_plan, _inspector
 
 _SIGNATURE_PLACEHOLDER = "A" * 86
@@ -102,6 +104,7 @@ class WorkerDispatcher:
         policy_version: int,
         references: LocalReferenceStore,
         backend: LocalReadBackend,
+        translation_backend=None,
     ) -> None:
         self._tenant_id = tenant_id
         self._user_id = user_id
@@ -109,6 +112,7 @@ class WorkerDispatcher:
         self._policy_version = policy_version
         self._references = references
         self._backend = backend
+        self._translation_backend = translation_backend
 
     def execute(
         self,
@@ -154,6 +158,15 @@ class WorkerDispatcher:
         command = envelope.command
         action: ReadOnlyAction = command.action
         try:
+            if isinstance(command, TranslationCommand):
+                if self._translation_backend is None:
+                    return _error(action, "translation_disabled", retryable=False)
+                reference = self._references.resolve_drawing(
+                    tenant_id=self._tenant_id,
+                    device_id=self._device_id,
+                    drawing_id=command.drawing_id,
+                )
+                return self._translation_backend.execute(envelope, reference)
             if isinstance(command, ValidateEnvironmentCommand):
                 return self._environment_result()
             if isinstance(command, ListProjectsCommand):
@@ -164,6 +177,10 @@ class WorkerDispatcher:
                 return self._inspection_result(command)
             if isinstance(command, CreatePublishPlanCommand):
                 return self._plan_result(command)
+        except TranslationAttentionRequired:
+            return _error(
+                action, "translation_attention_required", retryable=False, attention_required=True
+            )
         except LocalReferenceError:
             return _error(action, "drawing_not_found", retryable=False)
         except AutoCADInspectionTimeoutError:

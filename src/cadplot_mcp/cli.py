@@ -1,4 +1,4 @@
-"""CadPlot's authenticated, CAD-read-only public MCP command-line client."""
+"""CadPlot public MCP client and explicitly enabled local DWG text translation."""
 
 from __future__ import annotations
 
@@ -107,6 +107,9 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
     login = commands.add_parser("login", help="sign in using your browser (OAuth + PKCE)")
     login.add_argument("--port", type=bounded_int(1024, 65535), default=43817)
+    login.add_argument(
+        "--translation", action="store_true", help="request separate cadplot.translate consent"
+    )
     commands.add_parser(
         "logout", help="remove this endpoint's local credentials; no server revocation"
     )
@@ -140,6 +143,12 @@ def parser() -> argparse.ArgumentParser:
     status = operations.add_parser("status")
     status.add_argument("operation_id", type=opaque_id("op"))
     status.set_defaults(tool="get_operation", fields=("operation_id",))
+    from cadplot_mcp.translation_cli import register_commands
+
+    register_commands(commands)
+    from cadplot_mcp.translation_remote_cli import register_commands as register_remote_commands
+
+    register_remote_commands(commands, opaque_id, bounded_int)
     return root
 
 
@@ -156,6 +165,10 @@ async def require_https(request: httpx.Request) -> None:
 
 
 async def execute(args: argparse.Namespace) -> dict:
+    if args.command == "translate-remote":
+        from cadplot_mcp.translation_remote_cli import prepare_arguments
+
+        prepare_arguments(args)
     async with AsyncExitStack() as stack:
         if args.command == "health":
             async with httpx.AsyncClient(timeout=args.timeout) as client:
@@ -200,6 +213,15 @@ async def execute(args: argparse.Namespace) -> dict:
             redirect_handler=login.redirect if login else require_login,
             callback_handler=login.callback if login else require_login,
         )
+        if args.command == "login" and args.translation:
+            saved = await store.get_tokens()
+            if saved and "cadplot.translate" not in (saved.scope or "").split():
+                raise CLIError(
+                    "translation_login_required",
+                    "Run cadplot logout, then cadplot login --translation.",
+                    3,
+                )
+            auth.requested_translation_scope = True
         client = await stack.enter_async_context(
             httpx.AsyncClient(
                 auth=auth,
@@ -288,8 +310,15 @@ def main(argv: list[str] | None = None) -> int:
     previous_logging = logging.root.manager.disable
     logging.disable(logging.CRITICAL)
     try:
-        result = asyncio.run(run(args))
+        if args.command == "translate":
+            from cadplot_mcp.translation_cli import execute_translation
+
+            result = execute_translation(args)
+        else:
+            result = asyncio.run(run(args))
         print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
+        if args.command == "translate" and (result.get("ready") is False or result.get("blockers")):
+            return 2
         if result.get("state") in {"FAILED", "EXPIRED", "ATTENTION_REQUIRED"}:
             return 1
         return 0

@@ -3,6 +3,10 @@
 - Status: Accepted for implementation
 - Date: 2026-09-02
 
+The original read-only phase below is extended only for explicitly reviewed
+translation by [ADR 0011](0011-reviewed-remote-translation.md). Publishing/file
+transfer remain outside that extension; local-control paths remain forbidden.
+
 ## Context
 
 The local MCP server deliberately accepts workstation paths and talks to AutoCAD through COM and

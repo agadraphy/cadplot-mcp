@@ -7,6 +7,7 @@ from contextlib import AbstractContextManager, contextmanager
 from datetime import UTC, datetime
 from typing import Any, Protocol, TypeVar
 
+from cadplot_protocol.translation_protocol import require_matching_result
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from .models import (
@@ -32,6 +33,8 @@ from .models import (
     SubjectId,
     TaskResult,
     TenantId,
+    TranslationTask,
+    TranslationTaskResult,
     ValidateEnvironmentTask,
     WorkstationId,
     WorkstationRecord,
@@ -641,6 +644,10 @@ class PostgresGatewayRepository(CatalogRepository, OperationRepository):
                 UPDATE cadplot_gateway.operations AS operation
                 SET state = CASE
                         WHEN due.from_state = 'LEASED' THEN 'ATTENTION_REQUIRED'
+                        WHEN due.from_state = 'RUNNING'
+                          AND operation.task->>'command' = 'translation'
+                          AND operation.task->'request'->>'operation' = 'apply'
+                          THEN 'ATTENTION_REQUIRED'
                         ELSE 'EXPIRED'
                     END,
                     lease_expires_at = NULL,
@@ -648,6 +655,10 @@ class PostgresGatewayRepository(CatalogRepository, OperationRepository):
                     result = NULL,
                     error_code = CASE
                         WHEN due.from_state = 'LEASED' THEN 'lease_expired'
+                        WHEN due.from_state = 'RUNNING'
+                          AND operation.task->>'command' = 'translation'
+                          AND operation.task->'request'->>'operation' = 'apply'
+                          THEN 'translation_attention_required'
                         ELSE 'operation_expired'
                     END
                 FROM due
@@ -794,7 +805,11 @@ class PostgresGatewayRepository(CatalogRepository, OperationRepository):
         selected_id = self._identifier(_OPERATION_ADAPTER, operation_id)
         selected_workstation = self._identifier(_WORKSTATION_ADAPTER, workstation_id)
         self._timestamp(now)
-        if state not in {OperationState.SUCCEEDED, OperationState.FAILED}:
+        if state not in {
+            OperationState.SUCCEEDED,
+            OperationState.FAILED,
+            OperationState.ATTENTION_REQUIRED,
+        }:
             raise PostgresRepositoryError("invalid_terminal_state")
         if state is OperationState.SUCCEEDED:
             if result is None or error_code is not None:
@@ -1092,16 +1107,24 @@ class PostgresGatewayRepository(CatalogRepository, OperationRepository):
                 True,
             )
         if record.state is OperationState.RUNNING and now >= record.expires_at:
+            unknown_write = (
+                isinstance(record.task, TranslationTask)
+                and record.task.request.operation == "apply"
+            )
             return (
                 self._write_transition(
                     cursor,
                     record,
-                    state=OperationState.EXPIRED,
+                    state=OperationState.ATTENTION_REQUIRED
+                    if unknown_write
+                    else OperationState.EXPIRED,
                     lease_expires_at=None,
                     started_at=record.started_at,
                     completed_at=now,
                     result=None,
-                    error_code="operation_expired",
+                    error_code="translation_attention_required"
+                    if unknown_write
+                    else "operation_expired",
                     event_at=now,
                 ),
                 True,
@@ -1244,7 +1267,7 @@ class PostgresGatewayRepository(CatalogRepository, OperationRepository):
                 workstation_id=operation.workstation_id,
                 identifiers=(task.project_id,),
             )
-        elif isinstance(task, (InspectDrawingTask, CreatePublishPlanTask)):
+        elif isinstance(task, (InspectDrawingTask, CreatePublishPlanTask, TranslationTask)):
             locked_count = self._lock_catalog_rows(
                 cursor,
                 kind="drawing_chains",
@@ -1264,6 +1287,24 @@ class PostgresGatewayRepository(CatalogRepository, OperationRepository):
         result: TaskResult | None,
     ) -> None:
         if result is None:
+            return
+        if isinstance(result, TranslationTaskResult):
+            if (
+                not isinstance(operation.task, TranslationTask)
+                or result.drawing_id != operation.task.drawing_id
+            ):
+                raise PostgresRepositoryError("invalid_terminal_payload")
+            try:
+                require_matching_result(operation.task.request, result.response)
+            except ValueError:
+                raise PostgresRepositoryError("invalid_terminal_payload") from None
+            self._require_catalog_ids(
+                cursor,
+                table="drawings",
+                id_column="drawing_id",
+                identifiers=(result.drawing_id,),
+                operation=operation,
+            )
             return
         if result.command is not operation.task.command:
             raise PostgresRepositoryError("invalid_terminal_payload")

@@ -133,6 +133,24 @@ def test_unchanged_non_turkish_is_byte_exact_and_source_bound():
         plan(snapshot(item), decisions)
 
 
+def test_unicode_escaped_measurements_are_protected():
+    item = record(r"KOT \U+00B10.00 / \U+00D812 / m\U+00B2")
+    spans = review_record(item).spans
+    decisions = [decision(item, "LEVEL ", index=0)]
+    decisions.extend(
+        decision(item, span.text, "other", index=i) for i, span in enumerate(spans) if i
+    )
+    result = plan(snapshot(item), decisions)
+    assert result.changes[0].after == r"LEVEL \U+00B10.00 / \U+00D812 / m\U+00B2"
+
+
+@pytest.mark.parametrize("target", [r"ENTRY \U+0031", r"ENTRY\U+005C", "ENTRY ²", "ENTRY ½"])
+def test_replacement_cannot_smuggle_unicode_escapes_or_numbers(target):
+    item = record("GIRIS")
+    with pytest.raises(ValueError):
+        plan(snapshot(item), [decision(item, target)])
+
+
 @pytest.mark.parametrize(
     "target",
     [r"ENTRY\P", "ENTRY 10", "%<evil>%", "{ENTRY}", "ENTRY\n", "ENTRY%%c", " ENTRY", "ENTRY "],

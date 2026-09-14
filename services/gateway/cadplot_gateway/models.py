@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Literal, Self, TypeAlias
 
+from cadplot_protocol.translation_protocol import TranslationRequest, TranslationResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 UUID_FRAGMENT = (
@@ -45,6 +46,7 @@ class StrictModel(BaseModel):
 
 
 class Scope(StrEnum):
+    TRANSLATE = "cadplot.translate"
     READ = "cadplot.read"
     STAGE = "cadplot.stage"
     PUBLISH = "cadplot.publish"
@@ -88,6 +90,7 @@ class WorkerContext(StrictModel):
 
 
 class TaskCommand(StrEnum):
+    TRANSLATION = "translation"
     VALIDATE_ENVIRONMENT = "validate_environment"
     LIST_PROJECTS = "list_projects"
     SCAN_DRAWINGS = "scan_drawings"
@@ -131,6 +134,23 @@ class CreatePublishPlanRequest(IdempotentRequest):
     drawing_id: DrawingId
 
 
+class TranslationEnqueueRequest(IdempotentRequest):
+    drawing_id: DrawingId
+    request: TranslationRequest
+
+
+class TranslationTask(StrictModel):
+    command: Literal[TaskCommand.TRANSLATION] = TaskCommand.TRANSLATION
+    drawing_id: DrawingId
+    request: TranslationRequest
+
+
+class TranslationTaskResult(StrictModel):
+    command: Literal[TaskCommand.TRANSLATION] = TaskCommand.TRANSLATION
+    drawing_id: DrawingId
+    response: TranslationResponse
+
+
 class ValidateEnvironmentTask(StrictModel):
     command: Literal[TaskCommand.VALIDATE_ENVIRONMENT] = TaskCommand.VALIDATE_ENVIRONMENT
     workstation_id: WorkstationId
@@ -163,7 +183,8 @@ ReadTask: TypeAlias = Annotated[
     | ListProjectsTask
     | ScanDrawingsTask
     | InspectDrawingTask
-    | CreatePublishPlanTask,
+    | CreatePublishPlanTask
+    | TranslationTask,
     Field(discriminator="command"),
 ]
 
@@ -208,7 +229,8 @@ TaskResult: TypeAlias = Annotated[
     | ListProjectsResult
     | ScanDrawingsResult
     | InspectDrawingResult
-    | CreatePublishPlanResult,
+    | CreatePublishPlanResult
+    | TranslationTaskResult,
     Field(discriminator="command"),
 ]
 

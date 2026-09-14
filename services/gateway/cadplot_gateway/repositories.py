@@ -418,7 +418,11 @@ class InMemoryGatewayRepository(CatalogRepository, OperationRepository):
         result: TaskResult | None,
         error_code: SafeCode | None,
     ) -> TransitionOutcome:
-        if state not in {OperationState.SUCCEEDED, OperationState.FAILED}:
+        if state not in {
+            OperationState.SUCCEEDED,
+            OperationState.FAILED,
+            OperationState.ATTENTION_REQUIRED,
+        }:
             raise ValueError("invalid_terminal_state")
         with self._lock:
             record = self._operations.get(operation_id)
@@ -589,6 +593,16 @@ class InMemoryGatewayRepository(CatalogRepository, OperationRepository):
         ):
             return cls._attention_required(record, now)
         if record.state is OperationState.RUNNING and now >= record.expires_at:
+            if (
+                record.task.command.value == "translation"
+                and record.task.request.operation == "apply"
+            ):
+                return cls._updated(
+                    record,
+                    state=OperationState.ATTENTION_REQUIRED,
+                    completed_at=now,
+                    error_code="translation_attention_required",
+                )
             return cls._expire(record, now)
         return record
 

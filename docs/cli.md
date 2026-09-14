@@ -1,9 +1,12 @@
 # CadPlot CLI
 
-`cadplot` is a Python 3.11+ command-line client for the public OAuth-protected MCP.
-It uses the same seven tools and account/workstation permissions as an MCP chat client.
+`cadplot` is a Python 3.11+ command-line client for the public OAuth-protected MCP,
+and also provides a separately enabled local translation workflow.
+The default public surface has seven read-only tools. Opted-in remote translation
+adds four tools with separate permissions, also accessible through this CLI.
 No AI model subscription is needed to run CLI commands. The client does not install
-AutoCAD, enroll a workstation, modify a drawing, or publish PDFs.
+AutoCAD, enroll a workstation, or publish PDFs. Only the explicitly approved
+translation commands can create new English DWG copies; they never overwrite originals.
 
 ## Install from GitHub
 
@@ -34,6 +37,13 @@ remain available and unchanged. See the [Windows worker guide](windows-worker.md
 to enroll a licensed AutoCAD workstation; CLI login alone does not do that.
 
 ## Sign-in and credential storage
+
+For local `cadplot translate scan/plan/check/apply`, skip OAuth entirely and follow
+the [local translation guide](drawing-translation.md#local-cli).
+For `cadplot translate-remote scan/submit/plan/apply`, follow the
+[remote setup and commands](remote-translation.md). `cadplot login --translation`
+requests the additional `cadplot.translate` scope; the identity provider must grant
+it to an authorized account. CLI flags do not grant server permission.
 
 The default server is `https://cadplot-mcp-gateway.onrender.com/mcp`.
 `cadplot login` discovers its OAuth settings, dynamically registers a public client,
@@ -83,8 +93,8 @@ cadplot --timeout 180 health
 ```
 
 The `<uuid>` entries above are placeholders, not literal commands: copy the complete
-opaque IDs returned by preceding operations. Paths and arbitrary CAD commands are
-not accepted. Scans are recursive by default and limited to 1–100 drawings.
+opaque IDs returned by preceding operations. Remote commands never accept local
+DWG paths or arbitrary CAD commands. Scans are recursive by default and limited to 1–100 drawings.
 `plan` is always a dry run, even without the optional `--dry-run` marker.
 
 `workstations list` returns the account's workstation list. The five other discovery,

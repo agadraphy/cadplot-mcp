@@ -102,6 +102,7 @@ def test_packaged_migrations_are_contiguous_immutable_assets() -> None:
         "0002_worker_control.sql",
         "0003_worker_request_credentials.sql",
         "0004_worker_presence.sql",
+        "0005_translation_tasks.sql",
     ]
     assert all(len(item.sha256) == 64 for item in migrations)
     assert all("BEGIN;" not in item.body[:16] for item in migrations)

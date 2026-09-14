@@ -1,9 +1,11 @@
-# Turkish-to-English drawing translation (opt-in local beta)
+# Turkish-to-English drawing translation
 
 CadPlot can expose three additional local MCP tools to let Codex review drawing
 text and apply an explicitly approved translation to a **new English DWG copy**.
-The original DWG is never overwritten. The feature is not enabled by default and
-is not part of the public Render gateway or its seven-tool CLI client.
+The original DWG is never overwritten. Local MCP and CLI share the same translation
+service and safety gates. Remote MCP and CLI use the separately authorized
+[outbound worker workflow](remote-translation.md); they require an updated gateway,
+database migration, OAuth scope and explicit local project consent.
 
 This is a model-assisted text workflow, not a built-in language model or a
 Turkish-character detector. The host reviews every returned language span,
@@ -52,7 +54,41 @@ configuration and restart it. Never expose the local stdio/loopback server publi
 The old tunnel/pilot client validators intentionally require their original tool
 catalog; this opt-in local setup is not a claim of passing those remote validators.
 
-## Workflow
+## Local CLI
+
+The same installation also provides `cadplot translate`; it needs no Render login
+and makes no network/model calls. A human or the host model reviews the generated
+JSON. Do not expect a built-in translation model or a paid model subscription in the CLI.
+
+```powershell
+$env:CADPLOT_ENABLE_TRANSLATION = "1"
+$env:CADPLOT_CONFIG = "C:/CadPlot/config.yaml"
+cadplot translate scan "C:/ApprovedDrawings/office.dwg" --output "C:/PrivateReview/review.json"
+# Review EVERY decision in review.json; edit only source_language and target.
+cadplot translate plan --review "C:/PrivateReview/review.json" --output "C:/PrivateReview/plan.json"
+cadplot translate check --plan "C:/PrivateReview/plan.json"
+# After reviewing the exact changes, replace this placeholder with the returned plan_id:
+cadplot translate apply --plan "C:/PrivateReview/plan.json" --approve "sha256:<64-hex-plan-digest>"
+```
+
+`C:/PrivateReview` must already exist and be private. Output JSON is created
+exclusively: choose a new filename for each revised scan/plan, never overwrite.
+Scan exports ALL records from one consistent scan, including drawings with more
+than 100 records. Decisions start as `uncertain`; nothing is auto-approved.
+Keep `source`, `span_id`, inventory identifiers and context unchanged. Only
+`source_language=tr` permits a changed target; preserve exact surrounding spaces.
+`check` revalidates the saved plan against a fresh drawing inventory without writing
+a DWG. `apply` refuses altered displayed changes, stale inventories and changed decisions.
+Application again rechecks the exact plan immediately before making its private copy.
+
+Each subcommand accepts `--config` instead of the environment variable. Global
+`--json` goes before `translate`. Local COM timeouts come from
+`inspection_timeout_seconds` in the config, not the remote CLI `--timeout` option.
+Exit 2 means local validation/coverage/approval failed; JSON blockers and error codes
+are machine-readable. A successful scan means **review required**, not translated.
+Errors never print raw COM exception contents or company drawing text.
+
+## Local MCP workflow
 
 1. Save and close the target DWG in AutoCAD, leaving AutoCAD running. Open/unsaved
    target drawings are refused so on-disk fingerprints cannot authorize stale text.
@@ -92,8 +128,9 @@ The scanner visits all resident block definitions once (model space, paper space
 ordinary/nested blocks and anonymous/dynamic definitions), independent of visibility.
 It also reads attached editable/constant attributes. Supported text surfaces include
 TEXT, MTEXT, single/multiline attributes, dimension text overrides, MTEXT-content
-MLeaders; table text is inventoried for review but table writes are blocked in this
-beta. Shared definitions are not repeatedly expanded or exploded.
+MLeaders; table text is inventoried for review but table writes are blocked because
+rich/multi-content preservation is not established. Shared definitions are not
+repeatedly expanded or exploded.
 Layer/layout/block names, attribute tags/prompts and other technical identifiers
 are not translated; changing those could break references and drawing behavior.
 
@@ -140,8 +177,10 @@ wrapping can differ even with unchanged font/placement. Do not promise a byte-id
 English file, perfect language detection, or pixel-identical text layout.
 
 Automated tests use synthetic text/COM fixtures, not licensed DWG evidence. Real
-AutoCAD save/reopen, complex object behavior and visual acceptance still require an
-authorized company drawing pilot. Do not treat CI success as that acceptance.
+AutoCAD save/reopen, complex object behavior and visual acceptance must be checked
+on the **target licensed workstation**, not the development computer. Do not treat
+CI success or feature availability as that acceptance. Universal translation of
+all possible CAD object types is not claimed; coverage blockers are enforced.
 
 To plot the reviewed English copy, use the existing separately approved local
 publish workflow after placing/approving that copy under an allowed project root.

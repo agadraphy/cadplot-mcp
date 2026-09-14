@@ -125,6 +125,7 @@ class WorkerTlsConfiguration(_ClosedConfig):
 
 
 class WorkerConfiguration(_ClosedConfig):
+    translation_project_ids: tuple[ProjectId, ...] = Field(default=(), max_length=100)
     version: Literal[1]
     gateway_origin: Annotated[StrictStr, Field(min_length=9, max_length=512)]
     tenant_id: TenantId
@@ -380,6 +381,7 @@ def build_worker_runtime(
             policy_version=values.policy_version,
             references=references,
             backend=selected_backend,
+            translation_backend=_translation_backend(configuration),
         )
         runner = WorkerRunner(
             tenant_id=values.tenant_id,
@@ -398,6 +400,21 @@ def build_worker_runtime(
         raise
     except Exception:
         raise WorkerCliError("worker_start_failed") from None
+
+
+def _translation_backend(configuration):
+    if not configuration.values.translation_project_ids:
+        return None
+    from cadplot_mcp.remote_translation import RemoteTranslationBackend
+
+    configured = {project.project_id for project in configuration.projects}
+    if not set(configuration.values.translation_project_ids) <= configured:
+        raise WorkerCliError("worker_config_invalid")
+    return RemoteTranslationBackend(
+        configuration.cadplot_config,
+        configuration.state_database.with_suffix(".translation.sqlite3"),
+        configuration.values.translation_project_ids,
+    )
 
 
 def run_worker_loop(

@@ -17,6 +17,9 @@ services:
 
       - key: CADPLOT_GATEWAY_ENVIRONMENT
         value: production
+      # Enable only after migration 0005, OAuth scope and company text-sharing approval.
+      - key: CADPLOT_GATEWAY_TRANSLATION_ENABLED
+        value: "false"
       - key: CADPLOT_GATEWAY_HOST
         value: 0.0.0.0
       - key: CADPLOT_GATEWAY_PORT

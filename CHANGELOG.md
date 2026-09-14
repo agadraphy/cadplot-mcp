@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.0] - 2026-09-14
+
+- Reviewed Turkish/ASCII-Turkish drawing translation in local MCP and CLI, with
+  full-inventory decisions, exact-plan approval and source-preserving English copies.
+- Opt-in remote MCP/CLI translation with a separate OAuth scope, per-project
+  workstation consent, paged text/review/plan messages and a durable write journal.
+- Migration 0005 preserves operation immutability and tenant isolation while adding
+  explicit attention-required outcomes for interrupted translation writes.
+- Protected Unicode-escaped measurements and rejected encoded numeric/control injection.
+- Target licensed AutoCAD and visual acceptance remain separate deployment checks;
+  tables, xrefs, proxies and unsupported content block rather than silently skip.
+
 ## [Unreleased]
 
 ### Added

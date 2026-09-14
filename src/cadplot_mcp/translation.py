@@ -160,6 +160,12 @@ def parts(raw: str) -> list[tuple[bool, str]]:
             cursor = end
             continue
         unicode_escape = re.match(r"\\U\+[0-9a-fA-F]{4}", raw[cursor:])
+        if unicode_escape:
+            character = decoded(unicode_escape.group())
+            if character.isnumeric() or character in "⌀Øø°±×²³{}\\%\r\n\t" or ord(character) < 32:
+                result.append((False, unicode_escape.group()))
+                cursor += len(unicode_escape.group())
+                continue
         match = None if unicode_escape else protected.match(raw, cursor)
         if match:
             result.append((False, match.group()))
@@ -297,6 +303,8 @@ def build_translation_plan(
             if (
                 any(not editable for editable, _ in parts(decision.target))
                 or "%" in decision.target
+                or "\\" in decision.target
+                or any(c.isnumeric() for c in decision.target)
             ):
                 raise ValueError(
                     "Translation must not introduce AutoCAD controls or numeric values."

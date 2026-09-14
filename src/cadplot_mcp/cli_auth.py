@@ -146,6 +146,15 @@ class PersistentOAuthProvider(OAuthClientProvider):
     are not restored by the SDK's default _initialize implementation.
     """
 
+    requested_translation_scope = False
+
+    async def _perform_authorization_code_grant(self) -> tuple[str, str]:
+        if self.requested_translation_scope:
+            scopes = set((self.context.client_metadata.scope or "").split())
+            scopes.add("cadplot.translate")
+            self.context.client_metadata.scope = " ".join(sorted(scopes))
+        return await super()._perform_authorization_code_grant()
+
     async def _initialize(self) -> None:
         await super()._initialize()
         store = self.context.storage

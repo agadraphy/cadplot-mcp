@@ -7,6 +7,11 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from cadplot_protocol.translation_protocol import (
+    ApplyTranslation,
+    PlanResult,
+    require_matching_result,
+)
 from pydantic import TypeAdapter
 
 from .models import (
@@ -36,6 +41,9 @@ from .models import (
     Scope,
     SubjectId,
     TaskResult,
+    TranslationEnqueueRequest,
+    TranslationTask,
+    TranslationTaskResult,
     ValidateEnvironmentRequest,
     ValidateEnvironmentResult,
     ValidateEnvironmentTask,
@@ -68,6 +76,8 @@ SAFE_WORKER_ERROR_CODES = frozenset(
         "unsupported_runtime",
         "worker_disconnected",
         "worker_failure",
+        "translation_disabled",
+        "translation_attention_required",
     }
 )
 SAFE_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -202,12 +212,59 @@ class GatewayService:
         task = CreatePublishPlanTask(drawing_id=drawing.drawing_id)
         return self._enqueue(principal, workstation, request.idempotency_key, task)
 
+    def enqueue_translation(
+        self, principal: PrincipalContext, request: TranslationEnqueueRequest
+    ) -> OperationView:
+        self._require_scope(principal, Scope.TRANSLATE)
+        self._require_scope(principal, Scope.READ)
+        if len(request.model_dump_json().encode()) > 200 * 1024:
+            raise GatewayError("translation_batch_too_large")
+        drawing, workstation = self._require_drawing(
+            principal, request.drawing_id, online_required=True
+        )
+        key = request.idempotency_key
+        if isinstance(request.request, ApplyTranslation):
+            approval = request.request
+            record = self._operations.get_operation(approval.plan_operation_id)
+            self._require_operation_owner(principal, record)
+            if (
+                record is None
+                or record.state is not OperationState.SUCCEEDED
+                or record.expires_at <= self._now()
+                or record.workstation_id != workstation.workstation_id
+                or not isinstance(record.result, TranslationTaskResult)
+                or record.result.drawing_id != drawing.drawing_id
+                or not isinstance(record.result.response, PlanResult)
+            ):
+                raise GatewayError("translation_approval_invalid")
+            plan = record.result.response
+            if (
+                not plan.ready
+                or not plan.changed_records
+                or plan.plan_id != approval.approved_plan_id
+                or plan.inventory_id != approval.inventory_id
+                or plan.review_id != approval.review_id
+            ):
+                raise GatewayError("translation_approval_invalid")
+            # The existing atomic operation-uniqueness constraint consumes approval once per
+            # client. The workstation journal additionally deduplicates across client IDs.
+            material = f"{drawing.drawing_id}:{approval.approved_plan_id}".encode()
+            key = f"idem_{uuid.UUID(bytes=hashlib.sha256(material).digest()[:16], version=4)}"
+        return self._enqueue(
+            principal,
+            workstation,
+            key,
+            TranslationTask(drawing_id=drawing.drawing_id, request=request.request),
+        )
+
     def get_operation(
         self, principal: PrincipalContext, operation_id: OperationId
     ) -> OperationView:
         self._require_scope(principal, Scope.READ)
         record = self._operations.get_operation(operation_id)
         self._require_operation_owner(principal, record)
+        if record is not None and isinstance(record.task, TranslationTask):
+            self._require_scope(principal, Scope.TRANSLATE)
         refreshed = self._operations.refresh_operation(operation_id, self._now())
         self._require_operation_owner(principal, refreshed)
         assert refreshed is not None
@@ -277,13 +334,22 @@ class GatewayService:
         worker: WorkerContext,
         operation_id: OperationId,
         error_code: str,
+        *,
+        attention_required: bool = False,
     ) -> bool:
         """Validate a failure and distinguish RUNNING work from an exact terminal retry."""
 
         self._require_worker_workstation(worker, online_required=False)
         operation = self._require_worker_operation(worker, operation_id)
         safe_error = self._sanitize_worker_error(error_code)
-        if operation.state is OperationState.FAILED:
+        target = OperationState.ATTENTION_REQUIRED if attention_required else OperationState.FAILED
+        if attention_required:
+            safe_error = (
+                "translation_attention_required"
+                if isinstance(operation.task, TranslationTask)
+                else "worker_failure"
+            )
+        if operation.state is target:
             if operation.error_code == safe_error:
                 return False
             raise GatewayError("invalid_state")
@@ -375,11 +441,20 @@ class GatewayService:
         worker: WorkerContext,
         operation_id: OperationId,
         error_code: str,
+        *,
+        attention_required: bool = False,
     ) -> OperationView:
         self._require_worker_workstation(worker, online_required=False)
         operation = self._require_worker_operation(worker, operation_id)
         safe_error = self._sanitize_worker_error(error_code)
-        if operation.state is OperationState.FAILED:
+        target = OperationState.ATTENTION_REQUIRED if attention_required else OperationState.FAILED
+        if attention_required:
+            safe_error = (
+                "translation_attention_required"
+                if isinstance(operation.task, TranslationTask)
+                else "worker_failure"
+            )
+        if operation.state is target:
             if operation.error_code == safe_error:
                 return OperationView.from_record(operation)
             raise GatewayError("invalid_state")
@@ -388,7 +463,7 @@ class GatewayService:
             worker.tenant_id,
             worker.workstation_id,
             self._now(),
-            state=OperationState.FAILED,
+            state=target,
             result=None,
             error_code=safe_error,
         )
@@ -565,6 +640,16 @@ class GatewayService:
             task = operation.task
             if not isinstance(task, CreatePublishPlanTask) or result.drawing_id != task.drawing_id:
                 raise GatewayError("invalid_result")
+        elif isinstance(result, TranslationTaskResult):
+            if (
+                not isinstance(operation.task, TranslationTask)
+                or result.drawing_id != operation.task.drawing_id
+            ):
+                raise GatewayError("invalid_result")
+            try:
+                require_matching_result(operation.task.request, result.response)
+            except ValueError:
+                raise GatewayError("invalid_result") from None
         elif not isinstance(result, ValidateEnvironmentResult):
             raise GatewayError("invalid_result")
 

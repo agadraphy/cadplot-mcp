@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cadplot-gateway"
-version = "0.1.0"
+version = "0.2.0"
 description = "OAuth-protected public MCP gateway for registered CadPlot workstations."
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Demir Eren" }]
 dependencies = [
-  "cadplot-protocol==0.1.0",
+  "cadplot-protocol==0.2.0",
   "cryptography>=46,<51",
   "httpx>=0.28,<1.0",
   "mcp[cli]>=2.0,<3.0",

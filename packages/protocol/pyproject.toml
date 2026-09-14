@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cadplot-protocol"
-version = "0.1.0"
+version = "0.2.0"
 description = "Closed, path-free wire protocol shared by CadPlot gateway and workstation workers."
 requires-python = ">=3.11"
 license = { file = "LICENSE" }

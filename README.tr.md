@@ -1,5 +1,16 @@
 # CadPlot MCP
 
+## Türkçe → İngilizce çizim çevirisi (0.2)
+
+Yerel MCP ve `cadplot translate` CLI komutları aynı onaylı çeviri motorunu kullanır.
+`GIRIS`, `YANGIN CIKISI` gibi Türkçe karakter içermeyen metinler de bağlamıyla
+incelenir; yalnız ç/ş/ğ araması yapılmaz. Orijinal yerine yeni `.EN.dwg` üretilir.
+Uzak MCP ve `cadplot translate-remote` için ayrıca gateway izni, `cadplot.translate`
+OAuth yetkisi ve worker üzerinde proje bazında metin paylaşım onayı gerekir.
+Tablo/xref/proxy gibi desteklenmeyen içerikler işlemi durdurur; eksiksiz çevrilmiş
+gibi sunulmaz. Gerçek AutoCAD ve görsel kabul testi hedef bilgisayarda yapılır.
+[Yerel kurulum ve CLI](docs/drawing-translation.md) · [Uzak MCP/CLI kurulumu](docs/remote-translation.md)
+
 Kurulumdan sonra kitteki salt-okunur `verify-release-install.ps1`; yerel makbuzu, release kitini,
 bundle hashlerini, Python envanterini ve pilot yollarını bağımsız doğrular. Beklenen envanter config
 değişikliği ayrıca raporlanır; AutoCAD açılmaz ve yayın etkinleştirilmez.
