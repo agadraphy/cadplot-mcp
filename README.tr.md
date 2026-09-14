@@ -1,5 +1,12 @@
 # CadPlot MCP
 
+## AutoCAD 2017 PDF desteği (0.2.1)
+
+2017 için ayrı adaptör, sürüme özel MCP bağlantısı ve kurulu AutoCAD'i otomatik bulan
+kurulum komutu eklendi. [2017 kurulumu](docs/autocad-2017.md).
+Gerçek PDF kabulü hedef bilgisayarda yapılır; Python paketini kurmak tek başına
+AutoCAD içindeki eklentiyi yüklemez.
+
 ## Türkçe → İngilizce çizim çevirisi (0.2)
 
 Yerel MCP ve `cadplot translate` CLI komutları aynı onaylı çeviri motorunu kullanır.

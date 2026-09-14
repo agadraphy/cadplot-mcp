@@ -1,5 +1,9 @@
 # AutoCAD publish executor
 
+AutoCAD 2017 now has a separate `R21.0 / net46` adapter using this same executor.
+See [the standalone 2017 setup](autocad-2017.md); the legacy dual-release kit below
+continues to describe the 2016/2025 acceptance package.
+
 The shared executor is compiled into both version adapters only when their matching Autodesk
 managed references are supplied. It does not run on a pipe thread. The pipe validates and queues a
 job; AutoCAD's `Application.Idle` event drains one job at a time on the application context.

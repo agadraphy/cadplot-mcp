@@ -12,6 +12,7 @@ from cadplot_mcp.security import PathPolicyError, require_plain_directory_path
 DoctorMode = Literal["config", "inspection", "full"]
 PROGID_RUNTIME_SERIES = {
     "AutoCAD.Application.20.1": "R20.1",
+    "AutoCAD.Application.21.0": "R21.0",
     "AutoCAD.Application.24.3": "R24.3",
     "AutoCAD.Application.25.0": "R25.0",
 }

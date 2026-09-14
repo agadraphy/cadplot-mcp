@@ -162,7 +162,7 @@ def test_api_probe_is_compile_only() -> None:
     assert 'evidence_scope = "compile-only"' in script
     assert "autocad_launched = $false" in script
     assert "live_publish_proven = $false" in script
-    assert "net45;net48;net8.0-windows" in project
+    assert "net45;net46;net48;net8.0-windows" in project
     assert "Start-Process" not in script
 
 

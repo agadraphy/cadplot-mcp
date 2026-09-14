@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "cadplot": {
+      "command": "uv",
+      "args": ["run", "--project", "C:/CadPlot/cadplot-mcp", "--frozen", "cadplot-mcp"],
+      "env": {
+        "CADPLOT_CONFIG": "C:/CadPlot/cadplot-mcp/config.yaml",
+        "CADPLOT_AUTOCAD_PROGID": "AutoCAD.Application.21.0",
+        "CADPLOT_PIPE_NAME": "cadplot-mcp-2017"
+      }
+    }
+  }
+}

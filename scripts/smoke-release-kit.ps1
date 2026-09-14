@@ -96,7 +96,7 @@ try {
         -Destination (Join-Path $kitRoot "autocad\bundle-build.json")
 
     $wheels = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot "dist") -File `
-        -Filter "cadplot_mcp-*-py3-none-any.whl")
+        -Filter ("cadplot_mcp-{0}-py3-none-any.whl" -f $bundleEvidence.PackageVersion))
     if ($wheels.Count -ne 1) { throw "Release-kit smoke expected exactly one built wheel." }
     Copy-Item -LiteralPath $wheels[0].FullName -Destination (Join-Path $kitRoot "python")
     Copy-Item -LiteralPath (Join-Path $repoRoot "pyproject.toml") -Destination (Join-Path $kitRoot "python")

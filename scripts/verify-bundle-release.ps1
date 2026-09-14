@@ -93,10 +93,24 @@ if (
 
 $shaPattern = '^[0-9a-f]{64}$'
 $expectedApiNames = @("AcMgd.dll", "AcDbMgd.dll", "AcCoreMgd.dll")
-foreach ($api in @(
+$expectedApis = @(
     @{ Name = "AutoCAD 2016"; Value = $manifest.api_identity.autocad_2016; Series = "R20.1"; Version = '^20\.1\.' },
     @{ Name = "AutoCAD 2025"; Value = $manifest.api_identity.autocad_2025; Series = "R25.0"; Version = '^25\.0\.' }
-)) {
+)
+if (@($bundleVerification.Releases) -contains "2017") {
+    $expectedApis = @(
+        @{ Name = "AutoCAD 2017"; Value = $manifest.api_identity.autocad_2017; Series = "R21.0"; Version = '^21\.0\.' }
+    )
+}
+$expectedApiKeys = @($bundleVerification.Releases | ForEach-Object { "autocad_$_" })
+$actualApiKeys = @($manifest.api_identity.PSObject.Properties.Name)
+if (
+    $actualApiKeys.Count -ne $expectedApiKeys.Count -or
+    @($actualApiKeys | Where-Object { $_ -cnotin $expectedApiKeys }).Count -ne 0
+) {
+    throw "Bundle API identities do not match the exact packaged releases."
+}
+foreach ($api in $expectedApis) {
     if ($api.Value.detected_series -cne $api.Series) {
         throw "$($api.Name) build identity is not $($api.Series)."
     }

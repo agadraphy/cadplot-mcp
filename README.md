@@ -1,5 +1,8 @@
 # CadPlot MCP
 
+AutoCAD 2017 local PDF support: [installation and connection](docs/autocad-2017.md).
+Its standalone adapter is separate from the legacy 2016/2025 package.
+
 CadPlot MCP is a safety-first MCP server for repeatable AutoCAD plotting workflows.
 It is designed for architecture offices that need to inspect many revised drawings,
 identify sheet frames, map company page setups, and publish PDFs consistently.

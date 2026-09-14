@@ -33,6 +33,7 @@ class FakeComClient:
     [
         ("AutoCAD.Application", "AutoCAD.Application", None),
         ("AutoCAD.Application.20.1", "AutoCAD.Application.20.1", "20.1"),
+        ("AutoCAD.Application.21.0", "AutoCAD.Application.21.0", "21.0"),
         ("AutoCAD.Application.24.3", "AutoCAD.Application.24.3", "24.3"),
         ("AutoCAD.Application.25.0", "AutoCAD.Application.25.0", "25.0"),
     ],

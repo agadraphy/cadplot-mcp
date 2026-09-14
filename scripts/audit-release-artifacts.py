@@ -21,6 +21,7 @@ SECRET_NAMES = {".env", "claude_desktop_config.json", "config.yaml", "credential
 AUTODESK_ASSEMBLIES = {"acmgd.dll", "acdbmgd.dll", "accoremgd.dll"}
 ALLOWED_BUNDLE_DLLS = {
     "cadplotmcp.autocad2016.dll",
+    "cadplotmcp.autocad2017.dll",
     "cadplotmcp.autocad2025.dll",
     "cadplotmcp.core.dll",
 }

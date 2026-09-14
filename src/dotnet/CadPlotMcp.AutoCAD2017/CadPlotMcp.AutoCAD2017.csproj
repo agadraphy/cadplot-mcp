@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net46</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Set AutoCAD2017SdkDir to AutoCAD's managed assembly directory to build the ICommandClass. -->
+    <AutoCADSdkAvailable Condition="Exists('$(AutoCAD2017SdkDir)\\AcMgd.dll') and Exists('$(AutoCAD2017SdkDir)\\AcDbMgd.dll') and Exists('$(AutoCAD2017SdkDir)\\AcCoreMgd.dll')">true</AutoCADSdkAvailable>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AutoCADSdkAvailable)' == 'true'">
+    <DefineConstants>$(DefineConstants);AUTOCAD_SDK</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RepositoryCommit)' != ''">
+    <AssemblyMetadata Include="RepositoryCommit" Value="$(RepositoryCommit)" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\CadPlotMcp.Core\CadPlotMcp.Core.csproj" />
+    <Compile Remove="AutodeskExtension.cs" Condition="'$(AutoCADSdkAvailable)' != 'true'" />
+    <Compile Include="..\CadPlotMcp.AutoCAD.Shared\AutoCadPublishRuntime.cs" Link="AutoCadPublishRuntime.cs" Condition="'$(AutoCADSdkAvailable)' == 'true'" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(AutoCADSdkAvailable)' == 'true'">
+    <Reference Include="AcMgd"><HintPath>$(AutoCAD2017SdkDir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcDbMgd"><HintPath>$(AutoCAD2017SdkDir)\AcDbMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcCoreMgd"><HintPath>$(AutoCAD2017SdkDir)\AcCoreMgd.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="RequireAutoCADSdk" BeforeTargets="CoreCompile" Condition="'$(BuildAutoCADPlugin)' == 'true' and '$(AutoCADSdkAvailable)' != 'true'">
+    <Error Text="AutoCAD 2017 SDK references were not found. Set AutoCAD2017SdkDir to the folder containing AcMgd.dll, AcDbMgd.dll, and AcCoreMgd.dll." />
+  </Target>
+  <Target Name="RequireRepositoryCommit" BeforeTargets="CoreCompile" Condition="'$(BuildAutoCADPlugin)' == 'true' and '$(RepositoryCommit)' == ''">
+    <Error Text="Production AutoCAD plug-in builds require the exact RepositoryCommit." />
+  </Target>
+</Project>

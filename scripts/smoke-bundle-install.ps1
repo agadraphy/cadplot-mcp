@@ -29,6 +29,9 @@ try {
         -LiteralPath (Join-Path $repoRoot "bundle\CadPlotMcp.bundle\PackageContents.xml") `
         -Destination $fixtureBundle
     Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $fixtureBundle
+    # Bind synthetic bundle evidence to the actual template version.
+    $fixturePackagePath = Join-Path $fixtureBundle "PackageContents.xml"
+    [xml]$fixturePackage = Get-Content -LiteralPath $fixturePackagePath -Raw -Encoding UTF8
 
     $fixture2016 = Join-Path $fixtureBundle "Contents\Windows\2016"
     $fixture2025 = Join-Path $fixtureBundle "Contents\Windows\2025"
@@ -93,7 +96,7 @@ try {
     $fixtureManifest = [ordered]@{
         schema_version = 1
         exact_commit = ("0" * 40) -join ""
-        package_version = "0.1.0"
+        package_version = [string]$fixturePackage.ApplicationPackage.AppVersion
         created_utc = [DateTime]::UtcNow.ToString("o")
         api_identity = [ordered]@{
             autocad_2016 = [ordered]@{

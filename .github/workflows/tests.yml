@@ -91,3 +91,5 @@ jobs:
         run: >-
           powershell.exe -NoProfile -ExecutionPolicy Bypass
           -File scripts/run-local-preflight.ps1 -SkipSync -AuditDependencies
+      - name: AutoCAD 2017 routing and protocol-only bundle regression
+        run: uv run pytest -q tests/test_autocad_2017.py tests/test_autocad_2017_bundle.py

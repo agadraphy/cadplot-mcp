@@ -7,6 +7,7 @@ public sealed class AutoCadRuntimeIdentityTests
 {
     [Theory]
     [InlineData("20.1s (LMS Tech)", "R20.1")]
+    [InlineData("21.0s (LMS Tech)", "R21.0")]
     [InlineData("25.0s (LMS Tech)", "R25.0")]
     [InlineData(" 25.1s (LMS Tech)", "R25.1")]
     [InlineData("not-a-version", null)]
@@ -20,6 +21,10 @@ public sealed class AutoCadRuntimeIdentityTests
     [InlineData("autocad-2016-net45", "R20.1", true)]
     [InlineData("autocad-2016-net45", "R20.0", false)]
     [InlineData("autocad-2016-net45", "R21.0", false)]
+    [InlineData("autocad-2017-net46", "R21.0", true)]
+    [InlineData("autocad-2017-net46", "R20.1", false)]
+    [InlineData("autocad-2017-net46", "R22.0", false)]
+    [InlineData("autocad-2017-net46", "R25.0", false)]
     [InlineData("autocad-2025-net8", "R25.0", true)]
     [InlineData("autocad-2025-net8", "R25.1", false)]
     [InlineData("autocad-2025-net8", "R24.3", false)]

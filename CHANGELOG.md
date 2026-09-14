@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 - 2026-09-14
+
+- Add a dedicated AutoCAD 2017 net46 adapter, exact R21.0 runtime and COM routing.
+- Add automatic installed-reference discovery, standalone verified bundle builder,
+  installer, process-scoped publish launcher and local MCP configuration example.
+- Preserve all approval, source-copy, receipt and PDF audit requirements.
+- Fix Python/bundle version mismatch that blocked native bundle builds after 0.2.0.
+- Native 2017 PDF acceptance remains a target-workstation check, not a unit-test claim.
+
 All notable changes to this project are documented in this file.
 
 ## [0.2.0] - 2026-09-14

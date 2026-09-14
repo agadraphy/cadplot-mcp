@@ -7,6 +7,8 @@ release build. Do not upload SDK files, company plot resources, or DWGs to this 
 Required inputs:
 
 - AutoCAD 2016 adapter: ObjectARX/Managed SDK series `R20.1`, targeting .NET Framework 4.5.
+- AutoCAD 2017 standalone adapter: series `R21.0`, targeting .NET Framework 4.6;
+  [the dedicated installer](autocad-2017.md) detects an existing authorized installation.
 - AutoCAD 2025 adapter: ObjectARX/Managed SDK series `R25.0`, targeting .NET 8.
 - Each reference directory must contain matching `AcMgd.dll`, `AcDbMgd.dll`, and `AcCoreMgd.dll`.
 

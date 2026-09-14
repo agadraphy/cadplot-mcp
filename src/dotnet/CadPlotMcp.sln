@@ -10,12 +10,18 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.AutoCAD2025", "C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.Core.Tests", "CadPlotMcp.Core.Tests\CadPlotMcp.Core.Tests.csproj", "{63F37C9C-B4D8-4C9D-996F-E3EB36A1B183}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CadPlotMcp.AutoCAD2017", "CadPlotMcp.AutoCAD2017\CadPlotMcp.AutoCAD2017.csproj", "{0A5C3952-4EB4-477A-86AF-64DE6F1722FD}"
+EndProject
 Global
  GlobalSection(SolutionConfigurationPlatforms) = preSolution
   Debug|Any CPU = Debug|Any CPU
   Release|Any CPU = Release|Any CPU
  EndGlobalSection
  GlobalSection(ProjectConfigurationPlatforms) = postSolution
+  {0A5C3952-4EB4-477A-86AF-64DE6F1722FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {0A5C3952-4EB4-477A-86AF-64DE6F1722FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {0A5C3952-4EB4-477A-86AF-64DE6F1722FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {0A5C3952-4EB4-477A-86AF-64DE6F1722FD}.Release|Any CPU.Build.0 = Release|Any CPU
   {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
   {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
   {C80E1C26-82D8-4F46-B1D5-FA18E4871A6F}.Release|Any CPU.ActiveCfg = Release|Any CPU

@@ -35,6 +35,17 @@ $expectedDirectories = @(
     "Contents/Windows/2016",
     "Contents/Windows/2025"
 )
+# Two closed package profiles: the legacy dual-release kit or a standalone 2017 kit.
+# Selecting the latter still requires its exact file set and exact R21.0 loader route.
+$standalone2017 = Test-Path -LiteralPath (Join-Path $root "Contents/Windows/2017")
+if ($standalone2017) {
+    $expected = @(
+        "LICENSE", "PackageContents.xml",
+        "Contents/Windows/2017/CadPlotMcp.AutoCAD2017.dll",
+        "Contents/Windows/2017/CadPlotMcp.Core.dll"
+    )
+    $expectedDirectories = @("Contents", "Contents/Windows", "Contents/Windows/2017")
+}
 $rootPrefix = $root + '\'
 $actualDirectories = @(
     Get-ChildItem -LiteralPath $root -Directory -Recurse | ForEach-Object {
@@ -92,7 +103,15 @@ $expectedRoutes = @(
     }
 )
 $components = @($package.SelectNodes("./Components/ComponentEntry"))
+if ($standalone2017) {
+    $expectedRoutes = @([pscustomobject]@{
+        AppName = "CadPlot MCP (AutoCAD 2017)"
+        ModuleName = "Contents/Windows/2017/CadPlotMcp.AutoCAD2017.dll"
+        Series = "R21.0"
+    })
+}
 if ($components.Count -ne $expectedRoutes.Count) {
+    if ($standalone2017) { throw "PackageContents.xml must contain exactly the 2017 adapter route." }
     throw "PackageContents.xml must contain exactly the 2016 and 2025 adapter routes."
 }
 foreach ($expectedRoute in $expectedRoutes) {
@@ -144,6 +163,7 @@ $hashes = foreach ($relative in $expected) {
 $result = [pscustomobject]@{
     Passed = $true
     BundlePath = $root
+    Releases = if ($standalone2017) { @("2017") } else { @("2016", "2025") }
     Hashes = @($hashes)
 }
 if ($PassThru) {

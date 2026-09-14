@@ -15,7 +15,7 @@ from cadplot_mcp.tunnel_preflight import probe_stdio_server
 
 MAX_CLIENT_CONFIG_BYTES = 64 * 1024
 EXPECTED_PROTOCOL_VERSION = "2025-11-25"
-SERVER_ID = re.compile(r"cadplot-(2016|2025)-(readonly|publish)")
+SERVER_ID = re.compile(r"cadplot-(2016|2017|2025)-(readonly|publish)")
 SAFE_INHERITED_ENVIRONMENT = {
     "APPDATA",
     "COMSPEC",
@@ -35,6 +35,10 @@ SAFE_INHERITED_ENVIRONMENT = {
     "WINDIR",
 }
 EXPECTED_RELEASE = {
+    "2017": {
+        "progid": "AutoCAD.Application.21.0",
+        "pipe": "cadplot-mcp-2017",
+    },
     "2016": {
         "progid": "AutoCAD.Application.20.1",
         "pipe": "cadplot-mcp-2016",

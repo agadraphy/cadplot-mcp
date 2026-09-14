@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="AutoCAD" Name="CadPlot MCP" Description="Local approval-gated copy-only PDF publishing bridge" AppVersion="0.2.1" Author="Demir Eren" ProductCode="{C2E79B66-6076-40D4-AE45-E725A644B288}" UpgradeCode="{A7995CE6-5690-4819-BF05-39591313BF19}">
+  <CompanyDetails Name="CadPlot" />
+  <Components>
+    <ComponentEntry AppName="CadPlot MCP (AutoCAD 2017)" ModuleName="./Contents/Windows/2017/CadPlotMcp.AutoCAD2017.dll" AppType=".Net" LoadReasons="LoadOnAutoCADStartup">
+      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R21.0" SeriesMax="R21.0" />
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>
