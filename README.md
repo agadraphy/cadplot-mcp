@@ -96,6 +96,18 @@ No AI subscription is required for CLI commands. A licensed AutoCAD workstation 
 enrolled worker are still required for actual drawing work. See the [CLI guide](docs/cli.md)
 for virtual-environment installation, commands, secure login and exit codes.
 
+## Turkish-to-English drawing text (opt-in local beta)
+
+The local MCP can expose `scan_drawing_texts`, `create_drawing_translation_plan`,
+and `apply_drawing_translation` when started with `CADPLOT_ENABLE_TRANSLATION=1`.
+Codex reviews every supported text span, including ASCII-only Turkish such as
+`YANGIN CIKISI`, rather than filtering only strings containing Turkish characters.
+Exact plan approval produces a new `.EN.dwg` copy with only approved text setters;
+the original remains unchanged. Unsupported/linked content and incomplete decisions
+block application. Visual review and a licensed-workstation pilot are still required.
+This does not add write tools to the public gateway or enable PDF plotting.
+See [company installation, workflow and preservation limits](docs/drawing-translation.md).
+
 ## Safety contract
 
 - No arbitrary AutoLISP or AutoCAD command execution.
